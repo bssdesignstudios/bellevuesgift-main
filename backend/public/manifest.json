@@ -1,0 +1,32 @@
+{
+  "name": "Bellevue Gifts & Supplies",
+  "short_name": "Bellevue",
+  "description": "Bellevue Gifts & Supplies - Your one-stop shop in Freeport, Grand Bahama",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#00005D",
+  "background_color": "#ffffff",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["shopping", "business"]
+}

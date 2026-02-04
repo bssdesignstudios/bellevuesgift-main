@@ -1,0 +1,362 @@
+<?php
+
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PosController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\StaffController;
+use App\Http\Controllers\VendorController;
+use App\Models\Category;
+use App\Models\Product;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+Route::get('/categories', function () {
+    try {
+        $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
+    } catch (\Throwable) {
+        $categories = [];
+    }
+    return Inertia::render('AllCategoriesPage', [
+        'categories' => $categories
+    ]);
+})->name('categories');
+
+Route::get('/', function () {
+    try {
+        $featuredProducts = Product::with('category')->where('is_active', true)->limit(8)->get();
+    } catch (\Throwable) {
+        $featuredProducts = [];
+    }
+
+    try {
+        $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
+    } catch (\Throwable) {
+        $categories = [];
+    }
+
+    return Inertia::render('HomePage', [
+        'featuredProducts' => $featuredProducts,
+        'categories' => $categories,
+    ]);
+})->name('home');
+
+// PWA: service worker — must be served from root scope
+Route::get('/sw.js', function () {
+    return response()->file(public_path('build/sw.js'), [
+        'Content-Type' => 'application/javascript',
+        'Service-Worker-Allowed' => '/',
+    ]);
+});
+
+// PWA: offline fallback — served by service worker when navigation fails
+Route::get('/offline', function () {
+    return response()->file(public_path('offline.html'));
+});
+
+Route::get('/shop', function () {
+    try {
+        $products = Product::with('category')->where('is_active', true)->get();
+    } catch (\Throwable) {
+        $products = [];
+    }
+
+    try {
+        $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
+    } catch (\Throwable) {
+        $categories = [];
+    }
+
+    return Inertia::render('ShopPage', [
+        'products' => $products,
+        'categories' => $categories,
+    ]);
+})->name('shop');
+
+Route::get('/product/{slug}', function ($slug) {
+    return Inertia::render('ProductPage', [
+        'slug' => $slug,
+    ]);
+})->name('product');
+
+Route::get('/cart', function () {
+    return Inertia::render('CartPage');
+})->name('cart');
+
+Route::get('/checkout', function () {
+    return Inertia::render('CheckoutPage', [
+        'auth' => [
+            'user' => auth()->user()
+        ]
+    ]);
+})->name('checkout');
+
+Route::post('/api/storefront/checkout', [\App\Http\Controllers\StorefrontCheckoutController::class, 'store']);
+
+Route::get('/checkout/success/{id}', function ($id) {
+    return Inertia::render('CheckoutSuccessPage', ['id' => $id]);
+})->name('checkout.success');
+
+Route::get('/repair', function () {
+    return Inertia::render('RepairPage');
+})->name('repair');
+
+Route::get('/sale', function () {
+    return Inertia::render('ShopPage', [
+        'filter' => 'sale',
+    ]);
+})->name('sale');
+
+// Auth Routes
+Route::get('/login', [LoginController::class, 'create'])->name('login');
+Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+Route::get('/gift-cards', function () {
+    return Inertia::render('GiftCardsPage');
+})->name('gift-cards');
+
+Route::get('/gift-cards/balance', function () {
+    return Inertia::render('GiftCardsBalancePage');
+})->name('gift-cards.balance');
+
+Route::get('/category/{slug}', function ($slug) {
+    return Inertia::render('CategoryPage', ['slug' => $slug]);
+})->name('category');
+
+Route::get('/orders/{id}', function ($id) {
+    return Inertia::render('OrderPage', ['id' => $id]);
+})->name('orders.show');
+
+Route::get('/staff/login', function () {
+    return Inertia::render('StaffLoginPage');
+})->name('staff.login');
+
+Route::post('/staff/login', [AuthController::class, 'login'])->name('staff.login.post');
+Route::post('/staff/logout', [AuthController::class, 'logout'])->name('staff.logout');
+
+Route::get('/not-authorized', function () {
+    return Inertia::render('NotAuthorizedPage');
+})->name('not-authorized');
+
+Route::get('/account/login', function () {
+    return Inertia::render('account/AccountLoginPage');
+})->name('account.login');
+
+Route::get('/account/register', function () {
+    return Inertia::render('account/AccountRegisterPage');
+})->name('account.register');
+
+Route::get('/account', function () {
+    return Inertia::render('account/AccountDashboardPage');
+})->name('account.dashboard');
+
+Route::get('/account/orders', function () {
+    return Inertia::render('account/AccountOrdersPage');
+})->name('account.orders');
+
+Route::get('/account/orders/{orderNumber}', function ($orderNumber) {
+    return Inertia::render('account/AccountOrderDetailPage', ['orderNumber' => $orderNumber]);
+})->name('account.orders.detail');
+
+Route::get('/account/addresses', function () {
+    return Inertia::render('account/AccountAddressesPage');
+})->name('account.addresses');
+
+Route::get('/account/tracking', function () {
+    return Inertia::render('account/AccountTrackingPage');
+})->name('account.tracking');
+
+Route::get('/account/wishlist', function () {
+    return Inertia::render('account/AccountWishlistPage');
+})->name('account.wishlist');
+
+Route::get('/account/forgot-password', function () {
+    return Inertia::render('account/AccountForgotPasswordPage');
+})->name('account.forgot-password');
+
+// POS (Admin, Cashier, Warehouse)
+Route::middleware(['auth', 'role:admin,cashier,warehouse,warehouse_manager'])->group(function () {
+    Route::get('/pos', function () {
+        return Inertia::render('POSPage');
+    })->name('pos');
+
+    Route::get('/api/pos/categories', [PosController::class, 'getCategories']);
+    Route::get('/api/pos/products', [PosController::class, 'getProducts']);
+    Route::post('/api/pos/check-gift-card', [PosController::class, 'checkGiftCard']);
+});
+
+// API Routes (for frontend data access)
+Route::middleware(['auth'])->group(function () {
+    // Categories API
+    Route::get('/api/categories', [CategoryController::class, 'index']);
+    Route::post('/api/categories', [CategoryController::class, 'store']);
+    Route::put('/api/categories/{id}', [CategoryController::class, 'update']);
+    Route::delete('/api/categories/{id}', [CategoryController::class, 'destroy']);
+    Route::patch('/api/categories/{id}/toggle-active', [CategoryController::class, 'toggleActive']);
+
+    // Products API
+    Route::get('/api/products', [ProductController::class, 'index']);
+    Route::post('/api/products', [ProductController::class, 'store']);
+    Route::put('/api/products/{id}', [ProductController::class, 'update']);
+    Route::delete('/api/products/{id}', [ProductController::class, 'destroy']);
+
+    // Inventory API
+    Route::get('/api/inventory', [InventoryController::class, 'index']);
+    Route::post('/api/inventory/{productId}/adjust', [InventoryController::class, 'adjust']);
+    Route::post('/api/inventory/bulk-adjust', [InventoryController::class, 'bulkAdjust']);
+
+    // Staff API
+    Route::get('/api/staff', [StaffController::class, 'index']);
+    Route::post('/api/staff', [StaffController::class, 'store']);
+    Route::put('/api/staff/{id}', [StaffController::class, 'update']);
+    Route::patch('/api/staff/{id}/toggle-active', [StaffController::class, 'toggleActive']);
+
+    // Vendors API
+    Route::get('/api/vendors', [VendorController::class, 'index']);
+    Route::post('/api/vendors', [VendorController::class, 'store']);
+    Route::put('/api/vendors/{id}', [VendorController::class, 'update']);
+    Route::delete('/api/vendors/{id}', [VendorController::class, 'destroy']);
+
+    // Orders API
+    Route::post('/api/orders', [OrderController::class, 'store']);
+    Route::get('/api/orders', [OrderController::class, 'index']);
+    Route::patch('/api/orders/{id}/status', [OrderController::class, 'updateStatus']);
+
+});
+
+// Admin (Admin only)
+// Admin Routing Group
+Route::middleware(['auth'])->prefix('admin')->group(function () {
+
+    // 1. Common / Overview (Admin + Finance)
+    Route::middleware(['role:admin,finance'])->group(function () {
+        Route::get('/', function () {
+            return Inertia::render('admin/AdminOverview');
+        })->name('admin');
+
+        Route::get('/reports', function () {
+            return Inertia::render('admin/AdminReports');
+        })->name('admin.reports');
+
+        Route::get('/orders', function () {
+            return Inertia::render('admin/AdminOrders');
+        })->name('admin.orders');
+
+        Route::get('/repairs', function () {
+            return Inertia::render('admin/AdminRepairTickets');
+        })->name('admin.repairs');
+
+        Route::get('/gift-cards', function () {
+            return Inertia::render('admin/AdminGiftCards');
+        })->name('admin.gift-cards');
+
+        Route::get('/customers', function () {
+            return Inertia::render('admin/AdminCustomers');
+        })->name('admin.customers');
+
+        Route::get('/vendors', function () {
+            return Inertia::render('admin/AdminVendors');
+        })->name('admin.vendors');
+
+        Route::get('/discounts', function () {
+            return Inertia::render('admin/AdminDiscounts');
+        })->name('admin.discounts');
+
+        // New Finance Modules
+        Route::get('/timesheets', function () {
+            return Inertia::render('admin/AdminTimesheets');
+        })->name('admin.timesheets');
+
+        Route::get('/petty-cash', function () {
+            return Inertia::render('admin/AdminPettyCash');
+        })->name('admin.petty-cash');
+
+        Route::get('/recurring-invoices', function () {
+            return Inertia::render('admin/AdminRecurringInvoices');
+        })->name('admin.recurring-invoices');
+    });
+
+    // 2. Warehouse Operations (Admin + Warehouse + Finance for Inventory visibility)
+    Route::middleware(['role:admin,warehouse,warehouse_manager,finance'])->group(function () {
+        Route::get('/inventory', function () {
+            return Inertia::render('admin/AdminInventory');
+        })->name('admin.inventory');
+    });
+
+    // 3. Product Catalog (Admin + Warehouse)
+    Route::middleware(['role:admin,warehouse,warehouse_manager'])->group(function () {
+        Route::get('/products', function () {
+            return Inertia::render('admin/AdminProducts');
+        })->name('admin.products');
+
+        Route::get('/categories', function () {
+            return Inertia::render('admin/AdminCategories');
+        })->name('admin.categories');
+    });
+
+    // 4. Staff Management (Strictly Admin)
+    Route::middleware(['role:admin'])->group(function () {
+        Route::get('/staff', function () {
+            return Inertia::render('admin/AdminStaff');
+        })->name('admin.staff');
+    });
+});
+
+// Warehouse view (Admin + Warehouse Manager)
+Route::middleware(['auth', 'role:admin,warehouse_manager'])->group(function () {
+    Route::get('/warehouse', function () {
+        return Inertia::render('admin/AdminInventory');
+    })->name('warehouse');
+});
+
+// Kiosk entry points
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/kiosk/admin', function () {
+        return Inertia::render('kiosk/AdminKiosk');
+    })->name('kiosk.admin');
+});
+
+Route::middleware(['auth', 'role:admin,cashier'])->group(function () {
+    Route::get('/kiosk/cashier', function () {
+        return Inertia::render('kiosk/CashierKiosk');
+    })->name('kiosk.cashier');
+});
+
+Route::middleware(['auth', 'role:admin,warehouse_manager'])->group(function () {
+    Route::get('/kiosk/warehouse', function () {
+        return Inertia::render('kiosk/WarehouseKiosk');
+    })->name('kiosk.warehouse');
+});
+
+Route::get('/about', function () {
+    return Inertia::render('AboutPage');
+})->name('about');
+
+Route::get('/track-order', function () {
+    return Inertia::render('TrackOrderPage');
+})->name('track-order');
+
+Route::get('/contact', function () {
+    return Inertia::render('ContactPage');
+})->name('contact');
+
+Route::get('/faq', function () {
+    return Inertia::render('FAQPage');
+})->name('faq');
+
+Route::get('/shipping', function () {
+    return Inertia::render('ShippingPage');
+})->name('shipping');
+
+Route::get('/returns', function () {
+    return Inertia::render('ReturnsPage');
+})->name('returns');
+
+// Fallback
+Route::fallback(function () {
+    return Inertia::render('NotFound');
+});

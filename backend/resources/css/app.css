@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+@source '../**/*.jsx';
+@source '../**/*.tsx';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-brand-navy: #00005D;
+    --color-brand-blue: #00005D;
+    --color-brand-mint: #E1F8EF;
+    --color-brand-yellow: #FFEB3B;
+
+    --color-header: #00005D;
+    --color-header-foreground: #FFFFFF;
+    --color-sidebar: #00005D;
+    --color-sidebar-foreground: #FFFFFF;
+
+    --color-primary: #00005D;
+    --color-primary-foreground: #FFFFFF;
+
+    --color-secondary: #E1F8EF;
+    --color-secondary-foreground: #00005D;
+
+    --color-destructive: #EF4444;
+    --color-destructive-foreground: #F8FAFC;
+
+    --color-success: #10B981;
+    --color-success-foreground: #FFFFFF;
+
+    /* Shadcn defaults */
+    --color-background: #FFFFFF;
+    --color-foreground: #020617;
+
+    --color-muted: #F8FAFC;
+    --color-muted-foreground: #64748B;
+
+    --color-accent: #F1F5F9;
+    --color-accent-foreground: #020617;
+
+    --color-card: #FFFFFF;
+    --color-card-foreground: #020617;
+
+    --color-popover: #FFFFFF;
+    --color-popover-foreground: #020617;
+
+    --color-border: #E2E8F0;
+    --color-input: #E2E8F0;
+    --color-ring: #00005D;
+}
+
+/* Custom Base Styles */
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}

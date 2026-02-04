@@ -1,0 +1,119 @@
+<?php
+/**
+ * Role: Builder
+ * Rationale: Handle Orders and POS transactions in the Laravel backend.
+ */
+
+namespace App\Http\Controllers;
+
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Inventory;
+use App\Models\Payment;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class OrderController extends Controller
+{
+    public function checkout(Request $request)
+    {
+        $validated = $request->validate([
+            'channel' => 'required|in:pos,online',
+            'payment_method' => 'required|string',
+            'fulfillment_method' => 'required|string',
+            'customer_id' => 'nullable|uuid',
+            'staff_id' => 'required|uuid',
+            'register_id' => 'nullable|uuid',
+            'subtotal' => 'required|numeric',
+            'discount_amount' => 'nullable|numeric',
+            'vat_amount' => 'required|numeric',
+            'total' => 'required|numeric',
+            'notes' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|uuid|exists:products,id',
+            'items.*.qty' => 'required|integer|min:1',
+            'items.*.unit_price' => 'required|numeric',
+            'items.*.line_total' => 'required|numeric',
+        ]);
+
+        return DB::transaction(function () use ($validated, $request) {
+            // Generate order number (simple version for now)
+            $orderNumber = 'ORD-' . strtoupper(Str::random(8));
+
+            $order = Order::create([
+                'order_number' => $orderNumber,
+                'channel' => $validated['channel'],
+                'status' => $validated['fulfillment_method'] === 'pickup' ? 'ready_for_pickup' : 'completed',
+                'payment_status' => $validated['payment_method'] === 'pay_later' ? 'pending' : 'paid',
+                'payment_method' => $validated['payment_method'],
+                'fulfillment_method' => $validated['fulfillment_method'],
+                'customer_id' => $validated['customer_id'],
+                'staff_id' => $validated['staff_id'],
+                'register_id' => $validated['register_id'],
+                'subtotal' => $validated['subtotal'],
+                'discount_amount' => $validated['discount_amount'] ?? 0,
+                'vat_amount' => $validated['vat_amount'],
+                'total' => $validated['total'],
+                'notes' => $validated['notes'],
+            ]);
+
+            foreach ($validated['items'] as $itemData) {
+                $product = \App\Models\Product::find($itemData['product_id']);
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $itemData['product_id'],
+                    'sku' => $product->sku ?? 'UNKNOWN',
+                    'name' => $product->name ?? 'Unknown Product',
+                    'qty' => $itemData['qty'],
+                    'unit_price' => $itemData['unit_price'],
+                    'line_total' => $itemData['line_total'],
+                ]);
+
+                // Update inventory
+                $inventory = Inventory::where('product_id', $itemData['product_id'])->first();
+                if ($inventory) {
+                    $inventory->decrement('qty_on_hand', $itemData['qty']);
+                }
+
+                // Special handling for Gift Card products: Create the actual gift card
+                $product = \App\Models\Product::find($itemData['product_id']);
+                if ($product && str_starts_with($product->sku, 'GC-BEL-')) {
+                    $value = (float) substr($product->sku, strrpos($product->sku, '-') + 1);
+                    if ($value > 0) {
+                        for ($i = 0; $i < $itemData['qty']; $i++) {
+                            $code = 'BEL-' . strtoupper(Str::random(6)) . '-' . strtoupper(Str::random(3));
+                            \App\Models\GiftCard::create([
+                                'code' => $code,
+                                'initial_balance' => $value,
+                                'balance' => $value,
+                                'is_active' => true,
+                                'notes' => "Purchased via Order {$orderNumber}"
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            if ($validated['payment_method'] !== 'pay_later') {
+                Payment::create([
+                    'order_id' => $order->id,
+                    'method' => $validated['payment_method'],
+                    'amount' => $validated['total'],
+                    'reference' => 'POS-' . time(),
+                ]);
+
+                // Deduct gift card if used
+                if ($validated['payment_method'] === 'gift_card' && $request->has('gift_card_code')) {
+                    $gc = \App\Models\GiftCard::where('code', strtoupper($request->gift_card_code))->first();
+                    if ($gc) {
+                        $gc->decrement('balance', $validated['total']);
+                    }
+                }
+            }
+
+            return response()->json($order->load('items'), 201);
+        });
+    }
+}

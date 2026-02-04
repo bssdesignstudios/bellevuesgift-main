@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Bellevue Gifts & Supplies Ltd - Design System
+   Primary Navy: #00005D (hsl 240 100% 18%)
+   Deep Navy: #01062D (hsl 227 95% 9%)
+   Light Background: #F7F9FC (hsl 216 45% 98%)
+   Border/Divider: #E6EAF2 (hsl 222 35% 93%)
+   Success: #22C55E
+   Warning: #F59E0B
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --background: 216 45% 98%;
+    --foreground: 227 95% 9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 227 95% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 227 95% 9%;
+
+    --primary: 240 100% 18%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 35% 93%;
+    --secondary-foreground: 227 95% 9%;
+
+    --muted: 216 45% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 222 35% 93%;
+    --accent-foreground: 240 100% 18%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 222 35% 93%;
+    --input: 222 35% 91%;
+    --ring: 240 100% 18%;
+
+    --radius: 0.5rem;
+
+    --header-bg: 227 95% 9%;
+    --header-foreground: 0 0% 100%;
+
+    --sidebar-background: 227 95% 9%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 227 95% 9%;
+    --sidebar-accent: 227 60% 15%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 227 60% 20%;
+    --sidebar-ring: 240 100% 18%;
+
+    --pos-bg: 220 15% 94%;
+    --pos-cart-bg: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 227 95% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 227 84% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 227 84% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 240 100% 18%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 213 27% 84%;
+
+    --sidebar-background: 227 95% 6%;
+    --sidebar-foreground: 240 5% 96%;
+    --sidebar-primary: 224 76% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 4% 16%;
+    --sidebar-accent-foreground: 240 5% 96%;
+    --sidebar-border: 240 4% 16%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .bellevue-header {
+    @apply bg-header text-header-foreground;
+  }
+
+  .product-card {
+    @apply bg-card rounded-lg border border-border p-4 transition-all duration-200 hover:shadow-lg hover:border-primary/20;
+  }
+
+  .category-card {
+    @apply relative overflow-hidden rounded-lg bg-primary text-primary-foreground aspect-[4/3] flex items-end p-4 cursor-pointer transition-transform duration-200 hover:scale-[1.02];
+  }
+
+  .pos-btn {
+    @apply h-12 px-4 rounded-md font-medium transition-colors duration-150;
+  }
+
+  .admin-sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-md transition-colors duration-150 hover:bg-sidebar-accent text-sidebar-foreground;
+  }
+
+  .admin-sidebar-item-active {
+    @apply bg-sidebar-accent text-sidebar-accent-foreground;
+  }
+
+  .data-table-header {
+    @apply bg-muted text-muted-foreground font-semibold text-sm uppercase tracking-wide;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/80 backdrop-blur-sm;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
