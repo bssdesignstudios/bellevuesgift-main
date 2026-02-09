@@ -47,13 +47,19 @@ Route::prefix('pos')->group(function () {
     Route::get('/categories', [PosProductController::class, 'categories']);
     Route::get('/products', [PosProductController::class, 'products']);
     Route::post('/coupons/validate', [CouponController::class, 'validate']);
-    Route::post('/gift-cards/check', [GiftCardController::class, 'check']);
+
+    // Rate limited: 10 requests per minute per IP
+    Route::post('/gift-cards/check', [GiftCardController::class, 'check'])
+        ->middleware('throttle:10,1');
 });
 
 // Repair API
 Route::prefix('repair')->group(function () {
     Route::post('/requests', [RepairTicketController::class, 'store']);
-    Route::post('/status', [RepairTicketController::class, 'show']);
+
+    // Rate limited: 10 requests per minute per IP
+    Route::post('/status', [RepairTicketController::class, 'show'])
+        ->middleware('throttle:10,1');
 });
 
 // Admin API
@@ -75,4 +81,10 @@ Route::prefix('admin')->group(function () {
     Route::get('/staff', [AdminStaffController::class, 'index']);
     Route::post('/staff', [AdminStaffController::class, 'store']);
     Route::put('/staff/{staff}', [AdminStaffController::class, 'update']);
+});
+
+// Pickup API (for POS pickup verification)
+Route::prefix('pickup')->group(function () {
+    Route::get('/search', [\App\Http\Controllers\PickupController::class, 'search']);
+    Route::post('/verify', [\App\Http\Controllers\PickupController::class, 'verify']);
 });
