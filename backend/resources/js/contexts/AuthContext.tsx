@@ -17,7 +17,7 @@ interface AuthContextType {
   loading: boolean;
   authError: string | null;
   impersonating: Staff | null;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; staff: Staff | null }>;
   signOut: () => Promise<void>;
   impersonate: (staff: Staff | null) => void;
   effectiveStaff: Staff | null;
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initializeAuth]);
 
   // ── sign in ────────────────────────────────────────────────────────────────
-  const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
+  const signIn = async (email: string, password: string): Promise<{ error: Error | null; staff: Staff | null }> => {
     try {
       const res = await fetch('/staff/login', {
         method: 'POST',
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           // non-JSON error body
         }
-        return { error: new Error(message) };
+        return { error: new Error(message), staff: null };
       }
 
       const data = await res.json();          // { staff: { id, name, email, role } }
@@ -119,9 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser({ id: data.staff.id, email: data.staff.email });
       setAuthError(null);
 
-      return { error: null };
+      return { error: null, staff: s };
     } catch (err: any) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
+      return { error: err instanceof Error ? err : new Error(String(err)), staff: null };
     }
   };
 

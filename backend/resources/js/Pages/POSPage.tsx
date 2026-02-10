@@ -690,23 +690,15 @@ function PickupTab({ staffId }: { staffId?: string }) {
     if (!orderNumber.trim()) return;
     setLoading(true);
 
-    // Search by order_number or pickup_code
-    const searchTerm = orderNumber.trim().toUpperCase();
-
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, customer:customers(*), items:order_items(*)')
-      .eq('channel', 'web')
-      .or(`order_number.ilike.%${searchTerm}%,pickup_code.eq.${searchTerm}`)
-      .limit(1)
-      .maybeSingle();
-
-    if (error || !data) {
-      toast.error('Order not found. Try order number (BLV-2026-000001) or pickup code');
-      setOrder(null);
-    } else {
-      setOrder(data as unknown as Order);
+    try {
+      const { data } = await axios.get('/api/pickup/search', {
+        params: { query: orderNumber.trim().toUpperCase() }
+      });
+      setOrder(data.order as unknown as Order);
       playBeep('success');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Order not found. Try order number or pickup code');
+      setOrder(null);
     }
 
     setLoading(false);
@@ -717,32 +709,11 @@ function PickupTab({ staffId }: { staffId?: string }) {
     setLoading(true);
 
     try {
-      // Update order status
-      await supabase
-        .from('orders')
-        .update({ status: 'picked_up', updated_at: new Date().toISOString() })
-        .eq('id', order.id);
-
-      // Update inventory - decrease qty_on_hand and qty_reserved
-      for (const item of order.items || []) {
-        if (item.product_id) {
-          const { data: inv } = await supabase
-            .from('inventory')
-            .select('qty_on_hand, qty_reserved')
-            .eq('product_id', item.product_id)
-            .single();
-
-          if (inv) {
-            await supabase
-              .from('inventory')
-              .update({
-                qty_on_hand: inv.qty_on_hand - item.qty,
-                qty_reserved: Math.max(0, inv.qty_reserved - item.qty),
-              })
-              .eq('product_id', item.product_id);
-          }
-        }
-      }
+      await axios.post('/api/pickup/verify', {
+        order_id: order.id,
+        staff_id: staffId,
+        payment_method: order.payment_method || 'cash',
+      });
 
       playBeep('success');
       toast.success('Order marked as picked up!');
@@ -751,7 +722,7 @@ function PickupTab({ staffId }: { staffId?: string }) {
       queryClient.invalidateQueries({ queryKey: ['pos-products'] });
 
     } catch (error: any) {
-      toast.error('Error: ' + error.message);
+      toast.error(error.response?.data?.message || 'Error marking pickup');
     }
 
     setLoading(false);
@@ -848,25 +819,18 @@ function PickupPaymentForm({ order, staffId, onSuccess }: { order: Order; staffI
   const processPayment = async () => {
     setProcessing(true);
     try {
-      // Create payment record
-      await supabase.from('payments').insert({
+      await axios.post('/api/pickup/verify', {
         order_id: order.id,
-        amount: Number(order.total),
-        method: paymentMethod,
-        reference: `PICKUP-${Date.now()}`,
+        staff_id: staffId,
+        payment_method: paymentMethod,
+        collect_payment: true,
       });
-
-      // Update order payment status
-      await supabase
-        .from('orders')
-        .update({ payment_status: 'paid', payment_method: paymentMethod })
-        .eq('id', order.id);
 
       playBeep('success');
       toast.success('Payment collected!');
       onSuccess();
     } catch (error: any) {
-      toast.error('Payment failed: ' + error.message);
+      toast.error(error.response?.data?.message || 'Payment failed');
     }
     setProcessing(false);
   };
@@ -913,17 +877,14 @@ function RefundTab({ staffId }: { staffId?: string }) {
     if (!orderNumber.trim()) return;
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, items:order_items(*)')
-      .eq('order_number', orderNumber.trim())
-      .single();
-
-    if (error || !data) {
-      toast.error('Order not found');
+    try {
+      const { data } = await axios.get('/api/pos/refund/search', {
+        params: { order_number: orderNumber.trim() }
+      });
+      setOrder(data.order as unknown as Order);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Order not found');
       setOrder(null);
-    } else {
-      setOrder(data as unknown as Order);
     }
 
     setLoading(false);
@@ -934,37 +895,11 @@ function RefundTab({ staffId }: { staffId?: string }) {
     setLoading(true);
 
     try {
-      // Update order status
-      await supabase
-        .from('orders')
-        .update({ status: 'refunded', payment_status: 'refunded', updated_at: new Date().toISOString() })
-        .eq('id', order.id);
-
-      // Create negative payment record
-      await supabase.from('payments').insert({
+      await axios.post('/api/pos/refund', {
         order_id: order.id,
-        amount: -Number(order.total),
-        method: order.payment_method || 'cash',
-        reference: `REFUND-${Date.now()}`,
+        staff_id: staffId,
+        reason: 'POS refund',
       });
-
-      // Return inventory
-      for (const item of order.items || []) {
-        if (item.product_id) {
-          const { data: inv } = await supabase
-            .from('inventory')
-            .select('qty_on_hand')
-            .eq('product_id', item.product_id)
-            .single();
-
-          if (inv) {
-            await supabase
-              .from('inventory')
-              .update({ qty_on_hand: inv.qty_on_hand + item.qty })
-              .eq('product_id', item.product_id);
-          }
-        }
-      }
 
       playBeep('success');
       toast.success('Refund processed!');
@@ -973,7 +908,7 @@ function RefundTab({ staffId }: { staffId?: string }) {
       queryClient.invalidateQueries({ queryKey: ['pos-products'] });
 
     } catch (error: any) {
-      toast.error('Error: ' + error.message);
+      toast.error(error.response?.data?.message || 'Refund failed');
     }
 
     setLoading(false);
@@ -1040,18 +975,15 @@ function RepairTab({ staffId }: { staffId?: string }) {
     setLoading(true);
     setTicket(null);
 
-    const { data, error } = await supabase
-      .from('repair_tickets')
-      .select('*')
-      .eq('ticket_number', ticketNumber.toUpperCase().trim())
-      .maybeSingle();
-
-    if (error || !data) {
-      playBeep('error');
-      toast.error('Repair ticket not found');
-    } else {
-      setTicket(data);
+    try {
+      const { data } = await axios.get('/api/pos/repairs/search', {
+        params: { ticket_number: ticketNumber.toUpperCase().trim() }
+      });
+      setTicket(data.ticket);
       playBeep('success');
+    } catch (err: any) {
+      playBeep('error');
+      toast.error(err.response?.data?.message || 'Repair ticket not found');
     }
 
     setLoading(false);
@@ -1062,17 +994,19 @@ function RepairTab({ staffId }: { staffId?: string }) {
     setLoading(true);
 
     try {
-      await supabase
-        .from('repair_tickets')
-        .update({ status: 'completed', updated_at: new Date().toISOString() })
-        .eq('id', ticket.id);
+      await axios.post('/api/pos/repairs/complete', {
+        ticket_id: ticket.id,
+        staff_id: staffId,
+        payment_method: 'cash',
+        amount: Number(ticket.total_cost || 0),
+      });
 
       playBeep('success');
       toast.success('Repair marked as picked up!');
       setTicket(null);
       setTicketNumber('');
     } catch (error: any) {
-      toast.error('Error: ' + error.message);
+      toast.error(error.response?.data?.message || 'Error completing repair');
     }
 
     setLoading(false);
@@ -1083,16 +1017,18 @@ function RepairTab({ staffId }: { staffId?: string }) {
     setLoading(true);
 
     try {
-      await supabase
-        .from('repair_tickets')
-        .update({ deposit_paid: true })
-        .eq('id', ticket.id);
+      const { data } = await axios.post('/api/pos/repairs/collect-deposit', {
+        ticket_id: ticket.id,
+        staff_id: staffId,
+        payment_method: 'cash',
+        amount: Number(ticket.deposit_amount || 0),
+      });
 
       playBeep('success');
       toast.success('Deposit collected!');
-      setTicket({ ...ticket, deposit_paid: true });
+      setTicket(data.ticket);
     } catch (error: any) {
-      toast.error('Error: ' + error.message);
+      toast.error(error.response?.data?.message || 'Error collecting deposit');
     }
 
     setLoading(false);
@@ -1225,31 +1161,18 @@ function RepairPaymentForm({ ticket, staffId, onSuccess }: { ticket: any; staffI
   const processPayment = async () => {
     setProcessing(true);
     try {
-      // 1. Record the payment in the payments table
-      // Note: order_id is currently required in schema, but repairs don't always have one
-      // This may need a schema update or a placeholder order
-      // For now, we stub it to allow the build to pass if possible, or remove the note
-      await supabase.from('payments').insert({
+      await axios.post('/api/pos/repairs/complete', {
+        ticket_id: ticket.id,
+        staff_id: staffId,
+        payment_method: paymentMethod,
         amount: balanceDue,
-        method: paymentMethod,
-        reference: `REPAIR-${ticket.ticket_number}`,
-        order_id: '00000000-0000-0000-0000-000000000000' // Placeholder to satisfy TS if needed
-      } as any);
-
-      // 2. Update ticket status
-      await supabase
-        .from('repair_tickets')
-        .update({
-          status: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', ticket.id);
+      });
 
       playBeep('success');
       toast.success('Payment collected and repair closed!');
       onSuccess();
     } catch (error: any) {
-      toast.error('Payment failed: ' + error.message);
+      toast.error(error.response?.data?.message || 'Payment failed');
     }
     setProcessing(false);
   };

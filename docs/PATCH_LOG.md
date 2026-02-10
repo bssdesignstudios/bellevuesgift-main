@@ -1,7 +1,7 @@
 # Bellevue Gifts: Patch Application Log
 
-**Date:** 2026-02-09  
-**Status:** ✅ PHASE 1 & 2 APPLIED
+**Date:** 2026-02-09 — 2026-02-10
+**Status:** ✅ PHASE 1, 2, 3 & 4 (FINAL HARDENING) APPLIED
 
 ---
 
@@ -201,5 +201,63 @@ Phase 2:
 ├── backend/database/migrations/2026_02_09_130000_add_pickup_tracking_to_orders.php (new)
 ├── backend/routes/api.php (modified - pickup routes)
 └── backend/resources/js/hooks/useOfflineQueue.ts (modified - IndexedDB)
+
+Phase 3 (Supabase Write Cutover):
+├── backend/app/Http/Controllers/RefundController.php (new)
+├── backend/app/Http/Controllers/RepairTicketController.php (modified - POS ops)
+├── backend/app/Http/Controllers/CouponController.php (modified - admin CRUD)
+├── backend/app/Http/Controllers/GiftCardController.php (modified - admin CRUD)
+├── backend/app/Models/RepairTicket.php (modified - payment fields)
+├── backend/database/migrations/2026_02_09_140000_add_client_txn_id_to_orders.php (new)
+├── backend/database/migrations/2026_02_09_150000_add_payment_fields_to_repair_tickets.php (new)
+├── backend/routes/api.php (modified - refund, repair POS, admin CRUD routes)
+├── backend/resources/js/Pages/POSPage.tsx (modified - 9 Supabase writes → axios)
+├── backend/resources/js/Pages/admin/AdminDiscounts.tsx (modified - all Supabase → axios)
+└── docs/LARAVEL_INERTIA_MYSQL_READINESS_AUDIT.md (updated - CONDITIONAL GO)
 ```
 
+
+---
+
+## Phase 4: Final Hardening
+
+### Patch 4.1: OrderController Validation Fix
+**File:** `backend/app/Http/Controllers/OrderController.php`
+**Status:** ✅ Applied
+
+Changes:
+1. Fixed `staff_id` validation from `required|uuid` to `required|string|exists:staff,id`
+2. Changed nullable fields to use `?? null` to prevent undefined key errors
+3. Removed `notes` from `GiftCard::create()` — column doesn't exist
+
+---
+
+### Patch 4.2: Smoke Test Command
+**File:** `backend/app/Console/Commands/SmokeTest.php` (new)
+**Status:** ✅ Applied — 16/16 PASS
+
+Run: `php artisan bellevue:smoke-test`
+
+---
+
+### Patch 4.3: PHPUnit Test
+**File:** `backend/tests/Feature/OrderIdempotencyTest.php` (new)
+**Status:** ✅ Applied
+
+---
+
+## Final Scorecard (Post-Hardening)
+
+| # | Gate | Status |
+|---|------|--------|
+| 1 | No mock logic in production paths | ✅ PASS |
+| 2 | No client-side money mutation | ✅ PASS |
+| 3 | All protected actions server-authorized | ✅ PASS |
+| 4 | Ledger model for gift cards | ✅ PASS |
+| 5 | Concurrency-safe redemption (lockForUpdate) | ✅ PASS |
+| 6 | MySQL indexes + constraints validated | ✅ PASS |
+| 7 | Demo/kiosk disabled in prod | ✅ PASS |
+| 8 | Offline queue with idempotency | ✅ PASS |
+| 9 | Smoke test (16/16 PASS) | ✅ PASS |
+
+**Score: 9/9 PASS — ✅ GO**

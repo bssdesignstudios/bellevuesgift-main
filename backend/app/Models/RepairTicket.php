@@ -22,8 +22,17 @@ class RepairTicket extends Model
         'dropoff_method',
         'requested_date',
         'deposit_required',
+        'deposit_paid',
+        'deposit_amount',
+        'total_cost',
+        'payment_status',
         'notes',
         'status',
         'eta_date'
+    ];
+
+    protected $casts = [
+        'deposit_required' => 'boolean',
+        'deposit_paid' => 'boolean',
     ];
 }

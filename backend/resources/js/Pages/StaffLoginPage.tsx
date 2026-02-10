@@ -8,6 +8,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import bellevueLogo from '@/assets/bellevue-logo.webp';
 
+// Role-based redirect mapping
+const getRedirectPath = (role: string): string => {
+  switch (role) {
+    case 'admin':
+    case 'super_admin':
+    case 'finance':
+      return '/admin';
+    case 'warehouse_manager':
+      return '/kiosk/warehouse';
+    case 'cashier':
+    default:
+      return '/pos';
+  }
+};
+
 export default function StaffLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +33,7 @@ export default function StaffLoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await signIn(email, password);
+    const { error, staff: loggedInStaff } = await signIn(email, password);
 
     if (error) {
       if (error.message.includes('Email not confirmed')) {
@@ -31,9 +46,13 @@ export default function StaffLoginPage() {
     }
 
     toast.success('Login successful!');
-    // Navigate based on role (handled by server redirect or client check)
-    // We check the email as a simple heuristic for now, but real role data should come from the user object
-    router.visit(email.includes('admin') ? '/admin' : '/pos');
+
+    // Use role-based redirect with the staff data returned from signIn
+    const redirectPath = loggedInStaff?.role
+      ? getRedirectPath(loggedInStaff.role)
+      : '/pos';
+
+    router.visit(redirectPath);
   };
 
   return (
