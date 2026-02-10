@@ -1,5 +1,6 @@
 // Demo session management for reliable shareholder demos
 // This provides a localStorage-based fallback when Supabase is unreachable
+// SECURITY: Demo mode is only available when server explicitly allows it
 
 export type DemoRole = 'admin' | 'cashier' | 'warehouse';
 
@@ -14,6 +15,13 @@ export interface DemoSession {
 const DEMO_SESSION_KEY = 'demo_session';
 const DEMO_MODE_KEY = 'DEMO_MODE';
 
+// Get server-side demo mode status from page meta (set by Laravel)
+// Returns true only if APP_ENV !== 'production' AND DEMO_MODE env is true
+function isServerDemoAllowed(): boolean {
+  const meta = document.querySelector('meta[name="demo-allowed"]');
+  return meta?.getAttribute('content') === 'true';
+}
+
 export const DEMO_ACCOUNTS: Record<DemoRole, { email: string; name: string }> = {
   cashier: { email: 'cashier1@bellevue.demo', name: 'Maria Santos' },
   warehouse: { email: 'warehouse1@demo.com', name: 'Warehouse Manager' },
@@ -21,11 +29,21 @@ export const DEMO_ACCOUNTS: Record<DemoRole, { email: string; name: string }> = 
 };
 
 export function isDemoModeEnabled(): boolean {
+  // Must be allowed by server AND enabled locally
+  if (!isServerDemoAllowed()) {
+    return false;
+  }
   return localStorage.getItem(DEMO_MODE_KEY) === '1';
 }
 
-export function enableDemoMode(): void {
+export function enableDemoMode(): boolean {
+  // Refuse to enable if server doesn't allow
+  if (!isServerDemoAllowed()) {
+    console.warn('Demo mode is not available in this environment');
+    return false;
+  }
   localStorage.setItem(DEMO_MODE_KEY, '1');
+  return true;
 }
 
 export function disableDemoMode(): void {
@@ -81,7 +99,7 @@ export function createDemoStaff(role: DemoRole): {
 } {
   const account = DEMO_ACCOUNTS[role];
   const mappedRole = role === 'warehouse' ? 'warehouse_manager' : role;
-  
+
   return {
     id: DEMO_STAFF_UUIDS[role],
     auth_user_id: null,

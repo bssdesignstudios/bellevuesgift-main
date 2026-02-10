@@ -40,6 +40,24 @@ class ShopSeeder extends Seeder
             ]);
         }
 
+        if (!User::where('email', 'finance@bellevue.com')->exists()) {
+            User::create([
+                'name' => 'Finance User',
+                'email' => 'finance@bellevue.com',
+                'password' => bcrypt('password'),
+                'role' => 'finance',
+            ]);
+        }
+
+        if (!User::where('email', 'superadmin@bellevue.com')->exists()) {
+            User::create([
+                'name' => 'Super Admin',
+                'email' => 'superadmin@bellevue.com',
+                'password' => bcrypt('password'),
+                'role' => 'super_admin',
+            ]);
+        }
+
         // 2. Categories — with SKU Prefix
         $categoryDefs = [
             ['name' => 'Art & Craft Supplies', 'slug' => 'arts-crafts', 'sort_order' => 1, 'sku_prefix' => 'ART'],
@@ -1024,9 +1042,17 @@ class ShopSeeder extends Seeder
         ];
 
         foreach ($products as $prod) {
+            $cost = $prod['cost'] ?? 0;
+            $markup = $prod['markup_percentage'] ?? 0;
+            $price = round($cost + ($cost * $markup / 100), 2);
+
             Product::updateOrCreate(
                 ['sku' => $prod['sku']],
-                array_merge($prod, ['id' => Product::where('sku', $prod['sku'])->value('id') ?? Str::uuid(), 'is_active' => true])
+                array_merge($prod, [
+                    'id' => Product::where('sku', $prod['sku'])->value('id') ?? Str::uuid(),
+                    'price' => $price,
+                    'is_active' => true
+                ])
             );
         }
     }

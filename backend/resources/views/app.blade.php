@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#00005D">
+    <!-- Demo mode is only available in non-production environments with explicit opt-in -->
+    <meta name="demo-allowed"
+        content="{{ config('app.env') !== 'production' && config('app.demo_mode', false) ? 'true' : 'false' }}">
 
     <title inertia>{{ config('app.name', 'Bellevue Gifts & Supplies') }}</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">

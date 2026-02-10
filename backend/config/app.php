@@ -43,6 +43,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Demo Mode
+    |--------------------------------------------------------------------------
+    |
+    | When demo mode is enabled AND the application is not in production,
+    | the frontend will allow demo/kiosk sessions without real authentication.
+    | This must NEVER be true in production environments.
+    |
+    */
+
+    'demo_mode' => (bool) env('DEMO_MODE', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |

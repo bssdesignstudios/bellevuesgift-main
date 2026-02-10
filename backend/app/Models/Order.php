@@ -28,10 +28,28 @@ class Order extends Model
         'vat_amount',
         'total',
         'notes',
+        'client_txn_id',
+        'pickup_code',
+        'picked_up_at',
+        'picked_up_by',
+    ];
+
+    protected $casts = [
+        'picked_up_at' => 'datetime',
     ];
 
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
     }
 }
