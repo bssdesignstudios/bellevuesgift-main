@@ -16,6 +16,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 300s
           script: |
+            git config --global --add safe.directory /var/www/bellevuesgift
             cd /var/www/bellevuesgift
             git pull origin main
             cd backend
@@ -28,4 +29,5 @@ jobs:
             php artisan view:cache
             php artisan queue:restart
             sudo systemctl reload php8.4-fpm
+            chown -R www-data:www-data /var/www/bellevuesgift
             echo "Deployment complete"

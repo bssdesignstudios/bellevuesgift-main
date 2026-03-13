@@ -3,6 +3,7 @@ set -e
 
 echo "Deploying Bellevue's Gift..."
 
+git config --global --add safe.directory /var/www/bellevuesgift
 cd /var/www/bellevuesgift
 git pull origin main
 
@@ -28,5 +29,8 @@ php artisan queue:restart
 
 echo "Reloading PHP-FPM..."
 sudo systemctl reload php8.4-fpm
+
+echo "Fixing permissions..."
+chown -R www-data:www-data /var/www/bellevuesgift
 
 echo "Deployment complete!"
