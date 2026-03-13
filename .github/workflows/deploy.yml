@@ -27,5 +27,5 @@ jobs:
             php artisan route:cache
             php artisan view:cache
             php artisan queue:restart
-            sudo systemctl reload php8.3-fpm
+            sudo systemctl reload php8.4-fpm
             echo "Deployment complete"

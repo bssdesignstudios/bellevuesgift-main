@@ -27,6 +27,6 @@ echo "Restarting queue workers..."
 php artisan queue:restart
 
 echo "Reloading PHP-FPM..."
-sudo systemctl reload php8.3-fpm
+sudo systemctl reload php8.4-fpm
 
 echo "Deployment complete!"
