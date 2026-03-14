@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Receipt, Package, RotateCcw, LogOut, Wrench, Monitor } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Receipt, Package, RotateCcw, LogOut, Wrench, Monitor, WifiOff } from 'lucide-react';
 import { playBeep } from '@/lib/beep';
 import { VAT_RATE } from '@/lib/constants';
 import { Product, Category, CartItem, Order } from '@/types';
@@ -30,7 +30,7 @@ export default function POSPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   // Offline queue and register hooks
-  const { isOnline, pendingCount, isSyncing, syncQueue } = useOfflineQueue();
+  const { isOnline, pendingCount, isSyncing, addToQueue, syncQueue } = useOfflineQueue();
   const {
     registers,
     activeRegisterId,
@@ -162,6 +162,8 @@ export default function POSPage() {
           setCheckoutOpen={setCheckoutOpen}
           searchInputRef={searchInputRef}
           effectiveStaff={effectiveStaff}
+          isOnline={isOnline}
+          addToQueue={addToQueue}
         />
       </div>
     </div>
@@ -172,7 +174,8 @@ function POSContent({
   cart, setCart, searchQuery, setSearchQuery, selectedCategory, setSelectedCategory,
   couponCode, setCouponCode, appliedCoupon, setAppliedCoupon,
   checkoutOpen, setCheckoutOpen,
-  searchInputRef, effectiveStaff
+  searchInputRef, effectiveStaff,
+  isOnline, addToQueue
 }: any) {
   const queryClient = useQueryClient();
 
@@ -523,12 +526,14 @@ function POSContent({
         couponCode={appliedCoupon?.code}
         staffId={effectiveStaff?.id}
         onSuccess={clearCart}
+        isOnline={isOnline}
+        addToQueue={addToQueue}
       />
     </>
   );
 }
 
-function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmount, total, couponCode, staffId, onSuccess }: any) {
+function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmount, total, couponCode, staffId, onSuccess, isOnline, addToQueue }: any) {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'split' | 'gift_card'>('cash');
   const [giftCardCode, setGiftCardCode] = useState('');
   const [giftCardBalance, setGiftCardBalance] = useState<number | null>(null);
@@ -552,25 +557,42 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
   const processPayment = async () => {
     setProcessing(true);
 
-    try {
-      const response = await axios.post('/api/pos/checkout', {
-        channel: 'pos',
-        payment_method: paymentMethod,
-        fulfillment_method: 'in_store',
-        staff_id: staffId,
-        subtotal,
-        discount_amount: discount,
-        vat_amount: vatAmount,
+    const orderPayload = {
+      channel: 'pos',
+      payment_method: paymentMethod,
+      fulfillment_method: 'in_store',
+      staff_id: staffId,
+      subtotal,
+      discount_amount: discount,
+      vat_amount: vatAmount,
+      total,
+      gift_card_code: paymentMethod === 'gift_card' ? giftCardCode : null,
+      notes: couponCode ? `Coupon: ${couponCode}` : null,
+      items: cart.map((item: CartItem) => ({
+        product_id: item.product.id,
+        qty: item.qty,
+        unit_price: item.product.sale_price ?? item.product.price,
+        line_total: (item.product.sale_price ?? item.product.price) * item.qty,
+      }))
+    };
+
+    // If offline, queue the transaction for later sync
+    if (!isOnline) {
+      const txId = addToQueue('sale', orderPayload);
+      setReceiptOrder({
+        order_number: `OFFLINE-${txId.slice(0, 8).toUpperCase()}`,
         total,
-        gift_card_code: paymentMethod === 'gift_card' ? giftCardCode : null,
-        notes: couponCode ? `Coupon: ${couponCode}` : null,
-        items: cart.map((item: CartItem) => ({
-          product_id: item.product.id,
-          qty: item.qty,
-          unit_price: item.product.sale_price ?? item.product.price,
-          line_total: (item.product.sale_price ?? item.product.price) * item.qty,
-        }))
+        offline: true,
       });
+      playBeep('success');
+      toast.success('Transaction saved offline — will sync when connected');
+      onSuccess();
+      setProcessing(false);
+      return;
+    }
+
+    try {
+      const response = await axios.post('/api/pos/checkout', orderPayload);
 
       const order = response.data;
       setReceiptOrder(order);
@@ -579,8 +601,21 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
       onSuccess();
       queryClient.invalidateQueries({ queryKey: ['pos-products'] });
     } catch (error: any) {
-      playBeep('error');
-      toast.error('Payment failed: ' + (error.response?.data?.message || error.message));
+      // Network error while supposedly online — queue it
+      if (!navigator.onLine || error.code === 'ERR_NETWORK') {
+        const txId = addToQueue('sale', orderPayload);
+        setReceiptOrder({
+          order_number: `OFFLINE-${txId.slice(0, 8).toUpperCase()}`,
+          total,
+          offline: true,
+        });
+        playBeep('success');
+        toast.warning('Connection lost — transaction saved offline');
+        onSuccess();
+      } else {
+        playBeep('error');
+        toast.error('Payment failed: ' + (error.response?.data?.message || error.message));
+      }
     } finally {
       setProcessing(false);
     }
@@ -608,9 +643,16 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
           <div className="space-y-4">
             <div className="text-center">
               <div className="text-xl font-bold">{receiptOrder.order_number}</div>
-              <div className="text-muted-foreground">Payment Complete</div>
+              <div className="text-muted-foreground">
+                {receiptOrder.offline ? 'Saved Offline — Will Sync' : 'Payment Complete'}
+              </div>
             </div>
-            <div className="text-center text-3xl font-bold text-success">
+            {receiptOrder.offline && (
+              <div className="text-center text-sm text-amber-600 bg-amber-50 rounded-lg p-2">
+                This transaction will be synced when connection is restored
+              </div>
+            )}
+            <div className={`text-center text-3xl font-bold ${receiptOrder.offline ? 'text-amber-600' : 'text-success'}`}>
               ${Number(receiptOrder.total).toFixed(2)}
             </div>
             <Button className="w-full" onClick={handleClose}>
@@ -625,6 +667,13 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
               <div className="text-3xl font-bold">${total.toFixed(2)}</div>
             </div>
 
+            {!isOnline && (
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 rounded-lg p-2 text-sm">
+                <WifiOff className="h-4 w-4 flex-shrink-0" />
+                Offline mode — transaction will sync when connected
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Payment Method</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -634,6 +683,7 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
                     variant={paymentMethod === method ? 'default' : 'outline'}
                     onClick={() => setPaymentMethod(method)}
                     className="capitalize"
+                    disabled={!isOnline && method === 'gift_card'}
                   >
                     {method.replace('_', ' ')}
                   </Button>
