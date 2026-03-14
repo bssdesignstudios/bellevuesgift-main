@@ -102,7 +102,9 @@ Route::prefix('admin')->group(function () {
 
     Route::get('/staff', [AdminStaffController::class, 'index']);
     Route::post('/staff', [AdminStaffController::class, 'store']);
-    Route::put('/staff/{staff}', [AdminStaffController::class, 'update']);
+    Route::put('/staff/{id}', [AdminStaffController::class, 'update']);
+    Route::delete('/staff/{id}', [AdminStaffController::class, 'destroy']);
+    Route::patch('/staff/{id}/toggle-active', [AdminStaffController::class, 'toggleActive']);
 
     // Orders
     Route::get('/orders', [AdminOrderController::class, 'index']);

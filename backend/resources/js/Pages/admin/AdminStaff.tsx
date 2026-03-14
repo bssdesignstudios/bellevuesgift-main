@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, UserCheck } from 'lucide-react';
+import { Plus, Pencil, Trash2, UserCheck } from 'lucide-react';
 import { Staff } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDemoModeEnabled } from '@/lib/demoSession';
@@ -21,6 +21,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 export default function AdminStaff() {
   const [editStaff, setEditStaff] = useState<Staff | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<Staff | null>(null);
   const queryClient = useQueryClient();
   const { impersonate, impersonating, effectiveStaff, staff: currentStaff } = useAuth();
   const isDemoMode = isDemoModeEnabled();
@@ -28,7 +29,6 @@ export default function AdminStaff() {
   const { data: staffList } = useQuery({
     queryKey: ['admin-staff', isDemoMode],
     queryFn: async () => {
-      // In demo mode, return mock data since RLS blocks access
       if (isDemoMode) {
         return DEMO_STAFF as Staff[];
       }
@@ -39,17 +39,36 @@ export default function AdminStaff() {
   });
 
   const toggleActive = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+    mutationFn: async ({ id, is_active }: { id: string | number; is_active: boolean }) => {
       if (isDemoMode) {
-        // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 500));
         return;
       }
 
-      await axios.put(`/api/admin/staff/${id}`, { is_active });
+      await axios.patch(`/api/admin/staff/${id}/toggle-active`, { is_active });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string | number) => {
+      if (isDemoMode) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return;
+      }
+
+      await axios.delete(`/api/admin/staff/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
+      toast.success('Staff member deleted');
+      setDeleteConfirm(null);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to delete staff member');
+      setDeleteConfirm(null);
     }
   });
 
@@ -60,7 +79,6 @@ export default function AdminStaff() {
     }
     impersonate(staffMember);
     toast.success(`Now impersonating ${staffMember.name}`);
-    // Non-admin roles can't access the admin panel — redirect to POS
     if (staffMember.role === 'cashier') {
       router.visit('/pos');
     }
@@ -106,6 +124,31 @@ export default function AdminStaff() {
           </div>
         )}
 
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Staff Member</DialogTitle>
+            </DialogHeader>
+            <p className="text-muted-foreground">
+              Are you sure you want to delete <strong>{deleteConfirm?.name}</strong> ({deleteConfirm?.email})?
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)}
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
@@ -136,7 +179,7 @@ export default function AdminStaff() {
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -144,9 +187,21 @@ export default function AdminStaff() {
                           setEditStaff(s);
                           setIsDialogOpen(true);
                         }}
+                        title="Edit"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      {String(s.id) !== String(currentStaff?.id) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteConfirm(s)}
+                          title="Delete"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       {s.id !== currentStaff?.id && s.is_active && (
                         <Button
                           variant="ghost"
@@ -183,6 +238,7 @@ function StaffForm({
     name: staff?.name || '',
     email: staff?.email || '',
     role: staff?.role || 'cashier',
+    password: '',
     is_active: staff?.is_active ?? true,
   });
 
@@ -193,12 +249,19 @@ function StaffForm({
         return;
       }
 
-      const data = {
+      const data: Record<string, any> = {
         name: form.name,
         email: form.email,
         role: form.role,
         is_active: form.is_active,
       };
+
+      // Password required on create, optional on edit
+      if (form.password) {
+        data.password = form.password;
+      } else if (!staff) {
+        throw new Error('Password is required for new staff members');
+      }
 
       if (staff) {
         await axios.put(`/api/admin/staff/${staff.id}`, data);
@@ -210,8 +273,9 @@ function StaffForm({
       toast.success(staff ? 'Staff updated' : 'Staff created');
       onSuccess();
     },
-    onError: (error) => {
-      toast.error('Error: ' + error.message);
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || error?.message || 'An error occurred';
+      toast.error(msg);
     }
   });
 
@@ -228,17 +292,29 @@ function StaffForm({
       </div>
 
       <div className="space-y-2">
+        <Label>Password {staff && <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}</Label>
+        <Input
+          type="password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          placeholder={staff ? 'Leave blank to keep current' : 'Enter password'}
+          required={!staff}
+          minLength={6}
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label>Role</Label>
         <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Staff['role'] })}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="cashier">Cashier</SelectItem>
             <SelectItem value="warehouse">Warehouse</SelectItem>
             <SelectItem value="warehouse_manager">Warehouse Manager</SelectItem>
             <SelectItem value="finance">Finance</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
           </SelectContent>
         </Select>
       </div>

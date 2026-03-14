@@ -67,8 +67,7 @@ export interface Customer {
 }
 
 export interface Staff {
-  id: string;
-  auth_user_id: string | null;
+  id: number | string;
   name: string;
   email: string;
   role: 'cashier' | 'warehouse' | 'warehouse_manager' | 'admin' | 'finance';
