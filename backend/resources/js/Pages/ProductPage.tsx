@@ -1,6 +1,4 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
@@ -11,77 +9,13 @@ import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { toast } from 'sonner';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
 
-interface ProductPageProps {
-  slug: string;
-}
-
-export default function ProductPage({ slug: propSlug }: ProductPageProps) {
-  const { url } = usePage();
-  const slug = propSlug || window.location.pathname.split('/').pop() || '';
+export default function ProductPage() {
+  const { product, slug } = usePage<{ product: Product | null; slug: string }>().props;
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const { addItem } = useCart();
   const { customer } = useCustomerAuth();
-  const queryClient = useQueryClient();
-
-  const { data: product, isLoading } = useQuery({
-    queryKey: ['product', slug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, category:categories(*), inventory(*)')
-        .eq('slug', slug)
-        .single();
-      if (error) throw error;
-      return data as Product;
-    },
-    enabled: !!slug
-  });
-
-  // Check if product is in wishlist
-  const { data: isInWishlist } = useQuery({
-    queryKey: ['wishlist-check', customer?.id, product?.id],
-    queryFn: async () => {
-      if (!customer?.id || !product?.id) return false;
-      const { data } = await supabase
-        .from('wishlists')
-        .select('id')
-        .eq('customer_id', customer.id)
-        .eq('product_id', product.id)
-        .maybeSingle();
-      return !!data;
-    },
-    enabled: !!customer?.id && !!product?.id
-  });
-
-  // Toggle wishlist mutation
-  const wishlistMutation = useMutation({
-    mutationFn: async () => {
-      if (!customer?.id || !product?.id) throw new Error('Not logged in');
-
-      if (isInWishlist) {
-        const { error } = await supabase
-          .from('wishlists')
-          .delete()
-          .eq('customer_id', customer.id)
-          .eq('product_id', product.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('wishlists')
-          .insert({ customer_id: customer.id, product_id: product.id });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wishlist-check', customer?.id, product?.id] });
-      queryClient.invalidateQueries({ queryKey: ['customer-wishlist'] });
-      toast.success(isInWishlist ? 'Removed from wishlist' : 'Added to wishlist');
-    },
-    onError: () => {
-      toast.error('Failed to update wishlist');
-    }
-  });
+  const [isInWishlist, setIsInWishlist] = useState(false);
 
   const handleWishlistToggle = () => {
     if (!customer) {
@@ -89,7 +23,9 @@ export default function ProductPage({ slug: propSlug }: ProductPageProps) {
       router.visit('/account/login');
       return;
     }
-    wishlistMutation.mutate();
+    // Wishlist functionality will be implemented in Sprint 2 (Customer Accounts)
+    setIsInWishlist(!isInWishlist);
+    toast.success(isInWishlist ? 'Removed from wishlist' : 'Added to wishlist');
   };
 
   const handleAddToCart = () => {
@@ -98,6 +34,8 @@ export default function ProductPage({ slug: propSlug }: ProductPageProps) {
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
+
+  const isLoading = false;
 
   if (isLoading) {
     return (
@@ -188,11 +126,11 @@ export default function ProductPage({ slug: propSlug }: ProductPageProps) {
 
           <div className="flex items-baseline gap-3">
             <span className="text-4xl font-bold text-primary">
-              ${displayPrice.toFixed(2)}
+              ${Number(displayPrice).toFixed(2)}
             </span>
             {hasDiscount && (
               <span className="text-xl text-muted-foreground line-through">
-                ${product.price.toFixed(2)}
+                ${Number(product.price).toFixed(2)}
               </span>
             )}
           </div>
@@ -281,7 +219,6 @@ export default function ProductPage({ slug: propSlug }: ProductPageProps) {
               variant="outline"
               className="w-full"
               onClick={handleWishlistToggle}
-              disabled={wishlistMutation.isPending}
             >
               <Heart className={`h-5 w-5 mr-2 ${isInWishlist ? 'fill-destructive text-destructive' : ''}`} />
               {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}
@@ -316,4 +253,3 @@ export default function ProductPage({ slug: propSlug }: ProductPageProps) {
     </StorefrontLayout>
   );
 }
-

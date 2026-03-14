@@ -1,6 +1,4 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,46 +10,7 @@ import { STORE_INFO } from '@/lib/constants';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
 
 export default function CheckoutSuccessPage() {
-  const { id } = usePage().props as any;
-
-  const { data: order, isLoading } = useQuery({
-    queryKey: ['checkout-order', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id
-  });
-
-  const { data: orderItems } = useQuery({
-    queryKey: ['checkout-order-items', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', id);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id
-  });
-
-  if (isLoading) {
-    return (
-      <StorefrontLayout>
-        <div className="container mx-auto px-4 py-12 flex items-center justify-center min-h-[50vh]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </StorefrontLayout>
-    );
-  }
+  const { order, orderItems } = usePage<{ order: any; orderItems: any[]; id: string }>().props;
 
   if (!order) {
     return (
@@ -158,7 +117,7 @@ export default function CheckoutSuccessPage() {
           </h3>
 
           <div className="space-y-3 mb-4">
-            {orderItems?.map((item) => (
+            {orderItems?.map((item: any) => (
               <div key={item.id} className="flex justify-between text-sm">
                 <span>
                   {item.name} × {item.qty}

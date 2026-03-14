@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,7 +29,6 @@ export default function AdminOrders() {
   const { data: orders } = useQuery({
     queryKey: ['admin-orders', search, statusFilter, channelFilter, isDemoMode],
     queryFn: async () => {
-      // In demo mode, return mock data since RLS blocks access
       if (isDemoMode) {
         let filtered = DEMO_ORDERS as Order[];
         if (statusFilter !== 'all') {
@@ -44,25 +43,17 @@ export default function AdminOrders() {
         return filtered;
       }
 
-      let query = supabase
-        .from('orders')
-        .select('*, customer:customers(*), staff:staff(*), items:order_items(*)')
-        .order('created_at', { ascending: false })
-        .limit(100);
+      const params: Record<string, string> = {};
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (search) params.search = search;
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
+      const { data } = await axios.get('/api/admin/orders', { params });
+      // Client-side channel filter (server doesn't support it yet)
+      let results = data as Order[];
       if (channelFilter !== 'all') {
-        query = query.eq('channel', channelFilter);
+        results = results.filter(o => o.channel === channelFilter);
       }
-      if (search) {
-        query = query.ilike('order_number', `%${search}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Order[];
+      return results;
     }
   });
 
@@ -73,46 +64,14 @@ export default function AdminOrders() {
         return;
       }
 
-      const { error } = await supabase
-        .from('orders')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', orderId);
-      if (error) throw error;
-
-      // If marking as picked_up or shipped, handle inventory
-      if (status === 'picked_up' || status === 'shipped') {
-        const order = orders?.find(o => o.id === orderId);
-        if (order?.items) {
-          for (const item of order.items) {
-            if (item.product_id) {
-              // Decrease qty_on_hand and qty_reserved
-              const { data: inv } = await supabase
-                .from('inventory')
-                .select('qty_on_hand, qty_reserved')
-                .eq('product_id', item.product_id)
-                .single();
-
-              if (inv) {
-                await supabase
-                  .from('inventory')
-                  .update({
-                    qty_on_hand: inv.qty_on_hand - item.qty,
-                    qty_reserved: Math.max(0, inv.qty_reserved - item.qty),
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('product_id', item.product_id);
-              }
-            }
-          }
-        }
-      }
+      await axios.patch(`/api/admin/orders/${orderId}/status`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       toast.success('Order updated');
     },
-    onError: (error) => {
-      toast.error('Error: ' + error.message);
+    onError: (error: any) => {
+      toast.error('Error: ' + (error.response?.data?.message || error.message));
     }
   });
 

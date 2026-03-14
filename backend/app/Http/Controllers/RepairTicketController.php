@@ -60,4 +60,48 @@ class RepairTicketController extends Controller
 
         return response()->json($ticket);
     }
+
+    public function posLookup(Request $request)
+    {
+        $ticketNumber = strtoupper(trim($request->input('q', '')));
+        if (!$ticketNumber) {
+            return response()->json(['ticket' => null]);
+        }
+
+        $ticket = RepairTicket::where('ticket_number', $ticketNumber)->first();
+        return response()->json(['ticket' => $ticket]);
+    }
+
+    public function markPickedUp($id)
+    {
+        $ticket = RepairTicket::findOrFail($id);
+        $ticket->update(['status' => 'completed']);
+        return response()->json(['message' => 'Marked as picked up']);
+    }
+
+    public function collectDeposit($id)
+    {
+        $ticket = RepairTicket::findOrFail($id);
+        $ticket->update(['deposit_paid' => true]);
+        return response()->json(['message' => 'Deposit collected']);
+    }
+
+    public function collectPayment(Request $request, $id)
+    {
+        $ticket = RepairTicket::findOrFail($id);
+
+        // Create payment record if Payment model exists
+        if (class_exists(\App\Models\Payment::class)) {
+            \App\Models\Payment::create([
+                'order_id' => '00000000-0000-0000-0000-000000000000',
+                'amount' => $request->input('amount', $ticket->total_cost ?? 0),
+                'method' => $request->input('method', 'cash'),
+                'reference' => 'REPAIR-' . $ticket->ticket_number,
+            ]);
+        }
+
+        $ticket->update(['status' => 'completed']);
+
+        return response()->json(['message' => 'Payment collected']);
+    }
 }

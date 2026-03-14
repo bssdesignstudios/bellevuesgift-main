@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -27,12 +27,11 @@ export default function AdminCustomers() {
   const { data: customers } = useQuery({
     queryKey: ['admin-customers', search, isDemoMode],
     queryFn: async () => {
-      // In demo mode, return mock data since RLS blocks access
       if (isDemoMode) {
         let filtered = DEMO_CUSTOMERS as CustomerWithFavorite[];
         if (search) {
           const searchLower = search.toLowerCase();
-          filtered = filtered.filter(c => 
+          filtered = filtered.filter(c =>
             c.name.toLowerCase().includes(searchLower) ||
             c.email?.toLowerCase().includes(searchLower) ||
             c.phone?.includes(search)
@@ -45,18 +44,10 @@ export default function AdminCustomers() {
         });
       }
 
-      let query = supabase
-        .from('customers')
-        .select('id, name, email, phone, island, is_favorite, created_at')
-        .order('is_favorite', { ascending: false })
-        .order('created_at', { ascending: false });
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
 
-      if (search) {
-        query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
-      }
-
-      const { data, error } = await query.limit(100);
-      if (error) throw error;
+      const { data } = await axios.get('/api/admin/customers', { params });
       return data as CustomerWithFavorite[];
     }
   });

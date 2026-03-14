@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,31 +27,25 @@ const shippingSteps = [
 
 export default function TrackOrderPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchedOrder, setSearchedOrder] = useState<string | null>(null);
+  const [order, setOrder] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
 
-  const { data: order, isLoading, error } = useQuery({
-    queryKey: ['public-track-order', searchedOrder],
-    queryFn: async () => {
-      if (!searchedOrder) return null;
-
-      // In a real app, you'd want to verify email or phone too for public tracking
-      // But for this MVP, we'll allow tracking by order number or pickup code
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .or(`order_number.eq.${searchedOrder},pickup_code.eq.${searchedOrder.toUpperCase()}`)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!searchedOrder
-  });
-
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchTerm.trim()) {
-      setSearchedOrder(searchTerm.trim());
+    if (!searchTerm.trim()) return;
+
+    setIsLoading(true);
+    setSearched(true);
+    try {
+      const { data } = await axios.get('/api/orders/track', {
+        params: { q: searchTerm.trim() }
+      });
+      setOrder(data.order);
+    } catch {
+      setOrder(null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -103,19 +96,19 @@ export default function TrackOrderPage() {
         )}
 
         {/* Not Found */}
-        {searchedOrder && !isLoading && !order && (
+        {searched && !isLoading && !order && (
           <Card className="border-destructive/20 bg-destructive/5">
             <CardContent className="py-12 text-center">
               <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
               <h2 className="text-xl font-bold mb-2">Order Not Found</h2>
               <p className="text-muted-foreground max-w-md mx-auto">
-                We couldn't find an order matching "<strong>{searchedOrder}</strong>".
+                We couldn't find an order matching "<strong>{searchTerm}</strong>".
                 Please double-check the order number and try again.
               </p>
               <Button
                 variant="outline"
                 className="mt-6"
-                onClick={() => { setSearchTerm(''); setSearchedOrder(null); }}
+                onClick={() => { setSearchTerm(''); setOrder(null); setSearched(false); }}
               >
                 Try Another Search
               </Button>

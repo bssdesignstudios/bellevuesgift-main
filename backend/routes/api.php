@@ -13,6 +13,11 @@ use App\Http\Controllers\AdminProductController;
 use App\Http\Controllers\AdminInventoryController;
 use App\Http\Controllers\AdminStaffController;
 use App\Http\Controllers\AdminReportController;
+use App\Http\Controllers\AdminOrderController;
+use App\Http\Controllers\AdminCustomerController;
+use App\Http\Controllers\AdminGiftCardController;
+use App\Http\Controllers\AdminCouponController;
+use App\Http\Controllers\AdminRepairTicketController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,6 +40,20 @@ Route::prefix('storefront')->group(function () {
     Route::get('/categories', [App\Http\Controllers\CategoryController::class, 'index']);
 });
 
+// Public order tracking
+Route::get('/orders/track', function (Request $request) {
+    $search = $request->input('q');
+    if (!$search) {
+        return response()->json(['order' => null]);
+    }
+
+    $order = \App\Models\Order::where('order_number', $search)
+        ->orWhere('pickup_code', strtoupper($search))
+        ->first();
+
+    return response()->json(['order' => $order]);
+});
+
 // POS API
 Route::prefix('pos')->group(function () {
     Route::get('/registers', [PosController::class, 'getRegisters']);
@@ -43,11 +62,20 @@ Route::prefix('pos')->group(function () {
     Route::put('/session/{session}', [PosController::class, 'closeSession']);
     Route::post('/activity', [PosController::class, 'logActivity']);
     Route::post('/checkout', [OrderController::class, 'checkout']);
+    Route::get('/orders/lookup', [OrderController::class, 'lookup']);
+    Route::patch('/orders/{id}/pickup', [OrderController::class, 'markPickedUp']);
+    Route::post('/orders/{id}/payment', [OrderController::class, 'collectPayment']);
+    Route::post('/orders/{id}/refund', [OrderController::class, 'refund']);
 
     Route::get('/categories', [PosProductController::class, 'categories']);
     Route::get('/products', [PosProductController::class, 'products']);
     Route::post('/coupons/validate', [CouponController::class, 'validate']);
     Route::post('/gift-cards/check', [GiftCardController::class, 'check']);
+
+    Route::get('/repair-tickets/lookup', [RepairTicketController::class, 'posLookup']);
+    Route::patch('/repair-tickets/{id}/pickup', [RepairTicketController::class, 'markPickedUp']);
+    Route::patch('/repair-tickets/{id}/deposit', [RepairTicketController::class, 'collectDeposit']);
+    Route::post('/repair-tickets/{id}/payment', [RepairTicketController::class, 'collectPayment']);
 });
 
 // Repair API
@@ -75,4 +103,31 @@ Route::prefix('admin')->group(function () {
     Route::get('/staff', [AdminStaffController::class, 'index']);
     Route::post('/staff', [AdminStaffController::class, 'store']);
     Route::put('/staff/{staff}', [AdminStaffController::class, 'update']);
+
+    // Orders
+    Route::get('/orders', [AdminOrderController::class, 'index']);
+    Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
+
+    // Customers
+    Route::get('/customers', [AdminCustomerController::class, 'index']);
+
+    // Gift Cards
+    Route::get('/gift-cards', [AdminGiftCardController::class, 'index']);
+    Route::post('/gift-cards', [AdminGiftCardController::class, 'store']);
+    Route::patch('/gift-cards/{id}/toggle-active', [AdminGiftCardController::class, 'toggleActive']);
+
+    // Coupons
+    Route::get('/coupons', [AdminCouponController::class, 'index']);
+    Route::post('/coupons', [AdminCouponController::class, 'store']);
+    Route::put('/coupons/{id}', [AdminCouponController::class, 'update']);
+    Route::delete('/coupons/{id}', [AdminCouponController::class, 'destroy']);
+    Route::patch('/coupons/{id}/toggle-active', [AdminCouponController::class, 'toggleActive']);
+
+    // Repair Tickets
+    Route::get('/repair-tickets', [AdminRepairTicketController::class, 'index']);
+    Route::patch('/repair-tickets/{id}/status', [AdminRepairTicketController::class, 'updateStatus']);
+    Route::get('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'tasks']);
+    Route::post('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'addTask']);
+    Route::patch('/repair-tickets/{id}/tasks/{taskId}', [AdminRepairTicketController::class, 'updateTask']);
+    Route::get('/repair-tickets/staff', [AdminRepairTicketController::class, 'staff']);
 });

@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +13,13 @@ import { Search, Filter, X, Grid, List } from 'lucide-react';
 import { Product, Category } from '@/types';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
 
+interface ShopPageProps {
+  products: Product[];
+  categories: Category[];
+}
+
 export default function ShopPage() {
-  const { url } = usePage();
+  const { products: allProducts, categories, url } = usePage<{ products: Product[]; categories: Category[]; url: string }>().props;
   const searchParams = new URL(window.location.href).searchParams;
 
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
@@ -41,65 +44,55 @@ export default function ShopPage() {
     if (filter === 'sale') setOnSaleOnly(true);
   }, [url]);
 
-  const { data: categories } = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
-      if (error) throw error;
-      return data as Category[];
+  // Client-side filtering and sorting on Inertia props data
+  const products = useMemo(() => {
+    if (!allProducts) return [];
+    let filtered = [...allProducts];
+
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.name?.toLowerCase().includes(term) ||
+        p.description?.toLowerCase().includes(term) ||
+        p.sku?.toLowerCase().includes(term)
+      );
     }
-  });
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ['shop-products', searchTerm, priceRange, selectedCategories, sortBy, onSaleOnly],
-    queryFn: async () => {
-      let query = supabase
-        .from('products')
-        .select('*, category:categories(*), inventory(*)')
-        .eq('is_active', true);
+    // Category filter
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(p => selectedCategories.includes(String(p.category_id)));
+    }
 
-      // Search filter
-      if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`);
-      }
+    // Price filter
+    filtered = filtered.filter(p => {
+      const price = Number(p.price) || 0;
+      return price >= priceRange[0] && price <= priceRange[1];
+    });
 
-      // Category filter
-      if (selectedCategories.length > 0) {
-        query = query.in('category_id', selectedCategories);
-      }
+    // Sale filter
+    if (onSaleOnly) {
+      filtered = filtered.filter(p => p.sale_price != null);
+    }
 
-      // Price filter
-      query = query.gte('price', priceRange[0]).lte('price', priceRange[1]);
-
-      // Sale filter
-      if (onSaleOnly) {
-        query = query.not('sale_price', 'is', null);
-      }
-
-      // Sorting
+    // Sorting
+    filtered.sort((a, b) => {
       switch (sortBy) {
         case 'price-asc':
-          query = query.order('price', { ascending: true });
-          break;
+          return (Number(a.price) || 0) - (Number(b.price) || 0);
         case 'price-desc':
-          query = query.order('price', { ascending: false });
-          break;
+          return (Number(b.price) || 0) - (Number(a.price) || 0);
         case 'name':
-          query = query.order('name', { ascending: true });
-          break;
-        default:
-          query = query.order('created_at', { ascending: false });
+          return (a.name || '').localeCompare(b.name || '');
+        default: // newest
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       }
+    });
 
-      const { data, error } = await query.limit(100);
-      if (error) throw error;
-      return data as Product[];
-    }
-  });
+    return filtered.slice(0, 100);
+  }, [allProducts, searchTerm, priceRange, selectedCategories, sortBy, onSaleOnly]);
+
+  const isLoading = false;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

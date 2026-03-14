@@ -1,6 +1,4 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Order } from '@/types';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Printer, Home } from 'lucide-react';
@@ -9,42 +7,11 @@ import { STORE_INFO } from '@/lib/constants';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
 
 export default function OrderPage() {
-  const { id } = usePage().props as unknown as { id: string };
-
-  const { data: order, isLoading } = useQuery({
-    queryKey: ['order', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(*),
-          items:order_items(*)
-        `)
-        .eq('id', id)
-        .single();
-      if (error) throw error;
-      return data as Order;
-    },
-    enabled: !!id
-  });
+  const { order } = usePage<{ order: Order | null; id: string }>().props;
 
   const handlePrint = () => {
     window.print();
   };
-
-  if (isLoading) {
-    return (
-      <StorefrontLayout>
-        <div className="container mx-auto px-4 py-16 text-center">
-          <div className="animate-pulse space-y-4">
-            <div className="h-16 w-16 mx-auto rounded-full bg-muted" />
-            <div className="h-8 w-64 mx-auto bg-muted rounded" />
-          </div>
-        </div>
-      </StorefrontLayout>
-    );
-  }
 
   if (!order) {
     return (
@@ -111,12 +78,12 @@ export default function OrderPage() {
         <div className="mb-6 pb-6 border-b">
           <h3 className="font-semibold mb-3">Order Items</h3>
           <div className="space-y-2">
-            {order.items?.map((item) => (
+            {order.items?.map((item: any) => (
               <div key={item.id} className="flex justify-between text-sm">
                 <span>
                   {item.name} × {item.qty}
                 </span>
-                <span>${item.line_total.toFixed(2)}</span>
+                <span>${Number(item.line_total).toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -126,21 +93,21 @@ export default function OrderPage() {
         <div className="space-y-2 text-sm mb-6">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Subtotal</span>
-            <span>${order.subtotal.toFixed(2)}</span>
+            <span>${Number(order.subtotal).toFixed(2)}</span>
           </div>
-          {order.discount_amount > 0 && (
+          {Number(order.discount_amount) > 0 && (
             <div className="flex justify-between text-success">
               <span>Discount</span>
-              <span>-${order.discount_amount.toFixed(2)}</span>
+              <span>-${Number(order.discount_amount).toFixed(2)}</span>
             </div>
           )}
           <div className="flex justify-between">
             <span className="text-muted-foreground">VAT (10%)</span>
-            <span>${order.vat_amount.toFixed(2)}</span>
+            <span>${Number(order.vat_amount).toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-bold text-lg pt-2 border-t">
             <span>Total</span>
-            <span>${order.total.toFixed(2)}</span>
+            <span>${Number(order.total).toFixed(2)}</span>
           </div>
         </div>
 

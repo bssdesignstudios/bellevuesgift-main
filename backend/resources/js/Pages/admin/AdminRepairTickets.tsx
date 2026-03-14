@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,21 +79,11 @@ export default function AdminRepairTickets() {
   const { data: tickets, isLoading } = useQuery({
     queryKey: ['admin-repair-tickets', statusFilter, searchQuery],
     queryFn: async () => {
-      let query = supabase
-        .from('repair_tickets')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const params: Record<string, string> = {};
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (searchQuery) params.search = searchQuery;
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
-
-      if (searchQuery) {
-        query = query.or(`ticket_number.ilike.%${searchQuery}%,customer_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      const { data } = await axios.get('/api/admin/repair-tickets', { params });
       return data as RepairTicket[];
     },
   });
@@ -103,12 +93,7 @@ export default function AdminRepairTickets() {
     queryKey: ['repair-tasks', selectedTicket?.id],
     queryFn: async () => {
       if (!selectedTicket) return [];
-      const { data, error } = await supabase
-        .from('repair_tasks')
-        .select('*')
-        .eq('ticket_id', selectedTicket.id)
-        .order('created_at');
-      if (error) throw error;
+      const { data } = await axios.get(`/api/admin/repair-tickets/${selectedTicket.id}/tasks`);
       return data as RepairTask[];
     },
     enabled: !!selectedTicket,
@@ -118,11 +103,7 @@ export default function AdminRepairTickets() {
   const { data: staff } = useQuery({
     queryKey: ['staff-list'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('staff')
-        .select('id, name')
-        .eq('is_active', true);
-      if (error) throw error;
+      const { data } = await axios.get('/api/admin/repair-tickets/staff');
       return data;
     },
   });
@@ -136,18 +117,14 @@ export default function AdminRepairTickets() {
       }
 
       const { id, ...data } = updates;
-      const { error } = await supabase
-        .from('repair_tickets')
-        .update(data)
-        .eq('id', id);
-      if (error) throw error;
+      await axios.patch(`/api/admin/repair-tickets/${id}/status`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-repair-tickets'] });
       toast.success('Ticket updated');
     },
     onError: (error: any) => {
-      toast.error('Failed to update ticket: ' + error.message);
+      toast.error('Failed to update ticket: ' + (error.response?.data?.message || error.message));
     },
   });
 
@@ -159,15 +136,9 @@ export default function AdminRepairTickets() {
         return;
       }
 
-      const { error } = await supabase
-        .from('repair_tasks')
-        .insert({
-          ticket_id: task.ticket_id,
-          title: task.title,
-          description: task.description || null,
-          due_date: task.due_date || null,
-        });
-      if (error) throw error;
+      await axios.post(`/api/admin/repair-tickets/${task.ticket_id}/tasks`, {
+        description: task.title + (task.description ? ': ' + task.description : ''),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repair-tasks'] });
@@ -176,7 +147,7 @@ export default function AdminRepairTickets() {
       toast.success('Task added');
     },
     onError: (error: any) => {
-      toast.error('Failed to add task: ' + error.message);
+      toast.error('Failed to add task: ' + (error.response?.data?.message || error.message));
     },
   });
 
@@ -188,11 +159,7 @@ export default function AdminRepairTickets() {
         return;
       }
 
-      const { error } = await supabase
-        .from('repair_tasks')
-        .update(updates)
-        .eq('id', id);
-      if (error) throw error;
+      await axios.patch(`/api/admin/repair-tickets/${selectedTicket?.id}/tasks/${id}`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repair-tasks'] });
@@ -431,7 +398,7 @@ export default function AdminRepairTickets() {
                         {tasks?.map((task) => (
                           <div key={task.id} className="border rounded-lg p-3 space-y-2">
                             <div className="flex items-start justify-between">
-                              <p className="font-medium text-sm">{task.title}</p>
+                              <p className="font-medium text-sm">{task.title || task.description}</p>
                               <Select
                                 value={task.status}
                                 onValueChange={(value) => updateTaskMutation.mutate({ id: task.id, status: value })}
@@ -446,7 +413,7 @@ export default function AdminRepairTickets() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            {task.description && (
+                            {task.description && task.title && (
                               <p className="text-xs text-muted-foreground">{task.description}</p>
                             )}
                             {task.due_date && (

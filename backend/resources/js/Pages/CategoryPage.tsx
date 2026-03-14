@@ -1,96 +1,53 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Product, Category } from '@/types';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { ChevronRight, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
 
 export default function CategoryPage() {
-  const { slug } = usePage().props as unknown as { slug: string };
+  const { category, products: allProducts, slug } = usePage<{
+    category: Category | null;
+    products: Product[];
+    slug: string;
+  }>().props;
+
   const [sortBy, setSortBy] = useState('newest');
   const [showInStock, setShowInStock] = useState(false);
   const [showOnSale, setShowOnSale] = useState(false);
 
-  const { data: category, isLoading: categoryLoading } = useQuery({
-    queryKey: ['category', slug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('slug', slug)
-        .single();
-      if (error) throw error;
-      return data as Category;
-    },
-    enabled: !!slug
-  });
+  // Client-side filtering and sorting
+  const products = useMemo(() => {
+    if (!allProducts) return [];
+    let filtered = [...allProducts];
 
-  const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ['category-products', slug, sortBy, showInStock, showOnSale],
-    queryFn: async () => {
-      let query = supabase
-        .from('products')
-        .select('*, category:categories(*), inventory(*)')
-        .eq('is_active', true);
+    if (showOnSale) {
+      filtered = filtered.filter(p => p.sale_price != null);
+    }
 
-      if (category?.id) {
-        query = query.eq('category_id', category.id);
-      }
+    if (showInStock) {
+      filtered = filtered.filter(p =>
+        p.inventory && (p.inventory.qty_on_hand - p.inventory.qty_reserved) > 0
+      );
+    }
 
-      if (showOnSale) {
-        query = query.not('sale_price', 'is', null);
-      }
-
+    filtered.sort((a, b) => {
       switch (sortBy) {
         case 'price-low':
-          query = query.order('price', { ascending: true });
-          break;
+          return (Number(a.price) || 0) - (Number(b.price) || 0);
         case 'price-high':
-          query = query.order('price', { ascending: false });
-          break;
+          return (Number(b.price) || 0) - (Number(a.price) || 0);
         case 'name':
-          query = query.order('name');
-          break;
+          return (a.name || '').localeCompare(b.name || '');
         default:
-          query = query.order('created_at', { ascending: false });
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       }
+    });
 
-      const { data, error } = await query;
-      if (error) throw error;
-
-      let filteredData = data as Product[];
-
-      if (showInStock) {
-        filteredData = filteredData.filter(p =>
-          p.inventory && (p.inventory.qty_on_hand - p.inventory.qty_reserved) > 0
-        );
-      }
-
-      return filteredData;
-    },
-    enabled: !!category
-  });
-
-  if (categoryLoading) {
-    return (
-      <StorefrontLayout>
-        <div className="container mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 w-48 bg-muted rounded" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-64 bg-muted rounded" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </StorefrontLayout>
-    );
-  }
+    return filtered;
+  }, [allProducts, sortBy, showInStock, showOnSale]);
 
   if (!category) {
     return (
@@ -153,13 +110,7 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {productsLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-            <div key={i} className="h-64 bg-muted rounded animate-pulse" />
-          ))}
-        </div>
-      ) : products && products.length > 0 ? (
+      {products && products.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {products.map((product) => (
             <ProductCard key={product.id} product={product} />

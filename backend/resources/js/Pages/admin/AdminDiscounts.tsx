@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,24 +48,21 @@ function CouponsSection() {
   const { data: coupons } = useQuery({
     queryKey: ['admin-coupons'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('coupons').select('*').order('code');
-      if (error) throw error;
+      const { data } = await axios.get('/api/admin/coupons');
       return data as Coupon[];
     }
   });
 
   const toggleActive = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from('coupons').update({ is_active }).eq('id', id);
-      if (error) throw error;
+    mutationFn: async ({ id }: { id: string }) => {
+      await axios.patch(`/api/admin/coupons/${id}/toggle-active`);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-coupons'] })
   });
 
   const deleteCoupon = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('coupons').delete().eq('id', id);
-      if (error) throw error;
+      await axios.delete(`/api/admin/coupons/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
@@ -87,12 +84,12 @@ function CouponsSection() {
             <DialogHeader>
               <DialogTitle>{editCoupon ? 'Edit Coupon' : 'Add Coupon'}</DialogTitle>
             </DialogHeader>
-            <CouponForm 
+            <CouponForm
               coupon={editCoupon}
               onSuccess={() => {
                 setIsDialogOpen(false);
                 queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
-              }} 
+              }}
             />
           </DialogContent>
         </Dialog>
@@ -120,7 +117,7 @@ function CouponsSection() {
                 <TableCell>
                   <Switch
                     checked={coupon.is_active}
-                    onCheckedChange={(checked) => toggleActive.mutate({ id: coupon.id, is_active: checked })}
+                    onCheckedChange={() => toggleActive.mutate({ id: coupon.id })}
                   />
                 </TableCell>
                 <TableCell>
@@ -159,26 +156,24 @@ function CouponForm({ coupon, onSuccess }: { coupon: Coupon | null; onSuccess: (
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const data = {
+      const payload = {
         code: form.code.toUpperCase(),
-        discount_type: form.discount_type as 'percent' | 'fixed',
+        discount_type: form.discount_type,
         value: parseFloat(form.value),
         is_active: form.is_active,
       };
 
       if (coupon) {
-        const { error } = await supabase.from('coupons').update(data).eq('id', coupon.id);
-        if (error) throw error;
+        await axios.put(`/api/admin/coupons/${coupon.id}`, payload);
       } else {
-        const { error } = await supabase.from('coupons').insert(data);
-        if (error) throw error;
+        await axios.post('/api/admin/coupons', payload);
       }
     },
     onSuccess: () => {
       toast.success(coupon ? 'Coupon updated' : 'Coupon created');
       onSuccess();
     },
-    onError: (error) => toast.error('Error: ' + error.message)
+    onError: (error: any) => toast.error('Error: ' + (error.response?.data?.message || error.message))
   });
 
   return (
@@ -222,16 +217,14 @@ function GiftCardsSection() {
   const { data: giftCards } = useQuery({
     queryKey: ['admin-giftcards'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('gift_cards').select('*').order('code');
-      if (error) throw error;
+      const { data } = await axios.get('/api/admin/gift-cards');
       return data as GiftCard[];
     }
   });
 
   const toggleActive = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from('gift_cards').update({ is_active }).eq('id', id);
-      if (error) throw error;
+    mutationFn: async ({ id }: { id: string }) => {
+      await axios.patch(`/api/admin/gift-cards/${id}/toggle-active`);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-giftcards'] })
   });
@@ -250,12 +243,12 @@ function GiftCardsSection() {
             <DialogHeader>
               <DialogTitle>{editCard ? 'Edit Gift Card' : 'Add Gift Card'}</DialogTitle>
             </DialogHeader>
-            <GiftCardForm 
+            <GiftCardForm
               card={editCard}
               onSuccess={() => {
                 setIsDialogOpen(false);
                 queryClient.invalidateQueries({ queryKey: ['admin-giftcards'] });
-              }} 
+              }}
             />
           </DialogContent>
         </Dialog>
@@ -280,7 +273,7 @@ function GiftCardsSection() {
                 <TableCell>
                   <Switch
                     checked={card.is_active}
-                    onCheckedChange={(checked) => toggleActive.mutate({ id: card.id, is_active: checked })}
+                    onCheckedChange={() => toggleActive.mutate({ id: card.id })}
                   />
                 </TableCell>
               </TableRow>
@@ -304,27 +297,25 @@ function GiftCardForm({ card, onSuccess }: { card: GiftCard | null; onSuccess: (
     mutationFn: async () => {
       const balance = parseFloat(form.balance);
       const initial = parseFloat(form.initial_balance || form.balance);
-      
-      const data = {
-        code: form.code.toUpperCase(),
-        balance,
-        initial_balance: initial,
-        is_active: form.is_active,
-      };
 
       if (card) {
-        const { error } = await supabase.from('gift_cards').update(data).eq('id', card.id);
-        if (error) throw error;
+        await axios.put(`/api/admin/gift-cards/${card.id}`, {
+          code: form.code.toUpperCase(),
+          balance,
+          initial_balance: initial,
+          is_active: form.is_active,
+        });
       } else {
-        const { error } = await supabase.from('gift_cards').insert(data);
-        if (error) throw error;
+        await axios.post('/api/admin/gift-cards', {
+          initial_balance: initial,
+        });
       }
     },
     onSuccess: () => {
       toast.success(card ? 'Gift card updated' : 'Gift card created');
       onSuccess();
     },
-    onError: (error) => toast.error('Error: ' + error.message)
+    onError: (error: any) => toast.error('Error: ' + (error.response?.data?.message || error.message))
   });
 
   return (

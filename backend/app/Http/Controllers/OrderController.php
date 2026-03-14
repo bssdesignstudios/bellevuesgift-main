@@ -116,4 +116,96 @@ class OrderController extends Controller
             return response()->json($order->load('items'), 201);
         });
     }
+
+    public function lookup(Request $request)
+    {
+        $search = strtoupper(trim($request->input('q', '')));
+        if (!$search) {
+            return response()->json(['order' => null]);
+        }
+
+        $order = Order::with(['items', 'customer'])
+            ->where('channel', 'web')
+            ->where(function ($q) use ($search) {
+                $q->where('order_number', 'ilike', "%{$search}%")
+                  ->orWhere('pickup_code', $search);
+            })
+            ->first();
+
+        return response()->json(['order' => $order]);
+    }
+
+    public function markPickedUp($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $order = Order::with('items')->findOrFail($id);
+            $order->update(['status' => 'picked_up']);
+
+            foreach ($order->items as $item) {
+                if ($item->product_id) {
+                    $inv = Inventory::where('product_id', $item->product_id)->first();
+                    if ($inv) {
+                        $inv->decrement('qty_on_hand', $item->qty);
+                        $inv->update(['qty_reserved' => max(0, $inv->qty_reserved - $item->qty)]);
+                    }
+                }
+            }
+
+            return response()->json(['message' => 'Order marked as picked up']);
+        });
+    }
+
+    public function collectPayment(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'method' => 'required|in:cash,card',
+            'amount' => 'required|numeric|min:0',
+        ]);
+
+        $order = Order::findOrFail($id);
+
+        Payment::create([
+            'order_id' => $order->id,
+            'amount' => $validated['amount'],
+            'method' => $validated['method'],
+            'reference' => 'PICKUP-' . time(),
+        ]);
+
+        $order->update([
+            'payment_status' => 'paid',
+            'payment_method' => $validated['method'],
+        ]);
+
+        return response()->json(['message' => 'Payment collected']);
+    }
+
+    public function refund($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $order = Order::with('items')->findOrFail($id);
+
+            $order->update([
+                'status' => 'refunded',
+                'payment_status' => 'refunded',
+            ]);
+
+            Payment::create([
+                'order_id' => $order->id,
+                'amount' => -$order->total,
+                'method' => $order->payment_method ?? 'cash',
+                'reference' => 'REFUND-' . time(),
+            ]);
+
+            foreach ($order->items as $item) {
+                if ($item->product_id) {
+                    $inv = Inventory::where('product_id', $item->product_id)->first();
+                    if ($inv) {
+                        $inv->increment('qty_on_hand', $item->qty);
+                    }
+                }
+            }
+
+            return response()->json(['message' => 'Refund processed']);
+        });
+    }
 }

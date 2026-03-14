@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -24,107 +24,46 @@ export default function AdminOverview() {
   const days = parseInt(dateRange);
   const isDemoMode = isDemoModeEnabled();
 
-  // Sales by day
-  const { data: dailySales } = useQuery({
-    queryKey: ['admin-daily-sales', days, isDemoMode],
+  // Fetch dashboard data from Laravel API
+  const { data: dashboardData } = useQuery({
+    queryKey: ['admin-dashboard', days, isDemoMode],
     queryFn: async () => {
       if (isDemoMode) {
-        return generateDemoDailySales(days);
+        return null;
       }
-
-      const results = [];
-      for (let i = days - 1; i >= 0; i--) {
-        const date = subDays(new Date(), i);
-        const start = startOfDay(date).toISOString();
-        const end = endOfDay(date).toISOString();
-
-        const { data } = await supabase
-          .from('orders')
-          .select('total, vat_amount, channel')
-          .gte('created_at', start)
-          .lte('created_at', end)
-          .eq('payment_status', 'paid');
-
-        const posOrders = data?.filter(o => o.channel === 'pos') || [];
-        const webOrders = data?.filter(o => o.channel === 'web') || [];
-
-        results.push({
-          date: format(date, 'MMM d'),
-          sales: data?.reduce((sum, o) => sum + Number(o.total), 0) || 0,
-          vat: data?.reduce((sum, o) => sum + Number(o.vat_amount), 0) || 0,
-          orders: data?.length || 0,
-          posTotal: posOrders.reduce((sum, o) => sum + Number(o.total), 0),
-          webTotal: webOrders.reduce((sum, o) => sum + Number(o.total), 0),
-          posCount: posOrders.length,
-          webCount: webOrders.length,
-        });
-      }
-      return results;
+      const { data } = await axios.get(`/api/admin/reports/dashboard?days=${days}`);
+      return data;
     }
   });
+
+  // Sales by day — from API or demo
+  const dailySales = isDemoMode
+    ? generateDemoDailySales(days)
+    : dashboardData?.daily_sales?.map((d: any) => ({
+        date: d.date,
+        sales: Number(d.sales) || 0,
+        vat: Number(d.vat) || 0,
+        orders: Number(d.orders) || 0,
+        posTotal: 0,
+        webTotal: 0,
+        posCount: 0,
+        webCount: 0,
+      })) || [];
 
   // Sales by cashier
-  const { data: cashierSales } = useQuery({
-    queryKey: ['admin-cashier-sales', days, isDemoMode],
-    queryFn: async () => {
-      if (isDemoMode) {
-        return DEMO_CASHIER_SALES;
-      }
-
-      const start = startOfDay(subDays(new Date(), days)).toISOString();
-      const { data } = await supabase
-        .from('orders')
-        .select('total, staff:staff(name)')
-        .gte('created_at', start)
-        .eq('channel', 'pos')
-        .eq('payment_status', 'paid');
-
-      const staffMap = new Map<string, { name: string; total: number; count: number }>();
-      data?.forEach(order => {
-        const staffName = order.staff?.name || 'Unknown';
-        const existing = staffMap.get(staffName) || { name: staffName, total: 0, count: 0 };
-        existing.total += Number(order.total);
-        existing.count += 1;
-        staffMap.set(staffName, existing);
-      });
-
-      return Array.from(staffMap.values()).sort((a, b) => b.total - a.total);
-    }
-  });
+  const cashierSales = isDemoMode
+    ? DEMO_CASHIER_SALES
+    : dashboardData?.cashier_sales || [];
 
   // Top selling products
-  const { data: topProducts } = useQuery({
-    queryKey: ['admin-top-products', isDemoMode],
-    queryFn: async () => {
-      if (isDemoMode) {
-        return DEMO_TOP_PRODUCTS;
-      }
-
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('name, sku, qty, line_total');
-
-      const productMap = new Map<string, { name: string; sku: string; qty: number; revenue: number }>();
-      items?.forEach(item => {
-        const existing = productMap.get(item.sku);
-        if (existing) {
-          existing.qty += item.qty;
-          existing.revenue += Number(item.line_total);
-        } else {
-          productMap.set(item.sku, {
-            name: item.name,
-            sku: item.sku,
-            qty: item.qty,
-            revenue: Number(item.line_total),
-          });
-        }
-      });
-
-      return Array.from(productMap.values())
-        .sort((a, b) => b.qty - a.qty)
-        .slice(0, 10);
-    }
-  });
+  const topProducts = isDemoMode
+    ? DEMO_TOP_PRODUCTS
+    : dashboardData?.top_products?.map((p: any) => ({
+        name: p.product?.name || 'Unknown',
+        sku: p.product?.sku || '',
+        qty: Number(p.total_qty) || 0,
+        revenue: Number(p.total_revenue) || 0,
+      })) || [];
 
   // Derive inventory summary from the array for demo mode
   const inventorySummary = isDemoMode ? {

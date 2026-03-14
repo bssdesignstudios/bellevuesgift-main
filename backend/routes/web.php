@@ -10,6 +10,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\VendorController;
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -77,8 +78,14 @@ Route::get('/shop', function () {
 })->name('shop');
 
 Route::get('/product/{slug}', function ($slug) {
+    $product = Product::with(['category', 'inventory'])
+        ->where('slug', $slug)
+        ->where('is_active', true)
+        ->first();
+
     return Inertia::render('ProductPage', [
         'slug' => $slug,
+        'product' => $product,
     ]);
 })->name('product');
 
@@ -97,7 +104,13 @@ Route::get('/checkout', function () {
 Route::post('/api/storefront/checkout', [\App\Http\Controllers\StorefrontCheckoutController::class, 'store']);
 
 Route::get('/checkout/success/{id}', function ($id) {
-    return Inertia::render('CheckoutSuccessPage', ['id' => $id]);
+    $order = Order::with('items')->find($id);
+
+    return Inertia::render('CheckoutSuccessPage', [
+        'id' => $id,
+        'order' => $order,
+        'orderItems' => $order?->items ?? [],
+    ]);
 })->name('checkout.success');
 
 Route::get('/repair', function () {
@@ -105,7 +118,20 @@ Route::get('/repair', function () {
 })->name('repair');
 
 Route::get('/sale', function () {
+    try {
+        $products = Product::with('category')->where('is_active', true)->whereNotNull('sale_price')->get();
+    } catch (\Throwable) {
+        $products = [];
+    }
+    try {
+        $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
+    } catch (\Throwable) {
+        $categories = [];
+    }
+
     return Inertia::render('ShopPage', [
+        'products' => $products,
+        'categories' => $categories,
         'filter' => 'sale',
     ]);
 })->name('sale');
@@ -124,11 +150,28 @@ Route::get('/gift-cards/balance', function () {
 })->name('gift-cards.balance');
 
 Route::get('/category/{slug}', function ($slug) {
-    return Inertia::render('CategoryPage', ['slug' => $slug]);
+    $category = Category::where('slug', $slug)->where('is_active', true)->first();
+    $products = $category
+        ? Product::with(['category', 'inventory'])
+            ->where('category_id', $category->id)
+            ->where('is_active', true)
+            ->get()
+        : [];
+
+    return Inertia::render('CategoryPage', [
+        'slug' => $slug,
+        'category' => $category,
+        'products' => $products,
+    ]);
 })->name('category');
 
 Route::get('/orders/{id}', function ($id) {
-    return Inertia::render('OrderPage', ['id' => $id]);
+    $order = Order::with(['items', 'customer'])->find($id);
+
+    return Inertia::render('OrderPage', [
+        'id' => $id,
+        'order' => $order,
+    ]);
 })->name('orders.show');
 
 Route::get('/staff/login', function () {

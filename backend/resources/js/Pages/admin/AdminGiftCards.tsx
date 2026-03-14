@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,16 +23,6 @@ interface GiftCard {
   used_at: string | null;
 }
 
-function generateGiftCardCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 16; i++) {
-    if (i > 0 && i % 4 === 0) code += '-';
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
 export default function AdminGiftCards() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,33 +32,20 @@ export default function AdminGiftCards() {
   const { data: giftCards, isLoading } = useQuery({
     queryKey: ['admin-gift-cards', searchQuery],
     queryFn: async () => {
-      let query = supabase
-        .from('gift_cards')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const params: Record<string, string> = {};
+      if (searchQuery) params.search = searchQuery;
 
-      if (searchQuery) {
-        query = query.ilike('code', `%${searchQuery}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      const { data } = await axios.get('/api/admin/gift-cards', { params });
       return data as GiftCard[];
     },
   });
 
   const createCardMutation = useMutation({
     mutationFn: async (amount: number) => {
-      const code = generateGiftCardCode();
-      const { error } = await supabase
-        .from('gift_cards')
-        .insert({
-          code,
-          initial_balance: amount,
-          balance: amount,
-        });
-      if (error) throw error;
-      return code;
+      const { data } = await axios.post('/api/admin/gift-cards', {
+        initial_balance: amount,
+      });
+      return data.code;
     },
     onSuccess: (code) => {
       queryClient.invalidateQueries({ queryKey: ['admin-gift-cards'] });
@@ -77,24 +54,20 @@ export default function AdminGiftCards() {
       toast.success(`Gift card created: ${code}`);
     },
     onError: (error: any) => {
-      toast.error('Failed to create gift card: ' + error.message);
+      toast.error('Failed to create gift card: ' + (error.response?.data?.message || error.message));
     },
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase
-        .from('gift_cards')
-        .update({ is_active })
-        .eq('id', id);
-      if (error) throw error;
+    mutationFn: async ({ id }: { id: string }) => {
+      await axios.patch(`/api/admin/gift-cards/${id}/toggle-active`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-gift-cards'] });
       toast.success('Gift card updated');
     },
     onError: (error: any) => {
-      toast.error('Failed to update: ' + error.message);
+      toast.error('Failed to update: ' + (error.response?.data?.message || error.message));
     },
   });
 
@@ -269,7 +242,7 @@ export default function AdminGiftCards() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => toggleActiveMutation.mutate({ id: card.id, is_active: !card.is_active })}
+                        onClick={() => toggleActiveMutation.mutate({ id: card.id })}
                       >
                         {card.is_active ? (
                           <>
