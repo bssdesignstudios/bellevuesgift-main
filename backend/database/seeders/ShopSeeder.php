@@ -13,32 +13,54 @@ class ShopSeeder extends Seeder
     public function run(): void
     {
         // 1. Users
-        if (!User::where('email', 'admin@bellevue.com')->exists()) {
-            User::create([
-                'name' => 'Admin User',
-                'email' => 'admin@bellevue.com',
-                'password' => bcrypt('password'),
-                'role' => 'admin',
-            ]);
-        }
+        User::updateOrCreate(
+            ['email' => 'admin@bellevuegifts.com'],
+            ['name' => 'Admin User', 'password' => bcrypt('password'), 'role' => 'admin']
+        );
 
-        if (!User::where('email', 'cashier@bellevue.com')->exists()) {
-            User::create([
-                'name' => 'Cashier User',
-                'email' => 'cashier@bellevue.com',
-                'password' => bcrypt('password'),
-                'role' => 'cashier',
-            ]);
-        }
+        User::updateOrCreate(
+            ['email' => 'cashier@bellevuegifts.com'],
+            ['name' => 'Cashier User', 'password' => bcrypt('password'), 'role' => 'cashier']
+        );
 
-        if (!User::where('email', 'warehouse@bellevue.com')->exists()) {
-            User::create([
-                'name' => 'Warehouse Manager',
-                'email' => 'warehouse@bellevue.com',
-                'password' => bcrypt('password'),
-                'role' => 'warehouse_manager',
-            ]);
-        }
+        User::updateOrCreate(
+            ['email' => 'warehouse@bellevuegifts.com'],
+            ['name' => 'Warehouse Manager', 'password' => bcrypt('password'), 'role' => 'warehouse_manager']
+        );
+
+        // Real staff accounts
+        User::updateOrCreate(
+            ['email' => 'daniella@bellevuegifts.com'],
+            ['name' => 'Daniella Forbes', 'password' => bcrypt('bellevue123'), 'role' => 'finance']
+        );
+        User::updateOrCreate(
+            ['email' => 'diamond@bellevuegifts.com'],
+            ['name' => 'Diamond Clarke', 'password' => bcrypt('bellevue123'), 'role' => 'cashier']
+        );
+        User::updateOrCreate(
+            ['email' => 'donnika@bellevuegifts.com'],
+            ['name' => 'Donnika Williams', 'password' => bcrypt('bellevue123'), 'role' => 'cashier']
+        );
+        User::updateOrCreate(
+            ['email' => 'adrian@bellevuegifts.com'],
+            ['name' => 'Adrian Williams', 'password' => bcrypt('bellevue123'), 'role' => 'admin']
+        );
+        User::updateOrCreate(
+            ['email' => 'theresa@bellevuegifts.com'],
+            ['name' => 'Theresa Tomlinson', 'password' => bcrypt('bellevue123'), 'role' => 'admin']
+        );
+        User::updateOrCreate(
+            ['email' => 'peter@bellevuegifts.com'],
+            ['name' => 'Peter Storr', 'password' => bcrypt('bellevue123'), 'role' => 'warehouse']
+        );
+        User::updateOrCreate(
+            ['email' => 'steve@bellevuegifts.com'],
+            ['name' => 'Steve McPhee', 'password' => bcrypt('bellevue123'), 'role' => 'warehouse']
+        );
+        User::updateOrCreate(
+            ['email' => 'jahmarli@bellevuegifts.com'],
+            ['name' => 'Jah-Marli Saunders', 'password' => bcrypt('bellevue123'), 'role' => 'warehouse']
+        );
 
         // 2. Categories — with SKU Prefix
         $categoryDefs = [
