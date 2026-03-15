@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,9 +32,9 @@ export default function StaffLoginPage() {
 
     toast.success('Login successful!');
 
-    // On POS domain, always go to /pos
+    // Full page navigation to ensure session cookie is established
     if (isPOSDomain()) {
-      router.visit('/pos');
+      window.location.href = '/pos';
       return;
     }
 
@@ -43,17 +42,17 @@ export default function StaffLoginPage() {
     const role = loggedInStaff?.role || '';
     switch (role) {
       case 'admin':
-        router.visit('/admin');
+        window.location.href = '/admin';
         break;
       case 'finance':
-        router.visit('/admin/reports');
+        window.location.href = '/admin/reports';
         break;
       case 'warehouse':
       case 'warehouse_manager':
-        router.visit('/admin/inventory');
+        window.location.href = '/admin/inventory';
         break;
       default:
-        router.visit('/pos');
+        window.location.href = '/pos';
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { usePage } from '@inertiajs/react';
+import axios from 'axios';
 import { Staff } from '@/types';
 
 // ── lightweight stand-in for the old Supabase User ──────────────────────────
@@ -39,12 +40,6 @@ function toStaff(data: { id: number | string; name: string; email: string; role:
     is_active: true,
     created_at: new Date().toISOString(),
   };
-}
-
-/** Read the CSRF token that Laravel bakes into the meta tag */
-function csrfToken(): string {
-  const meta = document.querySelector('meta[name="csrf-token"]');
-  return meta ? meta.getAttribute('content') ?? '' : '';
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -90,30 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── sign in ────────────────────────────────────────────────────────────────
   const signIn = async (email: string, password: string): Promise<{ error: Error | null; staff?: Staff | null }> => {
     try {
-      const res = await fetch('/staff/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfToken(),
-          Accept: 'application/json',
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        let message = 'Login failed';
-        try {
-          const body = await res.json();
-          // Laravel validation errors come as { errors: { email: ['...'] } }
-          message = body?.errors?.email?.[0] ?? body?.message ?? message;
-        } catch {
-          // non-JSON error body
-        }
-        return { error: new Error(message) };
-      }
-
-      const data = await res.json();          // { staff: { id, name, email, role } }
+      const { data } = await axios.post('/staff/login', { email, password });
       const s = toStaff(data.staff);
       setStaff(s);
       setUser({ id: data.staff.id, email: data.staff.email });
@@ -121,7 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { error: null, staff: s };
     } catch (err: any) {
-      return { error: err instanceof Error ? err : new Error(String(err)) };
+      const message = err?.response?.data?.errors?.email?.[0]
+        ?? err?.response?.data?.message
+        ?? 'Login failed';
+      return { error: new Error(message) };
     }
   };
 
@@ -130,14 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setImpersonating(null);
 
     try {
-      await fetch('/staff/logout', {
-        method: 'POST',
-        headers: {
-          'X-CSRF-TOKEN': csrfToken(),
-          Accept: 'application/json',
-        },
-        credentials: 'same-origin',
-      });
+      await axios.post('/staff/logout');
     } catch {
       // best-effort – clear local state regardless
     }
