@@ -17,7 +17,8 @@ export default function PosLoginPage() {
     try {
       const { data } = await axios.post('/pos/pin-login', { pin: fullPin });
       toast.success(`Welcome, ${data.staff.name}!`);
-      router.visit('/pos');
+      // Use full page navigation to ensure session cookie is established
+      window.location.href = '/pos';
     } catch (err: any) {
       const msg = err?.response?.data?.errors?.pin?.[0]
         ?? err?.response?.data?.message
