@@ -44,12 +44,16 @@ const ADMIN_NAV = [
 ];
 
 export function AdminSidebar() {
-  const { url } = usePage();
+  const { url, props } = usePage();
   const { effectiveStaff, signOut, impersonating, impersonate } = useAuth();
+
+  // Fallback: read staff directly from Inertia props if AuthContext hasn't synced yet
+  const pageStaff = (props as any)?.auth?.staff;
+  const currentStaff = effectiveStaff ?? (pageStaff ? { ...pageStaff, id: String(pageStaff.id), is_active: true, created_at: '' } : null);
 
   const filteredNav = ADMIN_NAV.filter(item => {
     if (!item.roles) return true;
-    return item.roles.includes(effectiveStaff?.role || '');
+    return item.roles.includes(currentStaff?.role || '');
   });
 
   return (
@@ -108,8 +112,8 @@ export function AdminSidebar() {
 
         <div className="flex items-center justify-between text-sm text-white/70">
           <div>
-            <div className="font-medium text-white line-clamp-1">{effectiveStaff?.name}</div>
-            <div className="capitalize">{effectiveStaff?.role?.replace('_', ' ')}</div>
+            <div className="font-medium text-white line-clamp-1">{currentStaff?.name}</div>
+            <div className="capitalize">{currentStaff?.role?.replace('_', ' ')}</div>
           </div>
           <Button
             variant="ghost"
