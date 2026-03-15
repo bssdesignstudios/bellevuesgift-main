@@ -39,15 +39,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     }
   }, [user, staff, loading, authError, effectiveStaff]);
 
-  // PWA Prompt logic for Cashiers (Audio request)
-  useEffect(() => {
-    if (effectiveStaff?.role === 'cashier') {
-      // NOTE: Real PWA 'beforeinstallprompt' logic would go here.
-      // For now, we ensure they are redirected as per the useEffect above.
-      console.log('Cashier logged in - PWA install prompt available');
-    }
-  }, [effectiveStaff]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">

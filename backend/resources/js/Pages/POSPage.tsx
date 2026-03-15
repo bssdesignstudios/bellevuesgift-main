@@ -19,6 +19,7 @@ import { useOfflineQueue } from '@/hooks/useOfflineQueue';
 import { useRegister } from '@/hooks/useRegister';
 import { OfflineIndicator } from '@/components/pos/OfflineIndicator';
 import { RegisterSelector } from '@/components/pos/RegisterSelector';
+import { isPOSDomain } from '@/lib/domain';
 
 export default function POSPage() {
   const { user, staff, loading, effectiveStaff, signOut, impersonating, impersonate } = useAuth();
@@ -38,10 +39,23 @@ export default function POSPage() {
     hasActiveSession
   } = useRegister(effectiveStaff?.id);
 
+  const onPOSDomain = isPOSDomain();
+
   // Focus search on mount
   useEffect(() => {
     searchInputRef.current?.focus();
   }, []);
+
+  // Warn before closing/refreshing if cart has items
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (cart.length > 0) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [cart.length]);
 
   // Auth check - POS MUST load directly for staff
   if (loading) {
@@ -129,7 +143,7 @@ export default function POSPage() {
             onSync={syncQueue}
           />
           <span className="text-sm opacity-70">Freeport Store</span>
-          {effectiveStaff?.role === 'admin' && (
+          {effectiveStaff?.role === 'admin' && !onPOSDomain && (
             <Link href="/admin">
               <Button variant="ghost" size="sm" className="text-header-foreground hover:bg-white/10 hover:text-white">
                 Admin

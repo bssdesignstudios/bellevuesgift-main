@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import bellevueLogo from '@/assets/bellevue-logo.webp';
+import { isPOSDomain } from '@/lib/domain';
 
 export default function StaffLoginPage() {
   const [email, setEmail] = useState('');
@@ -18,7 +19,7 @@ export default function StaffLoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await signIn(email, password);
+    const { error, staff: loggedInStaff } = await signIn(email, password);
 
     if (error) {
       if (error.message.includes('Email not confirmed')) {
@@ -31,9 +32,29 @@ export default function StaffLoginPage() {
     }
 
     toast.success('Login successful!');
-    // Navigate based on role (handled by server redirect or client check)
-    // We check the email as a simple heuristic for now, but real role data should come from the user object
-    router.visit(email.includes('admin') ? '/admin' : '/pos');
+
+    // On POS domain, always go to /pos
+    if (isPOSDomain()) {
+      router.visit('/pos');
+      return;
+    }
+
+    // On storefront domain, route by role
+    const role = loggedInStaff?.role || '';
+    switch (role) {
+      case 'admin':
+        router.visit('/admin');
+        break;
+      case 'finance':
+        router.visit('/admin/reports');
+        break;
+      case 'warehouse':
+      case 'warehouse_manager':
+        router.visit('/admin/inventory');
+        break;
+      default:
+        router.visit('/pos');
+    }
   };
 
   return (

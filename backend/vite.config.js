@@ -27,7 +27,7 @@ export default defineConfig({
                 // Don't precache Inertia page responses — use runtime caching instead
                 navigateFallback: '/offline',
                 // Only use navigate fallback for pure page loads that aren't auth or API
-                navigateFallbackAllowlist: [/^(?!\/api\/|\/staff\/|\/admin|\/pos).*$/],
+                navigateFallbackAllowlist: [/^(?!\/api\/|\/staff\/).*$/],
                 // Runtime caching strategies
                 runtimeCaching: [
                     // POS API: products & categories — stale-while-revalidate so POS works offline
@@ -67,16 +67,15 @@ export default defineConfig({
                             },
                         },
                     },
-                    // Supabase REST/storage — network-first
+                    // Static assets (images, SVGs) — cache-first
                     {
-                        urlPattern: /supabase\.co/,
-                        handler: 'NetworkFirst',
+                        urlPattern: /\.(png|jpg|jpeg|svg|webp|ico)$/,
+                        handler: 'CacheFirst',
                         options: {
-                            cacheName: 'supabase-cache',
-                            networkTimeoutSeconds: 5,
+                            cacheName: 'static-assets-cache',
                             expiration: {
-                                maxEntries: 50,
-                                maxAgeSeconds: 60 * 60, // 1 hour
+                                maxEntries: 100,
+                                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
                             },
                         },
                     },

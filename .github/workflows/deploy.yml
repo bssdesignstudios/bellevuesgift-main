@@ -31,4 +31,22 @@ jobs:
             php artisan queue:restart
             sudo systemctl reload php8.4-fpm
             chown -R www-data:www-data /var/www/bellevuesgift
+
+            # Deploy dual-domain Nginx config if not already set up
+            if ! grep -q 'bellevuepos.cloud' /etc/nginx/sites-available/bellevuesgift 2>/dev/null; then
+              echo "Setting up dual-domain Nginx config..."
+              cp /var/www/bellevuesgift/docs/nginx-dual-domain.conf /etc/nginx/sites-available/bellevuesgift
+              nginx -t && systemctl reload nginx
+              # Install certbot and get SSL certs
+              apt install -y certbot python3-certbot-nginx 2>/dev/null || true
+              certbot --nginx -d bellevuegifts.com -d www.bellevuegifts.com --non-interactive --agree-tos --email bellevuegifts242@gmail.com 2>/dev/null || true
+              certbot --nginx -d bellevuepos.cloud -d www.bellevuepos.cloud --non-interactive --agree-tos --email bellevuegifts242@gmail.com 2>/dev/null || true
+              # Update .env for production domains
+              cd /var/www/bellevuesgift/backend
+              sed -i 's|APP_URL=.*|APP_URL=https://bellevuegifts.com|' .env
+              grep -q 'SESSION_SECURE_COOKIE' .env || echo 'SESSION_SECURE_COOKIE=true' >> .env
+              sed -i 's|SESSION_SECURE_COOKIE=.*|SESSION_SECURE_COOKIE=true|' .env
+              php artisan config:cache
+            fi
+
             echo "Deployment complete"

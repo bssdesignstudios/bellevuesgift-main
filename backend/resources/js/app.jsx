@@ -10,6 +10,7 @@ import { CartProvider } from './contexts/CartContext';
 import { CustomerAuthProvider } from './contexts/CustomerAuthContext';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ createInertiaApp({
                             <CartProvider>
                                 <App {...props} />
                                 <Toaster position="top-center" richColors />
+                                <PWAInstallBanner />
                             </CartProvider>
                         </CustomerAuthProvider>
                     </AuthProvider>
