@@ -71,4 +71,9 @@ class User extends Authenticatable
 
         return in_array($this->role, $roles);
     }
+
+    public function assignedRegisters()
+    {
+        return $this->belongsToMany(Register::class, 'register_staff', 'user_id', 'register_id');
+    }
 }

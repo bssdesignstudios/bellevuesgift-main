@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import { Download, DollarSign, Package, Users, Wrench, BarChart3 } from 'lucide-react';
+import { Download, DollarSign, Package, Users, Wrench, BarChart3, Monitor } from 'lucide-react';
 import { isDemoModeEnabled } from '@/lib/demoSession';
 import {
   generateDemoDailySales,
@@ -72,6 +72,11 @@ export default function AdminOverview() {
     outOfStockItems: DEMO_INVENTORY_ANALYTICS.filter(i => i.qty_on_hand === 0).length,
     totalValue: DEMO_INVENTORY_ANALYTICS.reduce((sum, i) => sum + i.qty_on_hand * 499.99, 0),
   } : { totalItems: 0, lowStockItems: 0, outOfStockItems: 0, totalValue: 0 };
+
+  // Register sales
+  const registerSales = isDemoMode
+    ? []
+    : dashboardData?.register_sales || [];
 
   // Summary stats
   const totalSales = dailySales?.reduce((sum, d) => sum + d.sales, 0) || 0;
@@ -161,6 +166,7 @@ export default function AdminOverview() {
       <Tabs defaultValue="sales" className="space-y-4">
         <TabsList>
           <TabsTrigger value="sales">Sales</TabsTrigger>
+          <TabsTrigger value="registers">Registers</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
           <TabsTrigger value="repairs">Repairs</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
@@ -275,6 +281,75 @@ export default function AdminOverview() {
                     ))}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="registers" className="space-y-4">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Sales by Register</CardTitle>
+                <Monitor className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {registerSales.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Monitor className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No register sales data for this period</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Register</TableHead>
+                        <TableHead className="text-right">Transactions</TableHead>
+                        <TableHead className="text-right">Revenue</TableHead>
+                        <TableHead className="text-right">Avg/Transaction</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {registerSales.map((reg: any) => (
+                        <TableRow key={reg.register}>
+                          <TableCell className="font-medium">{reg.register}</TableCell>
+                          <TableCell className="text-right">{reg.count}</TableCell>
+                          <TableCell className="text-right font-bold">${Number(reg.total).toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            ${reg.count > 0 ? (Number(reg.total) / Number(reg.count)).toFixed(2) : '0.00'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Register Summary</CardTitle>
+                <CardDescription>Performance overview ({days} days)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span>Active Registers</span>
+                    <span className="font-bold">{registerSales.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t pt-2">
+                    <span>Total POS Revenue</span>
+                    <span className="font-bold">
+                      ${registerSales.reduce((sum: number, r: any) => sum + Number(r.total), 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-t pt-2">
+                    <span>Total Transactions</span>
+                    <span className="font-bold">
+                      {registerSales.reduce((sum: number, r: any) => sum + Number(r.count), 0)}
+                    </span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>

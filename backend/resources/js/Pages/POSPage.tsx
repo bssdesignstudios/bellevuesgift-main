@@ -21,6 +21,8 @@ import { useRegister } from '@/hooks/useRegister';
 import { OfflineIndicator } from '@/components/pos/OfflineIndicator';
 import { RegisterSelector } from '@/components/pos/RegisterSelector';
 import { isPOSDomain } from '@/lib/domain';
+import { printReceipt } from '@/components/pos/ReceiptPrint';
+import { Printer } from 'lucide-react';
 
 export default function POSPage() {
   const { user, staff, loading, effectiveStaff, signOut, impersonating, impersonate } = useAuth();
@@ -33,14 +35,19 @@ export default function POSPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   // Offline queue and register hooks
   const { isOnline, pendingCount, isSyncing, addToQueue, syncQueue } = useOfflineQueue();
+
+  const onPOSDomain = isPOSDomain();
+
+  // Get staff UUID from Inertia page props for register session management
+  const pageProps = usePage().props as any;
+  const staffUuid = pageProps?.auth?.staff?.staff_uuid || effectiveStaff?.id;
+
   const {
     registers,
     activeRegisterId,
     openSession,
     hasActiveSession
-  } = useRegister(effectiveStaff?.id);
-
-  const onPOSDomain = isPOSDomain();
+  } = useRegister(staffUuid);
 
   // Focus search on mount
   useEffect(() => {
@@ -61,7 +68,6 @@ export default function POSPage() {
   // Server-side auth middleware already protects this route.
   // If this page rendered, the user IS authenticated.
   // Read staff from Inertia page props as reliable source of truth.
-  const pageProps = usePage().props as any;
   const pageStaff = pageProps?.auth?.staff;
   const resolvedStaff = effectiveStaff ?? (pageStaff ? {
     id: String(pageStaff.id),
@@ -544,6 +550,8 @@ function POSContent({
         total={total}
         couponCode={appliedCoupon?.code}
         staffId={effectiveStaff?.id}
+        staffName={effectiveStaff?.name || 'Staff'}
+        registerName={effectiveStaff ? 'Register' : ''}
         onSuccess={clearCart}
         isOnline={isOnline}
         addToQueue={addToQueue}
@@ -552,7 +560,7 @@ function POSContent({
   );
 }
 
-function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmount, total, couponCode, staffId, onSuccess, isOnline, addToQueue }: any) {
+function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmount, total, couponCode, staffId, staffName, registerName, onSuccess, isOnline, addToQueue }: any) {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'split' | 'gift_card'>('cash');
   const [giftCardCode, setGiftCardCode] = useState('');
   const [giftCardBalance, setGiftCardBalance] = useState<number | null>(null);
@@ -674,10 +682,37 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
             <div className={`text-center text-3xl font-bold ${receiptOrder.offline ? 'text-amber-600' : 'text-success'}`}>
               ${Number(receiptOrder.total).toFixed(2)}
             </div>
-            <Button className="w-full" onClick={handleClose}>
-              <Receipt className="h-4 w-4 mr-2" />
-              Done
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => printReceipt({
+                  orderNumber: receiptOrder.order_number,
+                  date: new Date().toLocaleString(),
+                  cashier: staffName || 'Staff',
+                  register: registerName || 'POS',
+                  items: (receiptOrder.items || cart).map((item: any) => ({
+                    name: item.name || item.product?.name || '',
+                    sku: item.sku || item.product?.sku || '',
+                    qty: item.qty,
+                    unit_price: Number(item.unit_price || item.product?.price || 0),
+                    line_total: Number(item.line_total || (item.product?.price || 0) * item.qty),
+                  })),
+                  subtotal: Number(receiptOrder.subtotal || subtotal),
+                  discount: Number(receiptOrder.discount_amount || discount),
+                  vatAmount: Number(receiptOrder.vat_amount || vatAmount),
+                  total: Number(receiptOrder.total),
+                  paymentMethod: receiptOrder.payment_method || paymentMethod,
+                  offline: receiptOrder.offline,
+                })}
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print Receipt
+              </Button>
+              <Button className="flex-1" onClick={handleClose}>
+                Done
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">

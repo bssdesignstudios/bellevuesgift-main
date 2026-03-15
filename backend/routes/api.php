@@ -18,6 +18,7 @@ use App\Http\Controllers\AdminCustomerController;
 use App\Http\Controllers\AdminGiftCardController;
 use App\Http\Controllers\AdminCouponController;
 use App\Http\Controllers\AdminRepairTicketController;
+use App\Http\Controllers\RegisterController;
 
 /*
 |--------------------------------------------------------------------------
@@ -132,4 +133,10 @@ Route::prefix('admin')->group(function () {
     Route::post('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'addTask']);
     Route::patch('/repair-tickets/{id}/tasks/{taskId}', [AdminRepairTicketController::class, 'updateTask']);
     Route::get('/repair-tickets/staff', [AdminRepairTicketController::class, 'staff']);
+
+    // Registers
+    Route::get('/registers', [RegisterController::class, 'index']);
+    Route::post('/registers', [RegisterController::class, 'store']);
+    Route::put('/registers/{id}', [RegisterController::class, 'update']);
+    Route::post('/registers/{id}/assign', [RegisterController::class, 'assignStaff']);
 });

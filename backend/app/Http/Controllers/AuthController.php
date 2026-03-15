@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,9 +41,12 @@ class AuthController extends Controller
         Auth::login($user, remember: true);
         $request->session()->regenerate();
 
+        $staffRecord = $this->resolveStaff($user);
+
         return response()->json([
             'staff' => [
                 'id' => $user->id,
+                'staff_uuid' => $staffRecord->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
@@ -80,14 +84,33 @@ class AuthController extends Controller
         Auth::login($user, remember: true);
         $request->session()->regenerate();
 
+        $staffRecord = $this->resolveStaff($user);
+
         return response()->json([
             'staff' => [
                 'id' => $user->id,
+                'staff_uuid' => $staffRecord->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
             ],
         ]);
+    }
+
+    /**
+     * Find or create the staff record for a user, returning the staff UUID.
+     */
+    private function resolveStaff(User $user): Staff
+    {
+        return Staff::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'is_active' => true,
+            ]
+        );
     }
 
     /**

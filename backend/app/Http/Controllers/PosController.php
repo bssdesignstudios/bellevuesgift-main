@@ -19,9 +19,19 @@ use Illuminate\Http\Request;
 
 class PosController extends Controller
 {
-    public function getRegisters()
+    public function getRegisters(Request $request)
     {
-        return response()->json(Register::where('is_active', true)->orderBy('name')->get());
+        $user = $request->user();
+        $query = Register::where('is_active', true);
+
+        // Admins see all registers; other roles only see assigned ones
+        if ($user && $user->role !== 'admin') {
+            $query->whereHas('assignedStaff', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            });
+        }
+
+        return response()->json($query->orderBy('name')->get());
     }
 
     public function getCurrentSession(Request $request)

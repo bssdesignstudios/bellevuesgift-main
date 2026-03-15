@@ -16,7 +16,8 @@ import {
   Building2,
   Clock,
   Wallet,
-  RefreshCw
+  RefreshCw,
+  Monitor
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +35,7 @@ const ADMIN_NAV = [
   { label: 'Customers', href: '/admin/customers', icon: Users, roles: ['admin', 'finance'] },
   { label: 'Vendors', href: '/admin/vendors', icon: Building2, roles: ['admin', 'finance'] },
   { label: 'Staff', href: '/admin/staff', icon: UserCog, roles: ['admin'] },
+  { label: 'Registers', href: '/admin/registers', icon: Monitor, roles: ['admin'] },
   { label: 'Discounts', href: '/admin/discounts', icon: Tag, roles: ['admin', 'finance'] },
   { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin', 'finance'] },
   { label: 'Timesheets', href: '/admin/timesheets', icon: Clock, roles: ['admin', 'finance'] },

@@ -347,11 +347,15 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         })->name('admin.categories');
     });
 
-    // 4. Staff Management (Strictly Admin)
+    // 4. Staff Management & Registers (Strictly Admin)
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/staff', function () {
             return Inertia::render('admin/AdminStaff');
         })->name('admin.staff');
+
+        Route::get('/registers', function () {
+            return Inertia::render('admin/AdminRegisters');
+        })->name('admin.registers');
     });
 });
 

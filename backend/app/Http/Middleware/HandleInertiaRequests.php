@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Staff;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -40,13 +41,19 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'staff' => $user ? [
+                'staff' => $user ? array_merge([
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
-                ] : null,
+                ], $this->getStaffUuid($user)) : null,
             ],
         ];
+    }
+
+    private function getStaffUuid($user): array
+    {
+        $staff = Staff::where('user_id', $user->id)->first();
+        return $staff ? ['staff_uuid' => $staff->id] : [];
     }
 }

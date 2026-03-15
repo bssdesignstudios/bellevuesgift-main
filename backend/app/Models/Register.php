@@ -22,4 +22,19 @@ class Register extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function assignedStaff()
+    {
+        return $this->belongsToMany(User::class, 'register_staff', 'register_id', 'user_id');
+    }
+
+    public function sessions()
+    {
+        return $this->hasMany(RegisterSession::class);
+    }
+
+    public function activeSession()
+    {
+        return $this->hasOne(RegisterSession::class)->whereNull('closed_at')->latest('opened_at');
+    }
 }

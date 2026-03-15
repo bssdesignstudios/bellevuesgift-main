@@ -63,6 +63,22 @@ class AdminReportController extends Controller
                 ->orderByDesc('total_qty')
                 ->limit(10)
                 ->get(),
+
+            'register_sales' => Order::with('register:id,name')
+                ->select('register_id', DB::raw('sum(total) as total'), DB::raw('count(*) as count'))
+                ->whereBetween('created_at', [$start, $end])
+                ->where('channel', 'pos')
+                ->where('payment_status', 'paid')
+                ->whereNotNull('register_id')
+                ->groupBy('register_id')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'register' => $item->register->name ?? 'Unknown',
+                        'total' => $item->total,
+                        'count' => $item->count,
+                    ];
+                }),
         ];
 
         return response()->json($stats);

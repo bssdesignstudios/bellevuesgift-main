@@ -39,4 +39,9 @@ class Order extends Model
     {
         return $this->belongsTo(\App\Models\User::class, 'customer_id');
     }
+
+    public function register()
+    {
+        return $this->belongsTo(\App\Models\Register::class);
+    }
 }

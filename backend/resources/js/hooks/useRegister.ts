@@ -25,7 +25,15 @@ interface RegisterSession {
 export function useRegister(staffId: string | undefined) {
   const queryClient = useQueryClient();
   const [activeRegisterId, setActiveRegisterId] = useState<string | null>(() => {
-    return localStorage.getItem(REGISTER_STORAGE_KEY);
+    const stored = localStorage.getItem(REGISTER_STORAGE_KEY);
+    if (!stored) return null;
+    // Support both plain string and JSON format
+    try {
+      const parsed = JSON.parse(stored);
+      return parsed.registerId || stored;
+    } catch {
+      return stored;
+    }
   });
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
@@ -65,7 +73,11 @@ export function useRegister(staffId: string | undefined) {
     onSuccess: (data, variables) => {
       setActiveRegisterId(variables.registerId);
       setActiveSessionId(data.id);
-      localStorage.setItem(REGISTER_STORAGE_KEY, variables.registerId);
+      const reg = registers?.find(r => r.id === variables.registerId);
+      localStorage.setItem(REGISTER_STORAGE_KEY, JSON.stringify({
+        registerId: variables.registerId,
+        registerName: reg?.name || '',
+      }));
       queryClient.invalidateQueries({ queryKey: ['register-session'] });
       toast.success('Register session opened');
     },
@@ -108,7 +120,11 @@ export function useRegister(staffId: string | undefined) {
   // Select register
   const selectRegister = (registerId: string) => {
     setActiveRegisterId(registerId);
-    localStorage.setItem(REGISTER_STORAGE_KEY, registerId);
+    const reg = registers?.find(r => r.id === registerId);
+    localStorage.setItem(REGISTER_STORAGE_KEY, JSON.stringify({
+      registerId,
+      registerName: reg?.name || '',
+    }));
   };
 
   // Check if session is active
