@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class PosDomainRedirect
@@ -14,7 +15,8 @@ class PosDomainRedirect
             && $request->path() === '/'
             && !$request->ajax()
             && !$request->wantsJson()) {
-            return redirect('/pos');
+            // Authenticated POS users go straight to POS, others to PIN login
+            return redirect(Auth::check() ? '/pos' : '/pos/login');
         }
 
         return $next($request);

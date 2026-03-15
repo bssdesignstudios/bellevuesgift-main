@@ -13,7 +13,8 @@ class AdminStaffController extends Controller
     {
         $staff = User::where('role', '!=', 'customer')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->makeVisible('pos_pin');
 
         return response()->json($staff);
     }

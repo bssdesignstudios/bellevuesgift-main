@@ -32,16 +32,23 @@ jobs:
             sudo systemctl reload php8.4-fpm
             chown -R www-data:www-data /var/www/bellevuesgift
 
-            # Deploy dual-domain Nginx config if not already set up
-            if ! grep -q 'bellevuepos.cloud' /etc/nginx/sites-available/bellevuesgift 2>/dev/null; then
-              echo "Setting up dual-domain Nginx config..."
-              cp /var/www/bellevuesgift/docs/nginx-dual-domain.conf /etc/nginx/sites-available/bellevuesgift
-              nginx -t && systemctl reload nginx
-              # Install certbot and get SSL certs
-              apt install -y certbot python3-certbot-nginx 2>/dev/null || true
-              certbot --nginx -d bellevuegifts.com -d www.bellevuegifts.com --non-interactive --agree-tos --email bellevuegifts242@gmail.com 2>/dev/null || true
-              certbot --nginx -d bellevuepos.cloud -d www.bellevuepos.cloud --non-interactive --agree-tos --email bellevuegifts242@gmail.com 2>/dev/null || true
-              # Update .env for production domains
+            # Sync Nginx config from repo (preserves SSL blocks added by certbot)
+            # Only update the base config if it has changed
+            if ! diff -q /var/www/bellevuesgift/docs/nginx-dual-domain.conf /etc/nginx/sites-available/bellevuesgift.base 2>/dev/null; then
+              echo "Updating Nginx base config..."
+              cp /var/www/bellevuesgift/docs/nginx-dual-domain.conf /etc/nginx/sites-available/bellevuesgift.base
+              # If certbot hasn't set up SSL yet, use the base config directly
+              if ! grep -q 'ssl_certificate' /etc/nginx/sites-available/bellevuesgift 2>/dev/null; then
+                cp /var/www/bellevuesgift/docs/nginx-dual-domain.conf /etc/nginx/sites-available/bellevuesgift
+                nginx -t && systemctl reload nginx
+                apt install -y certbot python3-certbot-nginx 2>/dev/null || true
+                certbot --nginx -d bellevuegifts.com -d www.bellevuegifts.com --non-interactive --agree-tos --email bellevuegifts242@gmail.com 2>/dev/null || true
+                certbot --nginx -d bellevuepos.cloud -d www.bellevuepos.cloud --non-interactive --agree-tos --email bellevuegifts242@gmail.com 2>/dev/null || true
+              else
+                # SSL already configured — update redirect in existing config
+                sed -i 's|return 302 /pos;|return 302 /pos/login;|g' /etc/nginx/sites-available/bellevuesgift
+                nginx -t && systemctl reload nginx
+              fi
               cd /var/www/bellevuesgift/backend
               sed -i 's|APP_URL=.*|APP_URL=https://bellevuegifts.com|' .env
               grep -q 'SESSION_SECURE_COOKIE' .env || echo 'SESSION_SECURE_COOKIE=true' >> .env
