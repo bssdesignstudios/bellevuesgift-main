@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { router } from '@inertiajs/react';
-import { useAuth } from '@/contexts/AuthContext';
+import axios from 'axios';
 import { toast } from 'sonner';
 import bellevueLogo from '@/assets/bellevue-logo.webp';
 import { Delete } from 'lucide-react';
@@ -10,41 +10,19 @@ export default function PosLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const csrfToken = () => {
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    return meta ? meta.getAttribute('content') ?? '' : '';
-  };
-
   const handlePinSubmit = useCallback(async (fullPin: string) => {
     setLoading(true);
     setError('');
 
     try {
-      const res = await fetch('/pos/pin-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfToken(),
-          Accept: 'application/json',
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({ pin: fullPin }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const msg = body?.errors?.pin?.[0] ?? body?.message ?? 'Invalid PIN';
-        setError(msg);
-        setPin('');
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
+      const { data } = await axios.post('/pos/pin-login', { pin: fullPin });
       toast.success(`Welcome, ${data.staff.name}!`);
       router.visit('/pos');
-    } catch {
-      setError('Connection error. Please try again.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.errors?.pin?.[0]
+        ?? err?.response?.data?.message
+        ?? 'Invalid PIN';
+      setError(msg);
       setPin('');
       setLoading(false);
     }
