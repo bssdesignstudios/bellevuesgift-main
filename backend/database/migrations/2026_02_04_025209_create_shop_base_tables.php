@@ -27,7 +27,7 @@ return new class extends Migration {
             $table->string('sku')->unique();
             $table->string('barcode')->nullable();
             $table->text('description')->nullable();
-            $table->decimal('price', 10, 2);
+            $table->decimal('price', 10, 2)->default(0);
             $table->decimal('sale_price', 10, 2)->nullable();
             $table->string('tax_class')->default('standard');
             $table->string('image_url')->nullable();
