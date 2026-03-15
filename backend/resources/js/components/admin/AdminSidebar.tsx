@@ -54,10 +54,14 @@ export function AdminSidebar() {
   const filteredNav = ADMIN_NAV.filter(item => {
     if (!item.roles) return true;
     
-    // Normalize user role defensively
-    const userRole = (currentStaff?.role || '').toLowerCase().replace(/ /g, '_');
+    // Normalize user role extremely defensively
+    const rawRole = currentStaff?.role;
+    if (!rawRole) return false;
     
-    return item.roles.includes(userRole as any);
+    // Convert to string safely incase it's a number or something weird
+    const userRoleStr = String(rawRole).toLowerCase().replace(/\s+/g, '_');
+    
+    return item.roles.includes(userRoleStr as any);
   });
 
   return (
@@ -116,8 +120,12 @@ export function AdminSidebar() {
 
         <div className="flex items-center justify-between text-sm text-white/70">
           <div>
-            <div className="font-medium text-white line-clamp-1">{currentStaff?.name}</div>
-            <div className="capitalize">{currentStaff?.role?.replace('_', ' ')}</div>
+            <div className="font-medium text-white line-clamp-1">
+              {currentStaff?.name ? String(currentStaff.name) : 'Unknown User'}
+            </div>
+            <div className="capitalize text-xs text-white/50">
+              {currentStaff?.role ? String(currentStaff.role).replace(/_/g, ' ') : 'No Role'}
+            </div>
           </div>
           <Button
             variant="ghost"
