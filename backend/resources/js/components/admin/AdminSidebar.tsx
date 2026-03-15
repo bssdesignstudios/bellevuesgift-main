@@ -53,7 +53,11 @@ export function AdminSidebar() {
 
   const filteredNav = ADMIN_NAV.filter(item => {
     if (!item.roles) return true;
-    return item.roles.includes(currentStaff?.role || '');
+    
+    // Normalize user role defensively
+    const userRole = (currentStaff?.role || '').toLowerCase().replace(/ /g, '_');
+    
+    return item.roles.includes(userRole as any);
   });
 
   return (
