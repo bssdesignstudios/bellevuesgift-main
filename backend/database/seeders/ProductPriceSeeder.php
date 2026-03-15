@@ -193,10 +193,11 @@ class ProductPriceSeeder extends Seeder
             }
 
             foreach ($catGroup['products'] as $p) {
-                // Skip if SKU already exists
-                if (Product::where('sku', $p['sku'])->exists()) {
+                $slug = Str::slug($p['name']);
+                // Skip if SKU or slug already exists
+                if (Product::where('sku', $p['sku'])->orWhere('slug', $slug)->exists()) {
                     // Just make sure price is set
-                    $existing = Product::where('sku', $p['sku'])->first();
+                    $existing = Product::where('sku', $p['sku'])->orWhere('slug', $slug)->first();
                     if ($existing && ($existing->price == 0 || $existing->price === null)) {
                         $existing->cost = $p['cost'];
                         $existing->markup_percentage = $p['markup'];
@@ -209,7 +210,7 @@ class ProductPriceSeeder extends Seeder
                     'id' => Str::uuid(),
                     'category_id' => $categoryId,
                     'name' => $p['name'],
-                    'slug' => Str::slug($p['name']),
+                    'slug' => $slug,
                     'sku' => $p['sku'],
                     'barcode' => $this->generateEAN13($barcodeSeq++),
                     'cost' => $p['cost'],
