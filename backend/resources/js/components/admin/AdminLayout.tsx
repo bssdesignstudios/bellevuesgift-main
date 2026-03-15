@@ -1,4 +1,5 @@
-import { Link, router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminSidebar } from './AdminSidebar';
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
@@ -10,43 +11,40 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, staff, loading, effectiveStaff, authError, retryAuth } = useAuth();
+  const { effectiveStaff, authError, retryAuth } = useAuth();
+
+  // Read directly from Inertia page props as reliable source of truth
+  const pageProps = usePage().props as any;
+  const pageStaff = pageProps?.auth?.staff;
+  const resolvedStaff = effectiveStaff ?? (pageStaff ? {
+    id: String(pageStaff.id),
+    name: pageStaff.name,
+    email: pageStaff.email,
+    role: pageStaff.role,
+  } : null);
 
   useEffect(() => {
-    if (!loading && !authError) {
-      if (!user || !staff) {
-        router.visit('/staff/login');
-      } else {
-        const role = effectiveStaff?.role;
+    if (!authError && resolvedStaff) {
+      const role = resolvedStaff.role;
 
-        // 1. Cashier role always redirects to POS
-        if (role === 'cashier') {
-          router.visit('/pos');
-          return;
-        }
+      // 1. Cashier role always redirects to POS
+      if (role === 'cashier') {
+        window.location.href = '/pos';
+        return;
+      }
 
-        // 2. Redirect warehouse staff to inventory if they hit the admin root
-        if ((role === 'warehouse' || role === 'warehouse_manager') && window.location.pathname === '/admin') {
-          router.visit('/admin/inventory');
-          return;
-        }
+      // 2. Redirect warehouse staff to inventory if they hit the admin root
+      if ((role === 'warehouse' || role === 'warehouse_manager') && window.location.pathname === '/admin') {
+        window.location.href = '/admin/inventory';
+        return;
+      }
 
-        const allowedRoles = ['admin', 'finance', 'warehouse', 'warehouse_manager'];
-        if (!allowedRoles.includes(role || '')) {
-          router.visit('/not-authorized');
-        }
+      const allowedRoles = ['admin', 'finance', 'warehouse', 'warehouse_manager'];
+      if (!allowedRoles.includes(role || '')) {
+        window.location.href = '/not-authorized';
       }
     }
-  }, [user, staff, loading, authError, effectiveStaff]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Loading admin dashboard...</p>
-      </div>
-    );
-  }
+  }, [resolvedStaff?.id, authError]);
 
   if (authError) {
     return (
@@ -67,13 +65,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  if (!user || !staff) {
-    return null; // Redirect handled by useEffect
+  if (!resolvedStaff) {
+    // Server-side auth middleware protects admin routes.
+    // If we get here without staff, redirect to login.
+    window.location.href = '/staff/login';
+    return null;
   }
 
-  // Check role access - cashiers cannot access admin
+  // Check role access
   const allowedRoles = ['admin', 'finance', 'warehouse', 'warehouse_manager'];
-  if (!allowedRoles.includes(effectiveStaff?.role || '')) {
+  if (!allowedRoles.includes(resolvedStaff.role || '')) {
     return null; // Redirect handled by useEffect
   }
 

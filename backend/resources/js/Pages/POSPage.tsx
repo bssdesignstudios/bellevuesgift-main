@@ -13,7 +13,8 @@ import { playBeep } from '@/lib/beep';
 import { VAT_RATE } from '@/lib/constants';
 import { Product, Category, CartItem, Order } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link, router as inertiaRouter } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import bellevueLogo from '@/assets/bellevue-logo.webp';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
 import { useRegister } from '@/hooks/useRegister';
@@ -57,25 +58,29 @@ export default function POSPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [cart.length]);
 
-  // Auth check - POS MUST load directly for staff
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading POS...</p>
-        </div>
-      </div>
-    );
-  }
+  // Server-side auth middleware already protects this route.
+  // If this page rendered, the user IS authenticated.
+  // Read staff from Inertia page props as reliable source of truth.
+  const pageProps = usePage().props as any;
+  const pageStaff = pageProps?.auth?.staff;
+  const resolvedStaff = effectiveStaff ?? (pageStaff ? {
+    id: String(pageStaff.id),
+    name: pageStaff.name,
+    email: pageStaff.email,
+    role: pageStaff.role,
+    auth_user_id: null,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  } as any : null);
 
-  if (!user || !staff) {
-    inertiaRouter.visit(onPOSDomain ? '/pos/login' : '/staff/login', { replace: true });
+  if (!resolvedStaff) {
+    // Truly unauthenticated — redirect to login
+    window.location.href = onPOSDomain ? '/pos/login' : '/staff/login';
     return null;
   }
 
   const allowedRoles = ['admin', 'cashier', 'warehouse', 'warehouse_manager'];
-  if (!allowedRoles.includes(effectiveStaff?.role || '')) {
+  if (!allowedRoles.includes(resolvedStaff?.role || '')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
