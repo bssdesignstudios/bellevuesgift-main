@@ -409,6 +409,17 @@ Route::get('/returns', function () {
     return Inertia::render('ReturnsPage');
 })->name('returns');
 
+// Temporary: clear opcache (remove after deploy)
+Route::get('/ops/clear-cache', function () {
+    if (function_exists('opcache_reset')) {
+        opcache_reset();
+    }
+    \Illuminate\Support\Facades\Artisan::call('view:clear');
+    \Illuminate\Support\Facades\Artisan::call('config:clear');
+    \Illuminate\Support\Facades\Artisan::call('route:clear');
+    return response()->json(['status' => 'cleared', 'time' => now()->toDateTimeString()]);
+});
+
 // Fallback
 Route::fallback(function () {
     return Inertia::render('NotFound');
