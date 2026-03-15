@@ -156,6 +156,7 @@ export default function AdminStaff() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>POS PIN</TableHead>
                 <TableHead>Active</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -169,6 +170,9 @@ export default function AdminStaff() {
                     <Badge variant="secondary" className="capitalize">
                       {s.role.replace('_', ' ')}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {['admin', 'cashier'].includes(s.role) ? (s.pos_pin || '—') : '—'}
                   </TableCell>
                   <TableCell>
                     <Switch
@@ -239,6 +243,7 @@ function StaffForm({
     email: staff?.email || '',
     role: staff?.role || 'cashier',
     password: '',
+    pos_pin: staff?.pos_pin || '',
     is_active: staff?.is_active ?? true,
   });
 
@@ -254,6 +259,7 @@ function StaffForm({
         email: form.email,
         role: form.role,
         is_active: form.is_active,
+        pos_pin: ['admin', 'cashier'].includes(form.role) ? (form.pos_pin || null) : null,
       };
 
       // Password required on create, optional on edit
@@ -318,6 +324,24 @@ function StaffForm({
           </SelectContent>
         </Select>
       </div>
+
+      {['admin', 'cashier'].includes(form.role) && (
+        <div className="space-y-2">
+          <Label>POS PIN <span className="text-muted-foreground text-xs">(4 digits for POS login)</span></Label>
+          <Input
+            value={form.pos_pin}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+              setForm({ ...form, pos_pin: v });
+            }}
+            placeholder="e.g. 1234"
+            maxLength={4}
+            inputMode="numeric"
+            pattern="[0-9]{4}"
+            className="font-mono tracking-widest"
+          />
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         <Switch checked={form.is_active} onCheckedChange={(checked) => setForm({ ...form, is_active: checked })} />

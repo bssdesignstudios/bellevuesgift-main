@@ -12,7 +12,11 @@ class RoleMiddleware
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
         if (! Auth::check()) {
-            return redirect('/login');
+            // POS domain → PIN login, everything else → staff login
+            $loginUrl = $request->getHost() === 'bellevuepos.cloud'
+                ? '/pos/login'
+                : '/staff/login';
+            return redirect($loginUrl);
         }
 
         $user = Auth::user();

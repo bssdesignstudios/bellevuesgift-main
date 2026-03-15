@@ -72,6 +72,7 @@ export interface Staff {
   email: string;
   role: 'cashier' | 'warehouse' | 'warehouse_manager' | 'admin' | 'finance';
   is_active: boolean;
+  pos_pin?: string | null;
   created_at: string;
 }
 

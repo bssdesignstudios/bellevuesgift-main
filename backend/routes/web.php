@@ -179,7 +179,13 @@ Route::get('/staff/login', function () {
 })->name('staff.login');
 
 Route::post('/staff/login', [AuthController::class, 'login'])->name('staff.login.post');
+Route::post('/pos/pin-login', [AuthController::class, 'pinLogin'])->name('pos.pin-login');
 Route::post('/staff/logout', [AuthController::class, 'logout'])->name('staff.logout');
+
+// POS login page (PIN-based)
+Route::get('/pos/login', function () {
+    return Inertia::render('PosLoginPage');
+})->name('pos.login');
 
 Route::get('/not-authorized', function () {
     return Inertia::render('NotAuthorizedPage');

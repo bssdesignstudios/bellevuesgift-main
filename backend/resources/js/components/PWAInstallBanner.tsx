@@ -1,10 +1,13 @@
 import { Monitor, X, Share } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { isPOSDomain } from '@/lib/domain';
 
 export function PWAInstallBanner() {
   const { canInstall, install, dismiss, showSafariHint } = usePWAInstall();
 
+  // Only show install prompt on the POS domain
+  if (!isPOSDomain()) return null;
   if (!canInstall && !showSafariHint) return null;
 
   // Safari: show manual instructions
@@ -17,7 +20,7 @@ export function PWAInstallBanner() {
         <div className="flex items-start gap-3">
           <Share className="mt-0.5 h-5 w-5 shrink-0 text-blue-300" />
           <div>
-            <p className="font-semibold text-sm">Install Bellevue Gifts</p>
+            <p className="font-semibold text-sm">Install Bellevue POS</p>
             <p className="mt-1 text-xs text-white/80">
               Tap the <strong>Share</strong> button in Safari, then select <strong>"Add to Dock"</strong> to install this app.
             </p>
@@ -36,7 +39,7 @@ export function PWAInstallBanner() {
       <div className="flex items-center gap-3">
         <Monitor className="h-6 w-6 shrink-0 text-blue-300" />
         <div className="flex-1">
-          <p className="font-semibold text-sm">Install Bellevue Gifts</p>
+          <p className="font-semibold text-sm">Install Bellevue POS</p>
           <p className="text-xs text-white/80">Get quick access from your desktop</p>
         </div>
         <Button

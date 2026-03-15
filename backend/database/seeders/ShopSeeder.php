@@ -15,12 +15,12 @@ class ShopSeeder extends Seeder
         // 1. Users
         User::updateOrCreate(
             ['email' => 'admin@bellevuegifts.com'],
-            ['name' => 'Admin User', 'password' => bcrypt('password'), 'role' => 'admin']
+            ['name' => 'Admin User', 'password' => bcrypt('password'), 'role' => 'admin', 'pos_pin' => '0000']
         );
 
         User::updateOrCreate(
             ['email' => 'cashier@bellevuegifts.com'],
-            ['name' => 'Cashier User', 'password' => bcrypt('password'), 'role' => 'cashier']
+            ['name' => 'Cashier User', 'password' => bcrypt('password'), 'role' => 'cashier', 'pos_pin' => '1111']
         );
 
         User::updateOrCreate(
@@ -35,19 +35,19 @@ class ShopSeeder extends Seeder
         );
         User::updateOrCreate(
             ['email' => 'diamond@bellevuegifts.com'],
-            ['name' => 'Diamond Clarke', 'password' => bcrypt('bellevue123'), 'role' => 'cashier']
+            ['name' => 'Diamond Clarke', 'password' => bcrypt('bellevue123'), 'role' => 'cashier', 'pos_pin' => '2001']
         );
         User::updateOrCreate(
             ['email' => 'donnika@bellevuegifts.com'],
-            ['name' => 'Donnika Williams', 'password' => bcrypt('bellevue123'), 'role' => 'cashier']
+            ['name' => 'Donnika Williams', 'password' => bcrypt('bellevue123'), 'role' => 'cashier', 'pos_pin' => '2002']
         );
         User::updateOrCreate(
             ['email' => 'adrian@bellevuegifts.com'],
-            ['name' => 'Adrian Williams', 'password' => bcrypt('bellevue123'), 'role' => 'admin']
+            ['name' => 'Adrian Williams', 'password' => bcrypt('bellevue123'), 'role' => 'admin', 'pos_pin' => '1001']
         );
         User::updateOrCreate(
             ['email' => 'theresa@bellevuegifts.com'],
-            ['name' => 'Theresa Tomlinson', 'password' => bcrypt('bellevue123'), 'role' => 'admin']
+            ['name' => 'Theresa Tomlinson', 'password' => bcrypt('bellevue123'), 'role' => 'admin', 'pos_pin' => '1002']
         );
         User::updateOrCreate(
             ['email' => 'peter@bellevuegifts.com'],

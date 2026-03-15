@@ -51,6 +51,46 @@ class AuthController extends Controller
     }
 
     /**
+     * Authenticate a staff member via 4-digit POS PIN.
+     */
+    public function pinLogin(Request $request)
+    {
+        $request->validate([
+            'pin' => ['required', 'string', 'size:4'],
+        ]);
+
+        $user = User::where('pos_pin', $request->pin)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'pin' => ['Invalid PIN.'],
+            ]);
+        }
+
+        // Only cashier and admin can use POS PIN login
+        $posRoles = ['admin', 'cashier'];
+        if (! in_array($user->role, $posRoles)) {
+            throw ValidationException::withMessages([
+                'pin' => ['This account does not have POS access.'],
+            ]);
+        }
+
+        Auth::login($user, remember: true);
+        $request->session()->regenerate();
+
+        return response()->json([
+            'staff' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
+        ]);
+    }
+
+    /**
      * Log the current user out.
      */
     public function logout(Request $request)

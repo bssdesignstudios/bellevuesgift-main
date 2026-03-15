@@ -26,6 +26,7 @@ class AdminStaffController extends Controller
             'role' => 'required|in:cashier,warehouse,warehouse_manager,admin,finance',
             'password' => 'required|string|min:6',
             'is_active' => 'nullable|boolean',
+            'pos_pin' => 'nullable|string|size:4|unique:users,pos_pin',
         ]);
 
         $validated['password'] = bcrypt($validated['password']);
@@ -45,11 +46,17 @@ class AdminStaffController extends Controller
             'email' => 'sometimes|required|email|unique:users,email,' . $staff->id,
             'role' => 'sometimes|required|in:cashier,warehouse,warehouse_manager,admin,finance',
             'is_active' => 'sometimes|boolean',
+            'pos_pin' => 'nullable|string|size:4|unique:users,pos_pin,' . $staff->id,
         ]);
 
         if ($request->filled('password')) {
             $request->validate(['password' => 'string|min:6']);
             $validated['password'] = bcrypt($request->input('password'));
+        }
+
+        // Allow clearing the PIN by sending empty string
+        if ($request->has('pos_pin') && $request->input('pos_pin') === '') {
+            $validated['pos_pin'] = null;
         }
 
         $staff->update($validated);

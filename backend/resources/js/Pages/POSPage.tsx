@@ -70,7 +70,7 @@ export default function POSPage() {
   }
 
   if (!user || !staff) {
-    inertiaRouter.visit('/staff/login', { replace: true });
+    inertiaRouter.visit(onPOSDomain ? '/pos/login' : '/staff/login', { replace: true });
     return null;
   }
 
