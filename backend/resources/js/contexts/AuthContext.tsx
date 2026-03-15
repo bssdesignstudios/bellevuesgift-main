@@ -43,13 +43,6 @@ function toStaff(data: { id: number | string; name: string; email: string; role:
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // ── state ──────────────────────────────────────────────────────────────────
-  const [user, setUser] = useState<SimpleUser | null>(null);
-  const [staff, setStaff] = useState<Staff | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [impersonating, setImpersonating] = useState<Staff | null>(null);
-
   // ── bootstrap from Inertia shared props ──────────────────────────────────
   // usePage() is only callable inside a component tree rendered by Inertia.
   // We wrap in try/catch so the provider can still mount outside Inertia (tests).
@@ -61,11 +54,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // outside Inertia – ignore
   }
 
-  const initializeAuth = useCallback(() => {
-    setLoading(true);
-    setAuthError(null);
+  // ── state — initialize directly from server props (no useEffect delay) ──
+  const [user, setUser] = useState<SimpleUser | null>(() =>
+    serverStaff ? { id: serverStaff.id, email: serverStaff.email } : null
+  );
+  const [staff, setStaff] = useState<Staff | null>(() =>
+    serverStaff ? toStaff(serverStaff) : null
+  );
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState<Staff | null>(null);
 
-    // Real session – trust what the server shared via Inertia
+  // Keep state in sync when Inertia page props change (e.g. navigating between pages)
+  useEffect(() => {
     if (serverStaff) {
       const s = toStaff(serverStaff);
       setStaff(s);
@@ -74,13 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStaff(null);
       setUser(null);
     }
-
-    setLoading(false);
-  }, [serverStaff]);
-
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
+  }, [serverStaff?.id]);
 
   // ── sign in ────────────────────────────────────────────────────────────────
   const signIn = async (email: string, password: string): Promise<{ error: Error | null; staff?: Staff | null }> => {
@@ -126,8 +121,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const session = user ? { user } : null;
 
   const retryAuth = useCallback(() => {
-    initializeAuth();
-  }, [initializeAuth]);
+    // Force re-read from current Inertia page props
+    if (serverStaff) {
+      const s = toStaff(serverStaff);
+      setStaff(s);
+      setUser({ id: serverStaff.id, email: serverStaff.email });
+    } else {
+      setStaff(null);
+      setUser(null);
+    }
+  }, [serverStaff?.id]);
 
   return (
     <AuthContext.Provider
