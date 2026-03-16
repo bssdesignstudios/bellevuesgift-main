@@ -30,8 +30,13 @@ interface CustomerAuthContextType {
 const CustomerAuthContext = createContext<CustomerAuthContextType | undefined>(undefined);
 
 export function CustomerAuthProvider({ children }: { children: ReactNode }) {
-  const { props } = usePage();
-  const customer = (props as any).auth?.customer ?? null;
+  let customer = null;
+  try {
+    const page = usePage();
+    customer = (page.props as any).auth?.customer ?? null;
+  } catch (e) {
+    // Outside Inertia context
+  }
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
