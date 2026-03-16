@@ -6,8 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Search, Star } from 'lucide-react';
 import { format } from 'date-fns';
-import { isDemoModeEnabled } from '@/lib/demoSession';
-import { DEMO_CUSTOMERS } from '@/lib/demoData';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 interface CustomerWithFavorite {
@@ -22,28 +20,10 @@ interface CustomerWithFavorite {
 
 export default function AdminCustomers() {
   const [search, setSearch] = useState('');
-  const isDemoMode = isDemoModeEnabled();
 
   const { data: customers } = useQuery({
-    queryKey: ['admin-customers', search, isDemoMode],
+    queryKey: ['admin-customers', search],
     queryFn: async () => {
-      if (isDemoMode) {
-        let filtered = DEMO_CUSTOMERS as CustomerWithFavorite[];
-        if (search) {
-          const searchLower = search.toLowerCase();
-          filtered = filtered.filter(c =>
-            c.name.toLowerCase().includes(searchLower) ||
-            c.email?.toLowerCase().includes(searchLower) ||
-            c.phone?.includes(search)
-          );
-        }
-        return filtered.sort((a, b) => {
-          if (a.is_favorite && !b.is_favorite) return -1;
-          if (!a.is_favorite && b.is_favorite) return 1;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-      }
-
       const params: Record<string, string> = {};
       if (search) params.search = search;
 

@@ -2,7 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { AccountLayout } from '@/components/layout/AccountLayout';
 import { useQuery } from '@tanstack/react-query';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,41 +28,43 @@ const shippingSteps = [
   { key: 'delivered', label: 'Delivered', icon: CheckCircle }
 ];
 
+interface OrderItem {
+  id: string;
+  name: string;
+  sku: string;
+  qty: number;
+  line_total: number;
+}
+
+interface OrderDetail {
+  id: string;
+  order_number: string;
+  status: string;
+  total: number;
+  subtotal: number;
+  vat_amount: number;
+  discount_amount: number;
+  created_at: string;
+  fulfillment_method: string;
+  payment_status: string;
+  pickup_code?: string;
+  order_items: OrderItem[];
+}
+
 export default function AccountOrderDetailPage() {
   const { orderNumber } = usePage().props as unknown as { orderNumber: string };
   const { customer } = useCustomerAuth();
 
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading } = useQuery<OrderDetail>({
     queryKey: ['order-detail', orderNumber],
     queryFn: async () => {
-      if (!customer?.id) return null;
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('order_number', orderNumber)
-        .eq('customer_id', customer.id)
-        .maybeSingle();
-
-      if (error) throw error;
+      const { data } = await axios.get(`/api/customer/orders/${orderNumber}`);
       return data;
     },
     enabled: !!orderNumber && !!customer?.id
   });
 
-  const { data: orderItems } = useQuery({
-    queryKey: ['order-items', order?.id],
-    queryFn: async () => {
-      if (!order?.id) return [];
-      const { data, error } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', order.id);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!order?.id
-  });
+  const orderItems = order?.order_items;
 
   if (isLoading) {
     return (

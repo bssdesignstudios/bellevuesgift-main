@@ -8,82 +8,59 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { Download, DollarSign, Package, Users, Wrench, BarChart3, Monitor } from 'lucide-react';
-import { isDemoModeEnabled } from '@/lib/demoSession';
-import {
-  generateDemoDailySales,
-  DEMO_CASHIER_SALES,
-  DEMO_TOP_PRODUCTS,
-  DEMO_INVENTORY_ANALYTICS,
-  DEMO_REPAIR_ANALYTICS,
-  DEMO_CUSTOMER_ANALYTICS
-} from '@/lib/demoData';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 export default function AdminOverview() {
   const [dateRange, setDateRange] = useState<'7' | '30' | '90'>('7');
   const days = parseInt(dateRange);
-  const isDemoMode = isDemoModeEnabled();
 
   // Fetch dashboard data from Laravel API
   const { data: dashboardData } = useQuery({
-    queryKey: ['admin-dashboard', days, isDemoMode],
+    queryKey: ['admin-dashboard', days],
     queryFn: async () => {
-      if (isDemoMode) {
-        return null;
-      }
       const { data } = await axios.get(`/api/admin/reports/dashboard?days=${days}`);
       return data;
     }
   });
 
-  // Sales by day — from API or demo
-  const dailySales = isDemoMode
-    ? generateDemoDailySales(days)
-    : dashboardData?.daily_sales?.map((d: any) => ({
-        date: d.date,
-        sales: Number(d.sales) || 0,
-        vat: Number(d.vat) || 0,
-        orders: Number(d.orders) || 0,
-        posTotal: 0,
-        webTotal: 0,
-        posCount: 0,
-        webCount: 0,
-      })) || [];
+  // Sales by day
+  const dailySales = dashboardData?.daily_sales?.map((d: any) => ({
+    date: d.date,
+    sales: Number(d.sales) || 0,
+    vat: Number(d.vat) || 0,
+    orders: Number(d.orders) || 0,
+    posTotal: Number(d.pos_total) || 0,
+    webTotal: Number(d.web_total) || 0,
+    posCount: Number(d.pos_count) || 0,
+    webCount: Number(d.web_count) || 0,
+  })) || [];
 
   // Sales by cashier
-  const cashierSales = isDemoMode
-    ? DEMO_CASHIER_SALES
-    : dashboardData?.cashier_sales || [];
+  const cashierSales = dashboardData?.cashier_sales || [];
 
   // Top selling products
-  const topProducts = isDemoMode
-    ? DEMO_TOP_PRODUCTS
-    : dashboardData?.top_products?.map((p: any) => ({
-        name: p.product?.name || 'Unknown',
-        sku: p.product?.sku || '',
-        qty: Number(p.total_qty) || 0,
-        revenue: Number(p.total_revenue) || 0,
-      })) || [];
+  const topProducts = dashboardData?.top_products?.map((p: any) => ({
+    name: p.product?.name || 'Unknown',
+    sku: p.product?.sku || '',
+    qty: Number(p.total_qty) || 0,
+    revenue: Number(p.total_revenue) || 0,
+  })) || [];
 
-  // Derive inventory summary from the array for demo mode
-  const inventorySummary = isDemoMode ? {
-    totalItems: DEMO_INVENTORY_ANALYTICS.reduce((sum, i) => sum + i.qty_on_hand, 0),
-    lowStockItems: DEMO_INVENTORY_ANALYTICS.filter(i => i.qty_on_hand <= i.reorder_level).length,
-    outOfStockItems: DEMO_INVENTORY_ANALYTICS.filter(i => i.qty_on_hand === 0).length,
-    totalValue: DEMO_INVENTORY_ANALYTICS.reduce((sum, i) => sum + i.qty_on_hand * 499.99, 0),
-  } : { totalItems: 0, lowStockItems: 0, outOfStockItems: 0, totalValue: 0 };
+  // Inventory summary
+  const inventorySummary = dashboardData?.inventory_summary || { totalItems: 0, lowStockItems: 0, outOfStockItems: 0, totalValue: 0 };
+
+  // Repair analytics
+  const repairAnalytics = dashboardData?.repair_analytics || { openTickets: 0, avgTurnaround: 0, statusCounts: {} };
 
   // Register sales
-  const registerSales = isDemoMode
-    ? []
-    : dashboardData?.register_sales || [];
+  const registerSales = dashboardData?.register_sales || [];
 
   // Summary stats
-  const totalSales = dailySales?.reduce((sum, d) => sum + d.sales, 0) || 0;
-  const totalOrders = dailySales?.reduce((sum, d) => sum + d.orders, 0) || 0;
-  const totalVat = dailySales?.reduce((sum, d) => sum + d.vat, 0) || 0;
-  const posTotal = dailySales?.reduce((sum, d) => sum + d.posTotal, 0) || 0;
-  const webTotal = dailySales?.reduce((sum, d) => sum + d.webTotal, 0) || 0;
+  const totalSales = dailySales?.reduce((sum: number, d: any) => sum + d.sales, 0) || 0;
+  const totalOrders = dailySales?.reduce((sum: number, d: any) => sum + d.orders, 0) || 0;
+  const totalVat = dailySales?.reduce((sum: number, d: any) => sum + d.vat, 0) || 0;
+  const posTotal = dailySales?.reduce((sum: number, d: any) => sum + d.posTotal, 0) || 0;
+  const webTotal = dailySales?.reduce((sum: number, d: any) => sum + d.webTotal, 0) || 0;
 
   return (
     <AdminLayout>
@@ -155,9 +132,9 @@ export default function AdminOverview() {
             <Wrench className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{DEMO_REPAIR_ANALYTICS.openTickets}</div>
+            <div className="text-2xl font-bold">{repairAnalytics.openTickets}</div>
             <p className="text-xs text-muted-foreground">
-              Avg turnaround: {DEMO_REPAIR_ANALYTICS.avgTurnaround} days
+              Avg turnaround: {repairAnalytics.avgTurnaround} days
             </p>
           </CardContent>
         </Card>
@@ -193,7 +170,7 @@ export default function AdminOverview() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dailySales?.map((day) => (
+                    {dailySales?.map((day: any) => (
                       <TableRow key={day.date}>
                         <TableCell>{day.date}</TableCell>
                         <TableCell className="text-right">{day.orders}</TableCell>
@@ -224,7 +201,7 @@ export default function AdminOverview() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {cashierSales?.map((staff) => (
+                    {cashierSales?.map((staff: any) => (
                       <TableRow key={staff.name}>
                         <TableCell className="font-medium">{staff.name}</TableCell>
                         <TableCell className="text-right">{staff.count}</TableCell>
@@ -269,7 +246,7 @@ export default function AdminOverview() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {topProducts?.map((prod) => (
+                    {topProducts?.map((prod: any) => (
                       <TableRow key={prod.sku}>
                         <TableCell>
                           <div className="font-medium truncate max-w-[200px]">{prod.name}</div>
@@ -410,15 +387,15 @@ export default function AdminOverview() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span>In Progress</span>
-                    <span className="font-bold">{DEMO_REPAIR_ANALYTICS.openTickets}</span>
+                    <span className="font-bold">{repairAnalytics.openTickets}</span>
                   </div>
                   <div className="flex justify-between items-center border-t pt-2">
                     <span>Ready for Pickup</span>
-                    <span className="font-bold text-success">{DEMO_REPAIR_ANALYTICS.statusCounts.ready_for_pickup}</span>
+                    <span className="font-bold text-success">{repairAnalytics.statusCounts?.ready_for_pickup || 0}</span>
                   </div>
                   <div className="flex justify-between items-center border-t pt-2">
                     <span>Pending Parts</span>
-                    <span className="font-bold text-amber-500">{DEMO_REPAIR_ANALYTICS.statusCounts.awaiting_parts}</span>
+                    <span className="font-bold text-amber-500">{repairAnalytics.statusCounts?.awaiting_parts || 0}</span>
                   </div>
                 </div>
               </CardContent>
@@ -430,7 +407,7 @@ export default function AdminOverview() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 text-center py-4">
-                  <div className="text-4xl font-bold">{DEMO_REPAIR_ANALYTICS.avgTurnaround} Days</div>
+                  <div className="text-4xl font-bold">{repairAnalytics.avgTurnaround} Days</div>
                   <p className="text-sm text-muted-foreground">Average turnaround time</p>
                   <div className="h-2 w-full bg-muted rounded-full overflow-hidden mt-4">
                     <div className="h-full bg-primary" style={{ width: '85%' }} />
@@ -471,11 +448,11 @@ export default function AdminOverview() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {DEMO_CUSTOMER_ANALYTICS.topCustomers.map((customer) => (
+                    {dashboardData?.top_customers?.map((customer: any) => (
                       <TableRow key={customer.name}>
                         <TableCell className="font-medium">{customer.name}</TableCell>
-                        <TableCell className="text-right">{customer.orderCount}</TableCell>
-                        <TableCell className="text-right font-medium">${customer.totalSpent.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{customer.order_count}</TableCell>
+                        <TableCell className="text-right font-medium">${Number(customer.total_spent).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

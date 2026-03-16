@@ -15,7 +15,6 @@ import { toast } from 'sonner';
 import { Wrench, Search, Plus, Clock, User, Calendar, ChevronRight, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { isDemoModeEnabled } from '@/lib/demoSession';
 
 const STATUS_OPTIONS = [
   { value: 'submitted', label: 'Submitted', color: 'bg-blue-500' },
@@ -111,11 +110,6 @@ export default function AdminRepairTickets() {
   // Update ticket mutation
   const updateTicketMutation = useMutation({
     mutationFn: async (updates: Partial<RepairTicket> & { id: string }) => {
-      if (isDemoModeEnabled()) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return;
-      }
-
       const { id, ...data } = updates;
       await axios.patch(`/api/admin/repair-tickets/${id}/status`, data);
     },
@@ -131,11 +125,6 @@ export default function AdminRepairTickets() {
   // Add task mutation
   const addTaskMutation = useMutation({
     mutationFn: async (task: { ticket_id: string; title: string; description: string; due_date: string | null }) => {
-      if (isDemoModeEnabled()) {
-        await new Promise(resolve => setTimeout(resolve, 600));
-        return;
-      }
-
       await axios.post(`/api/admin/repair-tickets/${task.ticket_id}/tasks`, {
         description: task.title + (task.description ? ': ' + task.description : ''),
       });
@@ -154,11 +143,6 @@ export default function AdminRepairTickets() {
   // Update task mutation
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<RepairTask> & { id: string }) => {
-      if (isDemoModeEnabled()) {
-        await new Promise(resolve => setTimeout(resolve, 400));
-        return;
-      }
-
       await axios.patch(`/api/admin/repair-tickets/${selectedTicket?.id}/tasks/${id}`, updates);
     },
     onSuccess: () => {

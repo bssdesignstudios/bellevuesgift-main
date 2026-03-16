@@ -11,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Search, Plus, Minus, RotateCcw, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { isDemoModeEnabled } from '@/lib/demoSession';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 interface InventoryItem {
@@ -35,37 +34,10 @@ export default function AdminInventory() {
   const [adjustDialog, setAdjustDialog] = useState<{ item: InventoryItem; type: 'receive' | 'adjust' | 'count' } | null>(null);
   const queryClient = useQueryClient();
   const { effectiveStaff } = useAuth();
-  const isDemoMode = isDemoModeEnabled();
 
   const { data: inventory, isLoading } = useQuery({
-    queryKey: ['admin-inventory', search, filter, isDemoMode],
+    queryKey: ['admin-inventory', search, filter],
     queryFn: async () => {
-      if (isDemoMode) {
-        // Use demo data instead of DB if in demo mode and no data
-        return [
-          {
-            id: '1', product_id: 'p1', location: 'Section A', qty_on_hand: 3, qty_reserved: 0, reorder_level: 5,
-            product: { id: 'p1', name: 'iPhone 15 Pro 256GB', sku: 'PHN-APP-15P-256', category: { name: 'Electronics' } }
-          },
-          {
-            id: '2', product_id: 'p2', location: 'Section B', qty_on_hand: 15, qty_reserved: 2, reorder_level: 10,
-            product: { id: 'p2', name: 'Samsung 55" 4K Smart TV', sku: 'TV-SAM-55-4K', category: { name: 'Electronics' } }
-          },
-          {
-            id: '3', product_id: 'p3', location: 'Section C', qty_on_hand: 2, qty_reserved: 1, reorder_level: 5,
-            product: { id: 'p3', name: 'Apple MacBook Air M2', sku: 'LAP-APP-MBA-M2', category: { name: 'Computers' } }
-          },
-          {
-            id: '4', product_id: 'p4', location: 'Section A', qty_on_hand: 24, qty_reserved: 5, reorder_level: 10,
-            product: { id: 'p4', name: 'Sony WH-1000XM5 Headphones', sku: 'AUD-SNY-WH5', category: { name: 'Audio' } }
-          }
-        ].filter(item => {
-          if (filter === 'low') return item.qty_on_hand < item.reorder_level;
-          if (search) return item.product.name.toLowerCase().includes(search.toLowerCase()) || item.product.sku.toLowerCase().includes(search.toLowerCase());
-          return true;
-        }) as InventoryItem[];
-      }
-
       const response = await axios.get('/api/admin/inventory', { params: { search, filter } });
       return response.data as InventoryItem[];
     }
@@ -192,8 +164,7 @@ export default function AdminInventory() {
               <AdjustmentForm
                 item={adjustDialog.item}
                 type={adjustDialog.type}
-                staffId={effectiveStaff?.id}
-                isDemoMode={isDemoMode}
+                staffId={effectiveStaff?.id?.toString()}
                 onSuccess={() => {
                   setAdjustDialog(null);
                   queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
@@ -211,13 +182,11 @@ function AdjustmentForm({
   item,
   type,
   staffId,
-  isDemoMode,
   onSuccess,
 }: {
   item: InventoryItem;
   type: 'receive' | 'adjust' | 'count';
   staffId?: string;
-  isDemoMode: boolean;
   onSuccess: () => void;
 }) {
   const [qty, setQty] = useState('');
@@ -227,11 +196,6 @@ function AdjustmentForm({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (isDemoMode) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        return;
-      }
-
       let amount = parseInt(qty);
       if (type === 'adjust' && adjustType === 'remove') {
         amount = -amount;

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Staff;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -38,18 +39,31 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        $staffRoles = ['admin', 'cashier', 'warehouse', 'warehouse_manager', 'finance'];
+        $isStaff = $user && in_array($user->role, $staffRoles);
+
+        // A customer is any logged-in user who does NOT have a staff role
+        $isCustomer = $user && !$isStaff;
+
+        // For customers, look up their name from the customers table (more reliable source)
+        $customerName = null;
+        if ($isCustomer) {
+            $customerRecord = DB::table('customers')->where('email', $user->email)->first();
+            $customerName = $customerRecord?->name ?? $user->name;
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'staff' => $user && in_array($user->role, ['admin', 'cashier', 'warehouse', 'warehouse_manager', 'finance']) ? array_merge([
-                    'id' => $user->id,
-                    'name' => $user->name,
+                'staff' => $isStaff ? array_merge([
+                    'id'    => $user->id,
+                    'name'  => $user->name,
                     'email' => $user->email,
-                    'role' => $user->role,
+                    'role'  => $user->role,
                 ], $this->getStaffUuid($user)) : null,
-                'customer' => $user && $user->role === 'customer' ? [
-                    'id' => $user->id,
-                    'name' => $user->name,
+                'customer' => $isCustomer ? [
+                    'id'    => $user->id,
+                    'name'  => $customerName,
                     'email' => $user->email,
                 ] : null,
             ],

@@ -140,3 +140,11 @@ Route::prefix('admin')->group(function () {
     Route::put('/registers/{id}', [RegisterController::class, 'update']);
     Route::post('/registers/{id}/assign', [RegisterController::class, 'assignStaff']);
 });
+
+// Customer API
+Route::middleware('auth:sanctum')->prefix('customer')->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\CustomerAccountController::class, 'dashboard']);
+    Route::get('/orders', [App\Http\Controllers\CustomerAccountController::class, 'orders']);
+    Route::get('/orders/{orderNumber}', [App\Http\Controllers\CustomerAccountController::class, 'orderDetail']);
+    Route::get('/gift-cards', [App\Http\Controllers\CustomerAccountController::class, 'giftCards']);
+});

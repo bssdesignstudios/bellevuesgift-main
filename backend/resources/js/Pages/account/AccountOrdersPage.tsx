@@ -2,7 +2,7 @@ import { Link } from '@inertiajs/react';
 import { AccountLayout } from '@/components/layout/AccountLayout';
 import { useQuery } from '@tanstack/react-query';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,21 +27,22 @@ const fulfillmentLabels: Record<string, string> = {
   mailboat: 'Mailboat'
 };
 
+interface Order {
+  id: string;
+  order_number: string;
+  status: string;
+  total: number;
+  created_at: string;
+  fulfillment_method: string;
+}
+
 export default function AccountOrdersPage() {
   const { customer } = useCustomerAuth();
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ['customer-orders', customer?.id],
     queryFn: async () => {
-      if (!customer?.id) return [];
-
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const { data } = await axios.get('/api/customer/orders');
       return data;
     },
     enabled: !!customer?.id

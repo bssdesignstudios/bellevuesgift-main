@@ -25,6 +25,7 @@ export function AccountLayout({ children }: AccountLayoutProps) {
     const navigation = [
         { name: 'Dashboard', href: '/account', icon: LayoutDashboard },
         { name: 'Orders', href: '/account/orders', icon: Package },
+        { name: 'Gift Cards', href: '/account/gift-cards', icon: Gift },
         { name: 'Addresses', href: '/account/addresses', icon: MapPin },
         { name: 'Wishlist', href: '/account/wishlist', icon: Heart },
     ];

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,18 +24,11 @@ export default function AccountGiftCardsPage() {
   const [checkedCard, setCheckedCard] = useState<GiftCard | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
-  // Mock customer gift cards for demo
+  // Fetch customer gift cards
   const { data: customerCards } = useQuery({
     queryKey: ['customer-gift-cards', customer?.id],
     queryFn: async () => {
-      // For demo, we'll show gift cards - in production this would be linked to customer
-      const { data, error } = await supabase
-        .from('gift_cards')
-        .select('*')
-        .eq('is_active', true)
-        .limit(3);
-
-      if (error) throw error;
+      const { data } = await axios.get('/api/customer/gift-cards');
       return data as GiftCard[];
     },
     enabled: !!customer?.id
@@ -49,21 +42,17 @@ export default function AccountGiftCardsPage() {
     setCheckedCard(null);
 
     try {
-      const { data, error } = await supabase
-        .from('gift_cards')
-        .select('*')
-        .eq('code', checkCode.toUpperCase().trim())
-        .maybeSingle();
+      const { data } = await axios.post('/api/pos/gift-cards/check', {
+        code: checkCode.toUpperCase().trim()
+      });
 
-      if (error) throw error;
-
-      if (data) {
-        setCheckedCard(data as GiftCard);
+      if (data.gift_card) {
+        setCheckedCard(data.gift_card as GiftCard);
       } else {
         toast.error('Gift card not found');
       }
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || error.message);
     } finally {
       setIsChecking(false);
     }

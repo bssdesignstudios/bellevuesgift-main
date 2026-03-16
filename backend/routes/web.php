@@ -199,6 +199,8 @@ Route::get('/account/register', function () {
     return Inertia::render('account/AccountRegisterPage');
 })->name('account.register');
 
+Route::post('/account/register', [\App\Http\Controllers\CustomerRegisterController::class, 'store'])->name('account.register.post');
+
 Route::get('/account', function () {
     return Inertia::render('account/AccountDashboardPage');
 })->name('account.dashboard');
@@ -226,6 +228,10 @@ Route::get('/account/wishlist', function () {
 Route::get('/account/forgot-password', function () {
     return Inertia::render('account/AccountForgotPasswordPage');
 })->name('account.forgot-password');
+
+Route::get('/account/profile', function () {
+    return Inertia::render('account/AccountProfilePage');
+})->name('account.profile');
 
 // POS (Admin, Cashier, Warehouse)
 Route::middleware(['auth', 'role:admin,cashier,warehouse,warehouse_manager'])->group(function () {

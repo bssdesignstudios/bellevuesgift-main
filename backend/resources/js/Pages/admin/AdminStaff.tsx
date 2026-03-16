@@ -14,8 +14,6 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, UserCheck } from 'lucide-react';
 import { Staff } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { isDemoModeEnabled } from '@/lib/demoSession';
-import { DEMO_STAFF } from '@/lib/demoData';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 export default function AdminStaff() {
@@ -24,15 +22,10 @@ export default function AdminStaff() {
   const [deleteConfirm, setDeleteConfirm] = useState<Staff | null>(null);
   const queryClient = useQueryClient();
   const { impersonate, impersonating, effectiveStaff, staff: currentStaff } = useAuth();
-  const isDemoMode = isDemoModeEnabled();
 
   const { data: staffList } = useQuery({
-    queryKey: ['admin-staff', isDemoMode],
+    queryKey: ['admin-staff'],
     queryFn: async () => {
-      if (isDemoMode) {
-        return DEMO_STAFF as Staff[];
-      }
-
       const response = await axios.get('/api/admin/staff');
       return response.data as Staff[];
     }
@@ -40,11 +33,6 @@ export default function AdminStaff() {
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string | number; is_active: boolean }) => {
-      if (isDemoMode) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return;
-      }
-
       await axios.patch(`/api/admin/staff/${id}/toggle-active`, { is_active });
     },
     onSuccess: () => {
@@ -54,11 +42,6 @@ export default function AdminStaff() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string | number) => {
-      if (isDemoMode) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return;
-      }
-
       await axios.delete(`/api/admin/staff/${id}`);
     },
     onSuccess: () => {
@@ -102,7 +85,6 @@ export default function AdminStaff() {
               </DialogHeader>
               <StaffForm
                 staff={editStaff}
-                isDemoMode={isDemoMode}
                 onSuccess={() => {
                   setIsDialogOpen(false);
                   queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
@@ -231,11 +213,9 @@ export default function AdminStaff() {
 
 function StaffForm({
   staff,
-  isDemoMode,
   onSuccess
 }: {
   staff: Staff | null;
-  isDemoMode: boolean;
   onSuccess: () => void;
 }) {
   const [form, setForm] = useState({
@@ -249,10 +229,6 @@ function StaffForm({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (isDemoMode) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        return;
-      }
 
       const data: Record<string, any> = {
         name: form.name,

@@ -2,53 +2,27 @@ import { Link } from '@inertiajs/react';
 import { AccountLayout } from '@/components/layout/AccountLayout';
 import { useQuery } from '@tanstack/react-query';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Package, Heart, MapPin, Truck, ArrowRight } from 'lucide-react';
+import { Package, Heart, MapPin, Truck, ArrowRight, Gift } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AccountDashboardPage() {
   const { customer } = useCustomerAuth();
 
-  const { data: stats } = useQuery({
-    queryKey: ['customer-stats', customer?.id],
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ['customer-dashboard', customer?.id],
     queryFn: async () => {
-      if (!customer?.id) return null;
-
-      const [ordersResult, wishlistResult, addressesResult] = await Promise.all([
-        supabase.from('orders').select('id', { count: 'exact' }).eq('customer_id', customer.id),
-        supabase.from('wishlists').select('id', { count: 'exact' }).eq('customer_id', customer.id),
-        supabase.from('customer_addresses').select('id', { count: 'exact' }).eq('customer_id', customer.id)
-      ]);
-
-      return {
-        orders: ordersResult.count || 0,
-        wishlist: wishlistResult.count || 0,
-        addresses: addressesResult.count || 0
-      };
-    },
-    enabled: !!customer?.id
-  });
-
-  const { data: latestOrder } = useQuery({
-    queryKey: ['latest-order', customer?.id],
-    queryFn: async () => {
-      if (!customer?.id) return null;
-
-      const { data } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
+      const { data } = await axios.get('/api/customer/dashboard');
       return data;
     },
     enabled: !!customer?.id
   });
+
+  const stats = dashboardData?.stats;
+  const latestOrder = dashboardData?.latest_order;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -70,7 +44,7 @@ export default function AccountDashboardPage() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -88,12 +62,12 @@ export default function AccountDashboardPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-red-500/10 rounded-lg">
-                  <Heart className="h-6 w-6 text-red-500" />
+                <div className="p-3 bg-orange-500/10 rounded-lg">
+                  <Gift className="h-6 w-6 text-orange-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats?.wishlist || 0}</p>
-                  <p className="text-sm text-muted-foreground">Wishlist Items</p>
+                  <p className="text-2xl font-bold">{stats?.gift_cards || 0}</p>
+                  <p className="text-sm text-muted-foreground">Gift Cards</p>
                 </div>
               </div>
             </CardContent>
@@ -103,11 +77,25 @@ export default function AccountDashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-green-500/10 rounded-lg">
-                  <MapPin className="h-6 w-6 text-green-500" />
+                  <Heart className="h-6 w-6 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">${Number(stats?.gift_card_balance || 0).toFixed(2)}</p>
+                  <p className="text-sm text-muted-foreground">Store Credit</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-500/10 rounded-lg">
+                  <MapPin className="h-6 w-6 text-blue-500" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats?.addresses || 0}</p>
-                  <p className="text-sm text-muted-foreground">Saved Addresses</p>
+                  <p className="text-sm text-muted-foreground">Addresses</p>
                 </div>
               </div>
             </CardContent>

@@ -13,8 +13,6 @@ import { format } from 'date-fns';
 import { Order, OrderItem } from '@/types';
 import { ORDER_STATUSES } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
-import { isDemoModeEnabled } from '@/lib/demoSession';
-import { DEMO_ORDERS } from '@/lib/demoData';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 export default function AdminOrders() {
@@ -24,25 +22,9 @@ export default function AdminOrders() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const queryClient = useQueryClient();
   const { effectiveStaff } = useAuth();
-  const isDemoMode = isDemoModeEnabled();
-
   const { data: orders } = useQuery({
-    queryKey: ['admin-orders', search, statusFilter, channelFilter, isDemoMode],
+    queryKey: ['admin-orders', search, statusFilter, channelFilter],
     queryFn: async () => {
-      if (isDemoMode) {
-        let filtered = DEMO_ORDERS as Order[];
-        if (statusFilter !== 'all') {
-          filtered = filtered.filter(o => o.status === statusFilter);
-        }
-        if (channelFilter !== 'all') {
-          filtered = filtered.filter(o => o.channel === channelFilter);
-        }
-        if (search) {
-          filtered = filtered.filter(o => o.order_number.toLowerCase().includes(search.toLowerCase()));
-        }
-        return filtered;
-      }
-
       const params: Record<string, string> = {};
       if (statusFilter !== 'all') params.status = statusFilter;
       if (search) params.search = search;
@@ -59,11 +41,6 @@ export default function AdminOrders() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
-      if (isDemoMode) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        return;
-      }
-
       await axios.patch(`/api/admin/orders/${orderId}/status`, { status });
     },
     onSuccess: () => {
