@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Wrench, Search, Plus, Clock, User, Calendar, ChevronRight, Loader2 } from 'lucide-react';
+import { Wrench, Search, Plus, Clock, User, Calendar, ChevronRight, Loader2, CreditCard, Receipt } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
@@ -66,13 +66,26 @@ interface RepairTask {
   notes: string | null;
 }
 
+interface Payment {
+  id: string;
+  amount: number;
+  payment_method: string;
+  note: string | null;
+  created_at: string;
+}
+
 export default function AdminRepairTickets() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTicket, setSelectedTicket] = useState<RepairTicket | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', due_date: '' });
+  const [paymentForm, setPaymentForm] = useState({ amount: '', payment_method: 'cash', note: '' });
+  const [billingForm, setBillingForm] = useState({
+    labor_hours: '', labor_rate: '', parts_cost: '', deposit_amount: '', deposit_paid: false,
+  });
 
   // Fetch repair tickets
   const { data: tickets, isLoading } = useQuery({
@@ -81,7 +94,6 @@ export default function AdminRepairTickets() {
       const params: Record<string, string> = {};
       if (statusFilter !== 'all') params.status = statusFilter;
       if (searchQuery) params.search = searchQuery;
-
       const { data } = await axios.get('/api/admin/repair-tickets', { params });
       return data as RepairTicket[];
     },
@@ -98,16 +110,18 @@ export default function AdminRepairTickets() {
     enabled: !!selectedTicket,
   });
 
-  // Fetch staff for assignment
-  const { data: staff } = useQuery({
-    queryKey: ['staff-list'],
+  // Fetch payments for selected ticket
+  const { data: payments } = useQuery({
+    queryKey: ['repair-payments', selectedTicket?.id],
     queryFn: async () => {
-      const { data } = await axios.get('/api/admin/repair-tickets/staff');
-      return data;
+      if (!selectedTicket) return [];
+      const { data } = await axios.get(`/api/admin/repair-tickets/${selectedTicket.id}/payments`);
+      return data as Payment[];
     },
+    enabled: !!selectedTicket,
   });
 
-  // Update ticket mutation
+  // Update ticket status / eta / notes
   const updateTicketMutation = useMutation({
     mutationFn: async (updates: Partial<RepairTicket> & { id: string }) => {
       const { id, ...data } = updates;
@@ -122,7 +136,53 @@ export default function AdminRepairTickets() {
     },
   });
 
-  // Add task mutation
+  // Update billing
+  const updateBillingMutation = useMutation({
+    mutationFn: async (billing: typeof billingForm & { id: string }) => {
+      const { id, ...data } = billing;
+      const { data: updated } = await axios.patch(`/api/admin/repair-tickets/${id}/billing`, {
+        labor_hours: parseFloat(data.labor_hours) || 0,
+        labor_rate: parseFloat(data.labor_rate) || 0,
+        parts_cost: parseFloat(data.parts_cost) || 0,
+        deposit_amount: parseFloat(data.deposit_amount) || 0,
+        deposit_paid: data.deposit_paid,
+      });
+      return updated as RepairTicket;
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-repair-tickets'] });
+      setSelectedTicket(updated);
+      toast.success('Billing updated');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update billing: ' + (error.response?.data?.message || error.message));
+    },
+  });
+
+  // Record payment
+  const recordPaymentMutation = useMutation({
+    mutationFn: async (payload: { ticketId: string; amount: string; payment_method: string; note: string }) => {
+      const { data: result } = await axios.post(`/api/admin/repair-tickets/${payload.ticketId}/payments`, {
+        amount: parseFloat(payload.amount),
+        payment_method: payload.payment_method,
+        note: payload.note || null,
+      });
+      return result as { ticket: RepairTicket };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['repair-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-repair-tickets'] });
+      setSelectedTicket(result.ticket);
+      setPaymentForm({ amount: '', payment_method: 'cash', note: '' });
+      setShowPaymentDialog(false);
+      toast.success('Payment recorded');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to record payment: ' + (error.response?.data?.message || error.message));
+    },
+  });
+
+  // Add task
   const addTaskMutation = useMutation({
     mutationFn: async (task: { ticket_id: string; title: string; description: string; due_date: string | null }) => {
       await axios.post(`/api/admin/repair-tickets/${task.ticket_id}/tasks`, {
@@ -140,7 +200,7 @@ export default function AdminRepairTickets() {
     },
   });
 
-  // Update task mutation
+  // Update task
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<RepairTask> & { id: string }) => {
       await axios.patch(`/api/admin/repair-tickets/${selectedTicket?.id}/tasks/${id}`, updates);
@@ -164,6 +224,8 @@ export default function AdminRepairTickets() {
     acc[t.status] = (acc[t.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>) || {};
+
+  const totalPaid = payments?.reduce((sum, p) => sum + Number(p.amount), 0) ?? 0;
 
   const content = (
     <div className="space-y-6 animate-fade-in">
@@ -240,7 +302,16 @@ export default function AdminRepairTickets() {
                       <TableRow
                         key={ticket.id}
                         className={`cursor-pointer hover:bg-muted/50 ${selectedTicket?.id === ticket.id ? 'bg-muted' : ''}`}
-                        onClick={() => setSelectedTicket(ticket)}
+                        onClick={() => {
+                          setSelectedTicket(ticket);
+                          setBillingForm({
+                            labor_hours: String(ticket.labor_hours || ''),
+                            labor_rate: String(ticket.labor_rate || ''),
+                            parts_cost: String(ticket.parts_cost || ''),
+                            deposit_amount: String(ticket.deposit_amount || ''),
+                            deposit_paid: ticket.deposit_paid,
+                          });
+                        }}
                       >
                         <TableCell className="font-mono font-medium">{ticket.ticket_number}</TableCell>
                         <TableCell>
@@ -278,13 +349,14 @@ export default function AdminRepairTickets() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Tabs defaultValue="details">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="tasks">Tasks ({tasks?.length || 0})</TabsTrigger>
+                    <TabsTrigger value="billing">Billing</TabsTrigger>
                   </TabsList>
 
+                  {/* Details Tab */}
                   <TabsContent value="details" className="space-y-4 mt-4">
-                    {/* Customer Info */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <User className="h-4 w-4 text-muted-foreground" />
@@ -296,20 +368,17 @@ export default function AdminRepairTickets() {
                       )}
                     </div>
 
-                    {/* Item Info */}
                     <div className="space-y-1 text-sm">
                       <p><strong>Service:</strong> {selectedTicket.service_type === 'repair' ? 'Repair' : 'Installation'}</p>
                       {selectedTicket.item_make && <p><strong>Make:</strong> {selectedTicket.item_make}</p>}
                       {selectedTicket.model_number && <p><strong>Model:</strong> {selectedTicket.model_number}</p>}
                     </div>
 
-                    {/* Problem */}
                     <div>
                       <Label className="text-xs text-muted-foreground">Problem Description</Label>
                       <p className="text-sm mt-1">{selectedTicket.problem_description}</p>
                     </div>
 
-                    {/* Status Update */}
                     <div>
                       <Label>Update Status</Label>
                       <Select
@@ -332,7 +401,6 @@ export default function AdminRepairTickets() {
                       </Select>
                     </div>
 
-                    {/* ETA */}
                     <div>
                       <Label>Estimated Completion</Label>
                       <Input
@@ -345,7 +413,6 @@ export default function AdminRepairTickets() {
                       />
                     </div>
 
-                    {/* Notes */}
                     <div>
                       <Label>Staff Notes</Label>
                       <Textarea
@@ -362,6 +429,7 @@ export default function AdminRepairTickets() {
                     </div>
                   </TabsContent>
 
+                  {/* Tasks Tab */}
                   <TabsContent value="tasks" className="space-y-4 mt-4">
                     <Button
                       variant="outline"
@@ -456,6 +524,202 @@ export default function AdminRepairTickets() {
                             disabled={!newTask.title || addTaskMutation.isPending}
                           >
                             {addTaskMutation.isPending ? 'Adding...' : 'Add Task'}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </TabsContent>
+
+                  {/* Billing Tab */}
+                  <TabsContent value="billing" className="space-y-4 mt-4">
+                    {/* Cost Breakdown Editor */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <Receipt className="h-4 w-4" /> Cost Breakdown
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Labor Hours</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.25"
+                            value={billingForm.labor_hours}
+                            placeholder={String(selectedTicket.labor_hours || '0')}
+                            onChange={(e) => setBillingForm(prev => ({ ...prev, labor_hours: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Rate / hr ($)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={billingForm.labor_rate}
+                            placeholder={String(selectedTicket.labor_rate || '0')}
+                            onChange={(e) => setBillingForm(prev => ({ ...prev, labor_rate: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Parts Cost ($)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={billingForm.parts_cost}
+                          placeholder={String(selectedTicket.parts_cost || '0')}
+                          onChange={(e) => setBillingForm(prev => ({ ...prev, parts_cost: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Deposit ($)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={billingForm.deposit_amount}
+                            placeholder={String(selectedTicket.deposit_amount || '0')}
+                            onChange={(e) => setBillingForm(prev => ({ ...prev, deposit_amount: e.target.value }))}
+                          />
+                        </div>
+                        <div className="flex flex-col justify-end pb-1">
+                          <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={billingForm.deposit_paid}
+                              onChange={(e) => setBillingForm(prev => ({ ...prev, deposit_paid: e.target.checked }))}
+                              className="w-4 h-4"
+                            />
+                            Deposit Paid
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Live total preview */}
+                      <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Labor</span>
+                          <span>${((parseFloat(billingForm.labor_hours) || selectedTicket.labor_hours || 0) * (parseFloat(billingForm.labor_rate) || selectedTicket.labor_rate || 0)).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Parts</span>
+                          <span>${(parseFloat(billingForm.parts_cost) || selectedTicket.parts_cost || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold border-t pt-1 mt-1">
+                          <span>Est. Total</span>
+                          <span>${selectedTicket.total_cost?.toFixed(2) || '0.00'}</span>
+                        </div>
+                        {(parseFloat(billingForm.deposit_amount) || selectedTicket.deposit_amount) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Deposit</span>
+                            <span className={(billingForm.deposit_paid || selectedTicket.deposit_paid) ? 'text-emerald-600 font-medium' : 'text-orange-500'}>
+                              ${(parseFloat(billingForm.deposit_amount) || selectedTicket.deposit_amount || 0).toFixed(2)}{' '}
+                              {(billingForm.deposit_paid || selectedTicket.deposit_paid) ? '✓ Paid' : '(unpaid)'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        disabled={updateBillingMutation.isPending}
+                        onClick={() => updateBillingMutation.mutate({ ...billingForm, id: selectedTicket.id })}
+                      >
+                        {updateBillingMutation.isPending ? 'Saving...' : 'Save Billing'}
+                      </Button>
+                    </div>
+
+                    {/* Payment History */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <CreditCard className="h-4 w-4" /> Payments
+                        </h4>
+                        <Button size="sm" variant="outline" onClick={() => setShowPaymentDialog(true)}>
+                          <Plus className="h-3 w-3 mr-1" /> Record
+                        </Button>
+                      </div>
+
+                      {!payments?.length ? (
+                        <p className="text-xs text-muted-foreground text-center py-4">No payments recorded yet</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {payments.map((p) => (
+                            <div key={p.id} className="flex justify-between items-center text-sm border rounded p-2">
+                              <div>
+                                <span className="font-medium capitalize">{p.payment_method.replace('_', ' ')}</span>
+                                {p.note && <p className="text-xs text-muted-foreground">{p.note}</p>}
+                                <p className="text-xs text-muted-foreground">{format(new Date(p.created_at), 'MMM d, h:mm a')}</p>
+                              </div>
+                              <span className="font-semibold text-emerald-600">${Number(p.amount).toFixed(2)}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between text-sm font-semibold pt-1 border-t">
+                            <span>Total Paid</span>
+                            <span className="text-emerald-600">${totalPaid.toFixed(2)}</span>
+                          </div>
+                          {selectedTicket.total_cost > 0 && (
+                            <div className="flex justify-between text-sm pt-1">
+                              <span className="text-muted-foreground">Balance Due</span>
+                              <span className={selectedTicket.total_cost - totalPaid <= 0 ? 'text-emerald-600 font-semibold' : 'text-orange-500 font-semibold'}>
+                                ${Math.max(0, selectedTicket.total_cost - totalPaid).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Record Payment Dialog */}
+                    <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Record Payment</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Amount ($) *</Label>
+                            <Input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={paymentForm.amount}
+                              onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <Label>Payment Method *</Label>
+                            <Select
+                              value={paymentForm.payment_method}
+                              onValueChange={(v) => setPaymentForm({ ...paymentForm, payment_method: v })}
+                            >
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="cash">Cash</SelectItem>
+                                <SelectItem value="card">Card</SelectItem>
+                                <SelectItem value="gift_card">Gift Card</SelectItem>
+                                <SelectItem value="check">Check</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Note (optional)</Label>
+                            <Input
+                              value={paymentForm.note}
+                              onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })}
+                              placeholder="e.g., Deposit payment"
+                            />
+                          </div>
+                          <Button
+                            className="w-full"
+                            disabled={!paymentForm.amount || recordPaymentMutation.isPending}
+                            onClick={() => recordPaymentMutation.mutate({
+                              ticketId: selectedTicket.id,
+                              ...paymentForm,
+                            })}
+                          >
+                            {recordPaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
                           </Button>
                         </div>
                       </DialogContent>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\RepairTicket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AdminRepairTicketController extends Controller
 {
@@ -20,7 +21,8 @@ class AdminRepairTicketController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('ticket_number', 'ilike', "%{$search}%")
-                  ->orWhere('customer_name', 'ilike', "%{$search}%");
+                  ->orWhere('customer_name', 'ilike', "%{$search}%")
+                  ->orWhere('phone', 'ilike', "%{$search}%");
             });
         }
 
@@ -30,11 +32,13 @@ class AdminRepairTicketController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $validated = $request->validate([
-            'status' => 'required|string',
+            'status'   => 'sometimes|string',
+            'eta_date' => 'sometimes|nullable|date',
+            'notes'    => 'sometimes|nullable|string',
         ]);
 
         $ticket = RepairTicket::findOrFail($id);
-        $ticket->update(['status' => $validated['status']]);
+        $ticket->update(array_filter($validated, fn($v) => $v !== null));
 
         return response()->json($ticket->fresh());
     }
@@ -57,13 +61,13 @@ class AdminRepairTicketController extends Controller
         ]);
 
         $task = DB::table('repair_tasks')->insertGetId([
-            'id' => \Illuminate\Support\Str::uuid(),
+            'id'               => Str::uuid(),
             'repair_ticket_id' => $id,
-            'description' => $validated['description'],
-            'assigned_to' => $validated['assigned_to'] ?? null,
-            'status' => 'pending',
-            'created_at' => now(),
-            'updated_at' => now(),
+            'description'      => $validated['description'],
+            'assigned_to'      => $validated['assigned_to'] ?? null,
+            'status'           => 'pending',
+            'created_at'       => now(),
+            'updated_at'       => now(),
         ]);
 
         return response()->json(['id' => $task], 201);
@@ -78,7 +82,7 @@ class AdminRepairTicketController extends Controller
         DB::table('repair_tasks')
             ->where('id', $taskId)
             ->update([
-                'status' => $validated['status'],
+                'status'     => $validated['status'],
                 'updated_at' => now(),
             ]);
 
@@ -93,5 +97,90 @@ class AdminRepairTicketController extends Controller
             ->get();
 
         return response()->json($staff);
+    }
+
+    /**
+     * Update billing details (labour, parts, deposit) for a ticket.
+     * Automatically recalculates total_cost.
+     */
+    public function updateBilling(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'labor_hours'    => 'nullable|numeric|min:0',
+            'labor_rate'     => 'nullable|numeric|min:0',
+            'parts_cost'     => 'nullable|numeric|min:0',
+            'deposit_amount' => 'nullable|numeric|min:0',
+            'deposit_paid'   => 'nullable|boolean',
+        ]);
+
+        $ticket = RepairTicket::findOrFail($id);
+
+        $laborHours = $validated['labor_hours'] ?? $ticket->labor_hours ?? 0;
+        $laborRate  = $validated['labor_rate']  ?? $ticket->labor_rate  ?? 0;
+        $partsCost  = $validated['parts_cost']  ?? $ticket->parts_cost  ?? 0;
+        $totalCost  = ($laborHours * $laborRate) + $partsCost;
+
+        $ticket->update(array_merge($validated, ['total_cost' => $totalCost]));
+
+        return response()->json($ticket->fresh());
+    }
+
+    /**
+     * List payments recorded against this repair ticket.
+     */
+    public function listPayments($id)
+    {
+        RepairTicket::findOrFail($id);
+
+        $payments = DB::table('payments')
+            ->where('repair_ticket_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($payments);
+    }
+
+    /**
+     * Record a payment (deposit or final) against a repair ticket.
+     */
+    public function recordPayment(Request $request, $id)
+    {
+        $ticket = RepairTicket::findOrFail($id);
+
+        $validated = $request->validate([
+            'amount'         => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string|in:cash,card,gift_card,check',
+            'note'           => 'nullable|string',
+        ]);
+
+        $paymentId = (string) Str::uuid();
+
+        DB::table('payments')->insert([
+            'id'               => $paymentId,
+            'repair_ticket_id' => $id,
+            'order_id'         => null,
+            'amount'           => $validated['amount'],
+            'payment_method'   => $validated['payment_method'],
+            'status'           => 'completed',
+            'note'             => $validated['note'] ?? null,
+            'created_at'       => now(),
+            'updated_at'       => now(),
+        ]);
+
+        // Auto-mark deposit as paid if total paid >= deposit amount
+        if ($ticket->deposit_amount > 0 && !$ticket->deposit_paid) {
+            $totalPaid = DB::table('payments')
+                ->where('repair_ticket_id', $id)
+                ->sum('amount');
+            if ($totalPaid >= $ticket->deposit_amount) {
+                $ticket->update(['deposit_paid' => true]);
+            }
+        }
+
+        return response()->json([
+            'message'    => 'Payment recorded',
+            'payment_id' => $paymentId,
+            'ticket'     => $ticket->fresh(),
+        ], 201);
     }
 }
