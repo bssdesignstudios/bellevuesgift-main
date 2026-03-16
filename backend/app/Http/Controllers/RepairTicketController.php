@@ -90,15 +90,14 @@ class RepairTicketController extends Controller
     {
         $ticket = RepairTicket::findOrFail($id);
 
-        // Create payment record if Payment model exists
-        if (class_exists(\App\Models\Payment::class)) {
-            \App\Models\Payment::create([
-                'order_id' => '00000000-0000-0000-0000-000000000000',
-                'amount' => $request->input('amount', $ticket->total_cost ?? 0),
-                'method' => $request->input('method', 'cash'),
-                'reference' => 'REPAIR-' . $ticket->ticket_number,
-            ]);
-        }
+        // Create payment record
+        \App\Models\Payment::create([
+            'order_id' => null,
+            'repair_ticket_id' => $ticket->id,
+            'amount' => $request->input('amount', $ticket->total_cost ?? 0),
+            'method' => $request->input('method', 'cash'),
+            'reference' => 'REPAIR-' . $ticket->ticket_number,
+        ]);
 
         $ticket->update(['status' => 'completed']);
 

@@ -107,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setStaff(null);
     setUser(null);
+    window.location.href = '/staff/login';
   };
 
   // ── impersonation ──────────────────────────────────────────────────────────

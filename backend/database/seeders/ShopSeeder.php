@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Register;
+use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -1046,10 +1048,42 @@ class ShopSeeder extends Seeder
         ];
 
         foreach ($products as $prod) {
-            Product::updateOrCreate(
+            $p = Product::updateOrCreate(
                 ['sku' => $prod['sku']],
                 array_merge($prod, ['id' => Product::where('sku', $prod['sku'])->value('id') ?? Str::uuid(), 'is_active' => true])
             );
+            
+            \App\Models\Inventory::firstOrCreate(
+                ['product_id' => $p->id, 'location' => 'Freeport Store'],
+                ['qty_on_hand' => 100, 'qty_reserved' => 0, 'reorder_level' => 10]
+            );
         }
+
+        // 4. Registers
+        $mainRegister = Register::firstOrCreate(
+            ['name' => 'Main Register'],
+            ['location' => 'Freeport Store', 'is_active' => true]
+        );
+        $secondaryRegister = Register::firstOrCreate(
+            ['name' => 'Secondary Register'],
+            ['location' => 'Freeport Store', 'is_active' => true]
+        );
+
+        $posUsers = User::whereIn('role', ['admin', 'cashier'])->get();
+        foreach ($posUsers as $user) {
+            Staff::updateOrCreate(
+                ['email' => $user->email],
+                [
+                    'user_id' => $user->id,
+                    'name' => $user->name,
+                    'role' => $user->role === 'admin' ? 'admin' : 'cashier',
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        $posUserIds = $posUsers->pluck('id');
+        $mainRegister->assignedStaff()->syncWithoutDetaching($posUserIds);
+        $secondaryRegister->assignedStaff()->syncWithoutDetaching($posUserIds);
     }
 }

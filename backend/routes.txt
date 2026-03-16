@@ -1,0 +1,154 @@
+
+  GET|HEAD  / ........................................................................ home
+  GET|HEAD  about ................................................................... about
+  GET|HEAD  account ..................................................... account.dashboard
+  GET|HEAD  account/addresses ........................................... account.addresses
+  GET|HEAD  account/forgot-password ............................... account.forgot-password
+  GET|HEAD  account/login ................................................... account.login
+  GET|HEAD  account/orders ................................................. account.orders
+  GET|HEAD  account/orders/{orderNumber} ............................ account.orders.detail
+  GET|HEAD  account/register ............................................. account.register
+  GET|HEAD  account/tracking ............................................. account.tracking
+  GET|HEAD  account/wishlist ............................................. account.wishlist
+  GET|HEAD  admin ................................................................... admin
+  GET|HEAD  admin/categories ............................................. admin.categories
+  GET|HEAD  admin/customers ............................................... admin.customers
+  GET|HEAD  admin/discounts ............................................... admin.discounts
+  GET|HEAD  admin/gift-cards ............................................. admin.gift-cards
+  GET|HEAD  admin/inventory ............................................... admin.inventory
+  GET|HEAD  admin/orders ..................................................... admin.orders
+  GET|HEAD  admin/petty-cash ............................................. admin.petty-cash
+  GET|HEAD  admin/products ................................................. admin.products
+  GET|HEAD  admin/recurring-invoices ............................. admin.recurring-invoices
+  GET|HEAD  admin/registers ............................................... admin.registers
+  GET|HEAD  admin/repairs ................................................... admin.repairs
+  GET|HEAD  admin/reports ................................................... admin.reports
+  GET|HEAD  admin/staff ....................................................... admin.staff
+  GET|HEAD  admin/timesheets ............................................. admin.timesheets
+  GET|HEAD  admin/vendors ................................................... admin.vendors
+  GET|HEAD  api/admin/categories ............................ AdminCategoryController@index
+  POST      api/admin/categories ............................ AdminCategoryController@store
+  PUT       api/admin/categories/{category} ................ AdminCategoryController@update
+  DELETE    api/admin/categories/{category} ............... AdminCategoryController@destroy
+  GET|HEAD  api/admin/coupons ................................. AdminCouponController@index
+  POST      api/admin/coupons ................................. AdminCouponController@store
+  PUT       api/admin/coupons/{id} ........................... AdminCouponController@update
+  DELETE    api/admin/coupons/{id} .......................... AdminCouponController@destroy
+  PATCH     api/admin/coupons/{id}/toggle-active ....... AdminCouponController@toggleActive
+  GET|HEAD  api/admin/customers ............................. AdminCustomerController@index
+  GET|HEAD  api/admin/gift-cards ............................ AdminGiftCardController@index
+  POST      api/admin/gift-cards ............................ AdminGiftCardController@store
+  PATCH     api/admin/gift-cards/{id}/toggle-active .. AdminGiftCardController@toggleActive
+  GET|HEAD  api/admin/inventory ............................ AdminInventoryController@index
+  POST      api/admin/inventory/{id}/adjust ............... AdminInventoryController@adjust
+  GET|HEAD  api/admin/orders ................................... AdminOrderController@index
+  PATCH     api/admin/orders/{id}/status ................ AdminOrderController@updateStatus
+  GET|HEAD  api/admin/products ............................... AdminProductController@index
+  POST      api/admin/products ............................... AdminProductController@store
+  PUT       api/admin/products/{product} .................... AdminProductController@update
+  DELETE    api/admin/products/{product} ................... AdminProductController@destroy
+  GET|HEAD  api/admin/registers .................................. RegisterController@index
+  POST      api/admin/registers .................................. RegisterController@store
+  PUT       api/admin/registers/{id} ............................ RegisterController@update
+  POST      api/admin/registers/{id}/assign ................ RegisterController@assignStaff
+  GET|HEAD  api/admin/repair-tickets .................... AdminRepairTicketController@index
+  GET|HEAD  api/admin/repair-tickets/staff .............. AdminRepairTicketController@staff
+  PATCH     api/admin/repair-tickets/{id}/status . AdminRepairTicketController@updateStatus
+  GET|HEAD  api/admin/repair-tickets/{id}/tasks ......... AdminRepairTicketController@tasks
+  POST      api/admin/repair-tickets/{id}/tasks ....... AdminRepairTicketController@addTask
+  PATCH     api/admin/repair-tickets/{id}/tasks/{taskId} AdminRepairTicketController@updat…
+  GET|HEAD  api/admin/reports/dashboard ................... AdminReportController@dashboard
+  GET|HEAD  api/admin/staff .................................... AdminStaffController@index
+  POST      api/admin/staff .................................... AdminStaffController@store
+  PUT       api/admin/staff/{id} .............................. AdminStaffController@update
+  DELETE    api/admin/staff/{id} ............................. AdminStaffController@destroy
+  PATCH     api/admin/staff/{id}/toggle-active .......... AdminStaffController@toggleActive
+  GET|HEAD  api/categories ....................................... CategoryController@index
+  POST      api/categories ....................................... CategoryController@store
+  PUT       api/categories/{id} ................................. CategoryController@update
+  DELETE    api/categories/{id} ................................ CategoryController@destroy
+  PATCH     api/categories/{id}/toggle-active ............. CategoryController@toggleActive
+  GET|HEAD  api/inventory ....................................... InventoryController@index
+  POST      api/inventory/bulk-adjust ...................... InventoryController@bulkAdjust
+  POST      api/inventory/{productId}/adjust ................... InventoryController@adjust
+  POST      api/orders .............................................. OrderController@store
+  GET|HEAD  api/orders .............................................. OrderController@index
+  GET|HEAD  api/orders/track .............................................................. 
+  PATCH     api/orders/{id}/status ........................... OrderController@updateStatus
+  POST      api/pos/activity .................................... PosController@logActivity
+  GET|HEAD  api/pos/categories ................................ PosController@getCategories
+  POST      api/pos/check-gift-card ........................... PosController@checkGiftCard
+  POST      api/pos/checkout ..................................... OrderController@checkout
+  POST      api/pos/coupons/validate ............................ CouponController@validate
+  POST      api/pos/gift-cards/check ............................. GiftCardController@check
+  GET|HEAD  api/pos/orders/lookup .................................. OrderController@lookup
+  POST      api/pos/orders/{id}/payment .................... OrderController@collectPayment
+  PATCH     api/pos/orders/{id}/pickup ....................... OrderController@markPickedUp
+  POST      api/pos/orders/{id}/refund ............................. OrderController@refund
+  GET|HEAD  api/pos/products .................................... PosController@getProducts
+  GET|HEAD  api/pos/registers .................................. PosController@getRegisters
+  GET|HEAD  api/pos/repair-tickets/lookup ................ RepairTicketController@posLookup
+  PATCH     api/pos/repair-tickets/{id}/deposit ..... RepairTicketController@collectDeposit
+  POST      api/pos/repair-tickets/{id}/payment ..... RepairTicketController@collectPayment
+  PATCH     api/pos/repair-tickets/{id}/pickup ........ RepairTicketController@markPickedUp
+  GET|HEAD  api/pos/session ............................... PosController@getCurrentSession
+  POST      api/pos/session ..................................... PosController@openSession
+  PUT       api/pos/session/{session} .......................... PosController@closeSession
+  GET|HEAD  api/products .......................................... ProductController@index
+  POST      api/products .......................................... ProductController@store
+  PUT       api/products/{id} .................................... ProductController@update
+  DELETE    api/products/{id} ................................... ProductController@destroy
+  POST      api/repair/requests .............................. RepairTicketController@store
+  POST      api/repair/status ................................. RepairTicketController@show
+  GET|HEAD  api/staff ............................................... StaffController@index
+  POST      api/staff ............................................... StaffController@store
+  PUT       api/staff/{id} ......................................... StaffController@update
+  PATCH     api/staff/{id}/toggle-active ..................... StaffController@toggleActive
+  GET|HEAD  api/storefront/categories ............................ CategoryController@index
+  POST      api/storefront/checkout .................... StorefrontCheckoutController@store
+  GET|HEAD  api/storefront/products ............................... ProductController@index
+  GET|HEAD  api/user ...................................................................... 
+  GET|HEAD  api/vendors ............................................ VendorController@index
+  POST      api/vendors ............................................ VendorController@store
+  PUT       api/vendors/{id} ...................................... VendorController@update
+  DELETE    api/vendors/{id} ..................................... VendorController@destroy
+  GET|HEAD  cart ..................................................................... cart
+  GET|HEAD  categories ......................................................... categories
+  GET|HEAD  category/{slug} ...................................................... category
+  GET|HEAD  checkout ............................................................. checkout
+  GET|HEAD  checkout/success/{id} ........................................ checkout.success
+  GET|HEAD  contact ............................................................... contact
+  GET|HEAD  faq ....................................................................... faq
+  GET|HEAD  gift-cards ......................................................... gift-cards
+  GET|HEAD  gift-cards/balance ......................................... gift-cards.balance
+  GET|HEAD  kiosk/admin ....................................................... kiosk.admin
+  GET|HEAD  kiosk/cashier ................................................... kiosk.cashier
+  GET|HEAD  kiosk/warehouse ............................................... kiosk.warehouse
+  GET|HEAD  login ..................................... login › Auth\LoginController@create
+  POST      login ................................ login.store › Auth\LoginController@store
+  POST      logout .................................. logout › Auth\LoginController@destroy
+  GET|HEAD  not-authorized ................................................. not-authorized
+  GET|HEAD  offline ....................................................................... 
+  GET|HEAD  ops/clear-cache ............................................................... 
+  GET|HEAD  orders/{id} ....................................................... orders.show
+  GET|HEAD  pos ....................................................................... pos
+  GET|HEAD  pos/login ........................................................... pos.login
+  POST      pos/pin-login ......................... pos.pin-login › AuthController@pinLogin
+  GET|HEAD  product/{slug} ........................................................ product
+  GET|HEAD  repair ................................................................. repair
+  GET|HEAD  returns ............................................................... returns
+  GET|HEAD  sale ..................................................................... sale
+  GET|HEAD  shipping ............................................................. shipping
+  GET|HEAD  shop ..................................................................... shop
+  GET|HEAD  staff/login ....................................................... staff.login
+  POST      staff/login ........................... staff.login.post › AuthController@login
+  POST      staff/logout ............................. staff.logout › AuthController@logout
+  GET|HEAD  storage/{path} .................................................. storage.local
+  GET|HEAD  sw.js ......................................................................... 
+  GET|HEAD  track-order ....................................................... track-order
+  GET|HEAD  up ............................................................................ 
+  GET|HEAD  warehouse ........................................................... warehouse
+  GET|HEAD  {fallbackPlaceholder} ......................................................... 
+
+                                                                       Showing [150] routes
+

@@ -22,9 +22,9 @@ class OrderController extends Controller
             'channel' => 'required|in:pos,online',
             'payment_method' => 'required|string',
             'fulfillment_method' => 'required|string',
-            'customer_id' => 'nullable|uuid',
-            'staff_id' => 'required|uuid',
-            'register_id' => 'nullable|uuid',
+            'customer_id' => 'nullable',
+            'staff_id' => 'required',
+            'register_id' => 'nullable',
             'subtotal' => 'required|numeric',
             'discount_amount' => 'nullable|numeric',
             'vat_amount' => 'required|numeric',
@@ -75,6 +75,9 @@ class OrderController extends Controller
                 $inventory = Inventory::where('product_id', $itemData['product_id'])->first();
                 if ($inventory) {
                     $inventory->decrement('qty_on_hand', $itemData['qty']);
+                    if ($validated['fulfillment_method'] === 'pickup') {
+                        $inventory->increment('qty_reserved', $itemData['qty']);
+                    }
                 }
 
                 // Special handling for Gift Card products: Create the actual gift card
@@ -145,7 +148,8 @@ class OrderController extends Controller
                 if ($item->product_id) {
                     $inv = Inventory::where('product_id', $item->product_id)->first();
                     if ($inv) {
-                        $inv->decrement('qty_on_hand', $item->qty);
+                        // Stock was already deducted from qty_on_hand during checkout
+                        // Just clear it from reserved now
                         $inv->update(['qty_reserved' => max(0, $inv->qty_reserved - $item->qty)]);
                     }
                 }
@@ -201,6 +205,10 @@ class OrderController extends Controller
                     $inv = Inventory::where('product_id', $item->product_id)->first();
                     if ($inv) {
                         $inv->increment('qty_on_hand', $item->qty);
+                        // If it was a pickup that hadn't been picked up yet, decrement reserved
+                        if ($order->fulfillment_method === 'pickup' && $order->status !== 'picked_up') {
+                            $inv->update(['qty_reserved' => max(0, $inv->qty_reserved - $item->qty)]);
+                        }
                     }
                 }
             }

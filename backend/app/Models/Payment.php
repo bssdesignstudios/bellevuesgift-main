@@ -15,6 +15,7 @@ class Payment extends Model
 
     protected $fillable = [
         'order_id',
+        'repair_ticket_id',
         'method',
         'amount',
         'reference',
@@ -23,5 +24,10 @@ class Payment extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function repairTicket()
+    {
+        return $this->belongsTo(RepairTicket::class);
     }
 }
