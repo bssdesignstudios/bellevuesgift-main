@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 
@@ -30,15 +30,24 @@ interface CustomerAuthContextType {
 const CustomerAuthContext = createContext<CustomerAuthContextType | undefined>(undefined);
 
 export function CustomerAuthProvider({ children }: { children: ReactNode }) {
-  let customer = null;
+  const [customer, setCustomer] = useState<Partial<CustomerProfile> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Sync with Inertia props
   try {
-    const page = usePage();
-    customer = (page.props as any).auth?.customer ?? null;
+    const { props } = usePage();
+    const serverCustomer = (props as any).auth?.customer ?? null;
+    
+    // We use a useEffect-like pattern here or direct sync if we can
+    // Using a derived state approach is actually better for Inertia
+    // But since the context expects a stable 'customer' object, let's keep it in context state
+    useEffect(() => {
+        setCustomer(serverCustomer);
+    }, [serverCustomer?.id, serverCustomer?.email]);
   } catch (e) {
     // Outside Inertia context
   }
-  const [loading, setLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
     setLoading(true);
