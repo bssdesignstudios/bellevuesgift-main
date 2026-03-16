@@ -22,13 +22,13 @@ createInertiaApp({
             <QueryClientProvider client={queryClient}>
                 <TooltipProvider>
                     <AuthProvider>
-                        {/* <CustomerAuthProvider> */}
+                        <CustomerAuthProvider>
                             <CartProvider>
                                 <App {...props} />
                                 <Toaster position="top-center" richColors />
                                 <PWAInstallBanner />
                             </CartProvider>
-                        {/* </CustomerAuthProvider> */}
+                        </CustomerAuthProvider>
                     </AuthProvider>
                 </TooltipProvider>
             </QueryClientProvider>
