@@ -91,4 +91,36 @@ class CustomerAccountController extends Controller
 
         return response()->json($order);
     }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password'      => 'required|string',
+            'password'              => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (!\Illuminate\Support\Facades\Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'Current password is incorrect'], 422);
+        }
+
+        $user->update(['password' => \Illuminate\Support\Facades\Hash::make($request->password)]);
+
+        return response()->json(['message' => 'Password updated successfully']);
+    }
+
+    public function trackOrder(Request $request)
+    {
+        $q = trim($request->input('q', ''));
+        if (!$q) {
+            return response()->json(null);
+        }
+
+        $order = \App\Models\Order::where('order_number', strtoupper($q))
+            ->orWhere('pickup_code', strtoupper($q))
+            ->first();
+
+        return response()->json($order);
+    }
 }

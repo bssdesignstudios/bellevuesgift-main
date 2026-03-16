@@ -147,4 +147,20 @@ Route::middleware('auth:sanctum')->prefix('customer')->group(function () {
     Route::get('/orders', [App\Http\Controllers\CustomerAccountController::class, 'orders']);
     Route::get('/orders/{orderNumber}', [App\Http\Controllers\CustomerAccountController::class, 'orderDetail']);
     Route::get('/gift-cards', [App\Http\Controllers\CustomerAccountController::class, 'giftCards']);
+    Route::post('/change-password', [App\Http\Controllers\CustomerAccountController::class, 'changePassword']);
+
+    // Addresses
+    Route::get('/addresses', [App\Http\Controllers\CustomerAddressController::class, 'index']);
+    Route::post('/addresses', [App\Http\Controllers\CustomerAddressController::class, 'store']);
+    Route::put('/addresses/{id}', [App\Http\Controllers\CustomerAddressController::class, 'update']);
+    Route::delete('/addresses/{id}', [App\Http\Controllers\CustomerAddressController::class, 'destroy']);
+    Route::post('/addresses/{id}/set-default', [App\Http\Controllers\CustomerAddressController::class, 'setDefault']);
+
+    // Wishlist
+    Route::get('/wishlist', [App\Http\Controllers\CustomerWishlistController::class, 'index']);
+    Route::post('/wishlist', [App\Http\Controllers\CustomerWishlistController::class, 'store']);
+    Route::delete('/wishlist/{id}', [App\Http\Controllers\CustomerWishlistController::class, 'destroy']);
 });
+
+// Order tracking - public (by order number or pickup code)
+Route::get('/customer/orders/track', [App\Http\Controllers\CustomerAccountController::class, 'trackOrder']);

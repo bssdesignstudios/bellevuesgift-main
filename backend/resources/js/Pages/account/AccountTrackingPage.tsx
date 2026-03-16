@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { AccountLayout } from '@/components/layout/AccountLayout';
 import { useQuery } from '@tanstack/react-query';
-import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +27,6 @@ const shippingSteps = [
 ];
 
 export default function AccountTrackingPage() {
-  const { customer } = useCustomerAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchedOrder, setSearchedOrder] = useState<string | null>(null);
 
@@ -37,15 +35,10 @@ export default function AccountTrackingPage() {
     queryFn: async () => {
       if (!searchedOrder) return null;
 
-      // Search by order number or pickup code
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .or(`order_number.eq.${searchedOrder},pickup_code.eq.${searchedOrder.toUpperCase()}`)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
+      const { data } = await axios.get('/api/customer/orders/track', {
+        params: { q: searchedOrder }
+      });
+      return data ?? null;
     },
     enabled: !!searchedOrder
   });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,15 +59,16 @@ export default function AccountSettingsPage() {
 
     setChangingPassword(true);
 
-    const { error } = await supabase.auth.updateUser({
-      password: passwords.new
-    });
-
-    if (error) {
-      toast.error(error.message);
-    } else {
+    try {
+      await axios.post('/api/customer/change-password', {
+        current_password: passwords.current,
+        password: passwords.new,
+        password_confirmation: passwords.confirm,
+      });
       toast.success('Password updated');
       setPasswords({ current: '', new: '', confirm: '' });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update password');
     }
 
     setChangingPassword(false);
@@ -186,7 +187,7 @@ export default function AccountSettingsPage() {
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p>
             <strong>Account ID:</strong>{' '}
-            <span className="font-mono">{customer?.id.slice(0, 8)}...</span>
+            <span className="font-mono">{customer?.id?.slice(0, 8)}...</span>
           </p>
           <p>
             <strong>Member Since:</strong>{' '}

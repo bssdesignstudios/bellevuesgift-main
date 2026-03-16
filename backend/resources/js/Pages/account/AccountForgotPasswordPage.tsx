@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,15 +17,12 @@ export default function AccountForgotPasswordPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/account/reset-password`
-    });
-
-    if (error) {
-      toast.error(error.message || 'Failed to send reset email');
-    } else {
+    try {
+      await axios.post('/forgot-password', { email });
       setSent(true);
       toast.success('Reset link sent to your email');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to send reset email');
     }
 
     setLoading(false);

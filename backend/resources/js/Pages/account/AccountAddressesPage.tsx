@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { AccountLayout } from '@/components/layout/AccountLayout';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import axios from 'axios';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,72 +26,39 @@ interface Address {
   is_default: boolean;
 }
 
+const EMPTY_FORM = {
+  label: 'Home',
+  address_line1: '',
+  address_line2: '',
+  city: '',
+  island: 'Grand Bahama',
+  postal_code: '',
+  phone: '',
+  is_default: false
+};
+
 export default function AccountAddressesPage() {
   const { customer } = useCustomerAuth();
   const queryClient = useQueryClient();
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const [formData, setFormData] = useState({
-    label: 'Home',
-    address_line1: '',
-    address_line2: '',
-    city: '',
-    island: 'Grand Bahama',
-    postal_code: '',
-    phone: '',
-    is_default: false
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
   const { data: addresses, isLoading } = useQuery({
     queryKey: ['customer-addresses', customer?.id],
     queryFn: async () => {
-      if (!customer?.id) return [];
-
-      const { data, error } = await supabase
-        .from('customer_addresses')
-        .select('*')
-        .eq('customer_id', customer.id)
-        .order('is_default', { ascending: false });
-
-      if (error) throw error;
+      const { data } = await axios.get('/api/customer/addresses');
       return data as Address[];
     },
     enabled: !!customer?.id
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (data: typeof formData & { id?: string }) => {
-      if (data.id) {
-        const { error } = await supabase
-          .from('customer_addresses')
-          .update({
-            label: data.label,
-            address_line1: data.address_line1,
-            address_line2: data.address_line2 || null,
-            city: data.city,
-            island: data.island,
-            postal_code: data.postal_code || null,
-            phone: data.phone || null,
-            is_default: data.is_default
-          })
-          .eq('id', data.id);
-        if (error) throw error;
+    mutationFn: async (payload: typeof formData & { id?: string }) => {
+      if (payload.id) {
+        await axios.put(`/api/customer/addresses/${payload.id}`, payload);
       } else {
-        const { error } = await supabase
-          .from('customer_addresses')
-          .insert({
-            customer_id: customer!.id,
-            label: data.label,
-            address_line1: data.address_line1,
-            address_line2: data.address_line2 || null,
-            city: data.city,
-            island: data.island,
-            postal_code: data.postal_code || null,
-            phone: data.phone || null,
-            is_default: data.is_default
-          });
-        if (error) throw error;
+        await axios.post('/api/customer/addresses', payload);
       }
     },
     onSuccess: () => {
@@ -99,42 +66,27 @@ export default function AccountAddressesPage() {
       toast.success(editingAddress ? 'Address updated' : 'Address added');
       handleCloseDialog();
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || error.message);
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('customer_addresses')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
+      await axios.delete(`/api/customer/addresses/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customer-addresses'] });
       toast.success('Address deleted');
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || error.message);
     }
   });
 
   const setDefaultMutation = useMutation({
     mutationFn: async (id: string) => {
-      // First unset all defaults
-      await supabase
-        .from('customer_addresses')
-        .update({ is_default: false })
-        .eq('customer_id', customer!.id);
-
-      // Then set the new default
-      const { error } = await supabase
-        .from('customer_addresses')
-        .update({ is_default: true })
-        .eq('id', id);
-      if (error) throw error;
+      await axios.post(`/api/customer/addresses/${id}/set-default`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customer-addresses'] });
@@ -157,16 +109,7 @@ export default function AccountAddressesPage() {
       });
     } else {
       setEditingAddress(null);
-      setFormData({
-        label: 'Home',
-        address_line1: '',
-        address_line2: '',
-        city: '',
-        island: 'Grand Bahama',
-        postal_code: '',
-        phone: '',
-        is_default: false
-      });
+      setFormData(EMPTY_FORM);
     }
     setIsDialogOpen(true);
   };
@@ -178,10 +121,7 @@ export default function AccountAddressesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    saveMutation.mutate({
-      ...formData,
-      id: editingAddress?.id
-    });
+    saveMutation.mutate({ ...formData, id: editingAddress?.id });
   };
 
   if (isLoading) {

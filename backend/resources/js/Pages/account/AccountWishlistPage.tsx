@@ -3,7 +3,7 @@ import { AccountLayout } from '@/components/layout/AccountLayout';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { useCart } from '@/contexts/CartContext';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
@@ -19,16 +19,7 @@ export default function AccountWishlistPage() {
     queryKey: ['customer-wishlist', customer?.id],
     queryFn: async () => {
       if (!customer?.id) return [];
-
-      const { data, error } = await supabase
-        .from('wishlists')
-        .select(`
-          id,
-          product:products(*)
-        `)
-        .eq('customer_id', customer.id);
-
-      if (error) throw error;
+      const { data } = await axios.get('/api/customer/wishlist');
       return data as Array<{ id: string; product: Product }>;
     },
     enabled: !!customer?.id
@@ -36,11 +27,7 @@ export default function AccountWishlistPage() {
 
   const removeMutation = useMutation({
     mutationFn: async (wishlistId: string) => {
-      const { error } = await supabase
-        .from('wishlists')
-        .delete()
-        .eq('id', wishlistId);
-      if (error) throw error;
+      await axios.delete(`/api/customer/wishlist/${wishlistId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customer-wishlist'] });
