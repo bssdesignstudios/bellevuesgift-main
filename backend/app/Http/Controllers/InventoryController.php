@@ -12,14 +12,25 @@ class InventoryController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'inventory']);
+        // First, ensure every product has an inventory record (auto-seed missing ones)
+        $allProducts = Product::all();
+        foreach ($allProducts as $product) {
+            $product->inventory()->firstOrCreate(
+                ['product_id' => $product->id],
+                ['qty_on_hand' => 0, 'qty_reserved' => 0, 'reorder_level' => 10]
+            );
+        }
 
-        if ($request->has('search')) {
+        // The frontend expects: inventory records with nested product+category
+        // Use the Inventory model joined to product
+        $query = \App\Models\Inventory::with(['product.category']);
+
+        if ($request->has('search') && $request->input('search')) {
             $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'ilike', "%{$search}%")
-                    ->orWhere('sku', 'ilike', "%{$search}%")
-                    ->orWhere('barcode', 'ilike', "%{$search}%");
+            $query->whereHas('product', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");
             });
         }
 
@@ -27,19 +38,15 @@ class InventoryController extends Controller
             $filter = $request->input('filter');
 
             if ($filter === 'low_stock') {
-                $query->whereHas('inventory', function ($q) {
-                    $q->whereColumn('qty_on_hand', '<=', 'reorder_level');
-                });
+                $query->whereColumn('qty_on_hand', '<=', 'reorder_level');
             } elseif ($filter === 'out_of_stock') {
-                $query->whereHas('inventory', function ($q) {
-                    $q->where('qty_on_hand', '<=', 0);
-                });
+                $query->where('qty_on_hand', '<=', 0);
             }
         }
 
-        $products = $query->orderBy('name')->get();
+        $inventory = $query->get()->sortBy('product.name')->values();
 
-        return response()->json($products);
+        return response()->json($inventory);
     }
 
     public function adjust(Request $request, string $productId): JsonResponse
