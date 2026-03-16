@@ -41,12 +41,17 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'staff' => $user ? array_merge([
+                'staff' => $user && in_array($user->role, ['admin', 'cashier', 'warehouse', 'warehouse_manager', 'finance']) ? array_merge([
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
                 ], $this->getStaffUuid($user)) : null,
+                'customer' => $user && $user->role === 'customer' ? [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ] : null,
             ],
         ];
     }

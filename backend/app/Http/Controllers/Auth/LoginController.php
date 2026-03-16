@@ -38,7 +38,7 @@ class LoginController extends Controller
                 return redirect()->intended('/kiosk/warehouse');
             }
 
-            return redirect()->intended('/shop');
+            return redirect()->intended('/account');
         }
 
         return back()->withErrors([

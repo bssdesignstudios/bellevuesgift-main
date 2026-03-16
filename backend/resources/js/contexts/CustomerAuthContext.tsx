@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { usePage, router } from '@inertiajs/react';
+import axios from 'axios';
 
 interface CustomerProfile {
   id: string;
@@ -15,7 +17,7 @@ interface CustomerProfile {
 interface CustomerAuthContextType {
   user: any;
   session: any;
-  customer: CustomerProfile | null;
+  customer: Partial<CustomerProfile> | null;
   loading: boolean;
   authError: string | null;
   signUp: (email: string, password: string, name: string, phone?: string) => Promise<{ error: Error | null }>;
@@ -28,21 +30,67 @@ interface CustomerAuthContextType {
 const CustomerAuthContext = createContext<CustomerAuthContextType | undefined>(undefined);
 
 export function CustomerAuthProvider({ children }: { children: ReactNode }) {
-  const [loading] = useState(false);
+  const { props } = usePage();
+  const customer = (props as any).auth?.customer ?? null;
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const signUp = async (email: string, password: string, name: string, phone?: string) => {
+    setLoading(true);
+    try {
+      await axios.post('/api/customer/register', { email, password, name, phone });
+      setLoading(false);
+      return { error: null };
+    } catch (error: any) {
+      setLoading(false);
+      return { error: new Error(error.response?.data?.message || 'Registration failed') };
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      await axios.post('/login', { email, password });
+      setLoading(false);
+      router.reload(); // Refresh to get the customer data from shared props
+      return { error: null };
+    } catch (error: any) {
+      setLoading(false);
+      return { error: new Error(error.response?.data?.message || 'Login failed') };
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await axios.post('/logout');
+      router.visit('/');
+    } catch (error) {
+      console.error('Logout failed', error);
+    }
+  };
+
+  const updateProfile = async (updates: Partial<CustomerProfile>) => {
+    // Implementation for profile update
+    return { error: null };
+  };
+
+  const retryAuth = () => {
+    router.reload();
+  };
 
   return (
     <CustomerAuthContext.Provider
       value={{
-        user: null,
-        session: null,
-        customer: null,
+        user: customer,
+        session: customer ? { user: customer } : null,
+        customer,
         loading,
-        authError: null,
-        signUp: async () => ({ error: null }),
-        signIn: async () => ({ error: null }),
-        signOut: async () => {},
-        updateProfile: async () => ({ error: null }),
-        retryAuth: () => {},
+        authError,
+        signUp,
+        signIn,
+        signOut,
+        updateProfile,
+        retryAuth,
       }}
     >
       {children}
