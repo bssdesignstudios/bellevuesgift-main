@@ -333,6 +333,14 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::get('/recurring-invoices', function () {
             return Inertia::render('admin/AdminRecurringInvoices');
         })->name('admin.recurring-invoices');
+
+        Route::get('/expenses', function () {
+            return Inertia::render('admin/AdminFinance', ['defaultTab' => 'expenses']);
+        })->name('admin.expenses');
+
+        Route::get('/payroll', function () {
+            return Inertia::render('admin/AdminFinance', ['defaultTab' => 'payroll']);
+        })->name('admin.payroll');
     });
 
     // 2. Warehouse Operations (Admin + Warehouse + Finance for Inventory visibility)

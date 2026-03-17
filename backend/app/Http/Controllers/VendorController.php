@@ -14,7 +14,7 @@ class VendorController extends Controller
 
         if ($request->has('search')) {
             $search = $request->input('search');
-            $query->where('name', 'ilike', "%{$search}%");
+            $query->where('name', 'like', "%{$search}%");
         }
 
         return response()->json($query->orderBy('name')->get());

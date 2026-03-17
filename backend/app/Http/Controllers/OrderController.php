@@ -130,7 +130,7 @@ class OrderController extends Controller
         $order = Order::with(['items', 'customer'])
             ->where('channel', 'web')
             ->where(function ($q) use ($search) {
-                $q->where('order_number', 'ilike', "%{$search}%")
+                $q->where('order_number', 'like', "%{$search}%")
                   ->orWhere('pickup_code', $search);
             })
             ->first();

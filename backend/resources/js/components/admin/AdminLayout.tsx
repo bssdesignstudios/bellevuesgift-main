@@ -5,6 +5,7 @@ import { AdminSidebar } from './AdminSidebar';
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect } from 'react';
+import { ImpersonationBanner } from './ImpersonationBanner';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -79,11 +80,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen bg-muted font-sans">
-      <AdminSidebar />
-      <main className="flex-1 overflow-auto p-6">
-        {children}
-      </main>
+    <div className="flex flex-col min-h-screen bg-muted font-sans">
+      <ImpersonationBanner />
+      <div className="flex flex-1">
+        <AdminSidebar />
+        <main className="flex-1 overflow-auto p-6">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

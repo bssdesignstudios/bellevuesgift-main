@@ -60,6 +60,7 @@ class HandleInertiaRequests extends Middleware
                     'name'  => $user->name,
                     'email' => $user->email,
                     'role'  => $user->role,
+                    'impersonated_by_admin_id' => $request->session()->get('admin_id'),
                 ], $this->getStaffUuid($user)) : null,
                 'customer' => $isCustomer ? [
                     'id'    => $user->id,

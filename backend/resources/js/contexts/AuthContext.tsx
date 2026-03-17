@@ -17,10 +17,10 @@ interface AuthContextType {
   staff: Staff | null;
   loading: boolean;
   authError: string | null;
-  impersonating: Staff | null;
+  impersonating: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; staff?: Staff | null }>;
   signOut: () => Promise<void>;
-  impersonate: (staff: Staff | null) => void;
+  impersonate: (targetId: string | null, password?: string) => Promise<void>;
   effectiveStaff: Staff | null;
   retryAuth: () => void;
 }
@@ -29,8 +29,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/** Turn a server staff payload { id, name, email, role } into a full Staff object */
-function toStaff(data: { id: number | string; name: string; email: string; role: string }): Staff {
+/** Turn a server staff payload { id, name, email, role, impersonated_by_admin_id } into a full Staff object */
+function toStaff(data: { id: number | string; name: string; email: string; role: string, impersonated_by_admin_id?: number | null }): Staff {
   return {
     id: String(data.id),
     auth_user_id: null,
@@ -38,6 +38,7 @@ function toStaff(data: { id: number | string; name: string; email: string; role:
     email: data.email,
     role: data.role as Staff['role'],
     is_active: true,
+    impersonated_by_admin_id: data.impersonated_by_admin_id ?? null,
     created_at: new Date().toISOString(),
   };
 }
@@ -59,16 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     serverStaff ? { id: serverStaff.id, email: serverStaff.email } : null
   );
   const [staff, setStaff] = useState<Staff | null>(() =>
-    serverStaff ? toStaff(serverStaff) : null
+    serverStaff ? toStaff(serverStaff as any) : null
   );
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [impersonating, setImpersonating] = useState<Staff | null>(null);
+  
+  // Impersonation state derived from server staff data
+  const impersonating = !!(serverStaff as any)?.impersonated_by_admin_id;
 
   // Keep state in sync when Inertia page props change (e.g. navigating between pages)
   useEffect(() => {
     if (serverStaff) {
-      const s = toStaff(serverStaff);
+      const s = toStaff(serverStaff as any);
       setStaff(s);
       setUser({ id: serverStaff.id, email: serverStaff.email });
     } else {
@@ -97,8 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── sign out ───────────────────────────────────────────────────────────────
   const signOut = async () => {
-    setImpersonating(null);
-
     try {
       await axios.post('/staff/logout');
     } catch {
@@ -111,12 +112,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ── impersonation ──────────────────────────────────────────────────────────
-  const impersonate = (targetStaff: Staff | null) => {
-    if (staff?.role !== 'admin') return;
-    setImpersonating(targetStaff);
+  const impersonate = async (targetId: string | null, password?: string) => {
+    if (targetId) {
+      // Start
+      try {
+        const { data } = await axios.post('/api/admin/impersonate', { 
+          target_id: targetId,
+          password: password 
+        });
+        // Full page reload to ensure all contexts/states are fresh
+        window.location.reload();
+      } catch (err: any) {
+        throw new Error(err?.response?.data?.message || 'Impersonation failed');
+      }
+    } else {
+      // Stop
+      try {
+        await axios.post('/api/admin/impersonate/stop');
+        window.location.reload();
+      } catch (err: any) {
+        console.error('Failed to stop impersonation', err);
+      }
+    }
   };
 
-  const effectiveStaff = impersonating ?? staff;
+  const effectiveStaff = staff; // Now server handles switching
 
   // ── derived ────────────────────────────────────────────────────────────────
   const session = user ? { user } : null;
@@ -124,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const retryAuth = useCallback(() => {
     // Force re-read from current Inertia page props
     if (serverStaff) {
-      const s = toStaff(serverStaff);
+      const s = toStaff(serverStaff as any);
       setStaff(s);
       setUser({ id: serverStaff.id, email: serverStaff.email });
     } else {

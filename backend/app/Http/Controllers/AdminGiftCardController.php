@@ -15,8 +15,8 @@ class AdminGiftCardController extends Controller
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('code', 'ilike', "%{$search}%")
-                  ->orWhere('notes', 'ilike', "%{$search}%");
+                $q->where('code', 'like', "%{$search}%")
+                  ->orWhere('notes', 'like', "%{$search}%");
             });
         }
 

@@ -13,7 +13,7 @@ class AdminCouponController extends Controller
 
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where('code', 'ilike', "%{$search}%");
+            $query->where('code', 'like', "%{$search}%");
         }
 
         return response()->json($query->limit(500)->get());

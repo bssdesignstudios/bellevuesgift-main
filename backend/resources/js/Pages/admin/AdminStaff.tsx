@@ -20,8 +20,10 @@ export default function AdminStaff() {
   const [editStaff, setEditStaff] = useState<Staff | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Staff | null>(null);
+  const [impersonateTarget, setImpersonateTarget] = useState<Staff | null>(null);
+  const [impersonatePassword, setImpersonatePassword] = useState('');
   const queryClient = useQueryClient();
-  const { impersonate, impersonating, effectiveStaff, staff: currentStaff } = useAuth();
+  const { impersonate, impersonating, staff: currentStaff } = useAuth();
 
   const { data: staffList } = useQuery({
     queryKey: ['admin-staff'],
@@ -55,15 +57,16 @@ export default function AdminStaff() {
     }
   });
 
-  const handleImpersonate = (staffMember: Staff) => {
-    if (staffMember.id === currentStaff?.id) {
-      toast.error("You can't impersonate yourself");
-      return;
-    }
-    impersonate(staffMember);
-    toast.success(`Now impersonating ${staffMember.name}`);
-    if (staffMember.role === 'cashier') {
-      router.visit('/pos');
+  const handleImpersonate = async () => {
+    if (!impersonateTarget) return;
+    
+    try {
+      await impersonate(String(impersonateTarget.id), impersonatePassword);
+      toast.success(`Now impersonating ${impersonateTarget.name}`);
+      setImpersonateTarget(null);
+      setImpersonatePassword('');
+    } catch (err: any) {
+      toast.error(err.message || 'Impersonation failed');
     }
   };
 
@@ -97,8 +100,8 @@ export default function AdminStaff() {
         {impersonating && (
           <div className="bg-warning/10 border border-warning rounded-lg p-4 flex items-center justify-between">
             <div>
-              <div className="font-medium">Currently impersonating: {impersonating.name}</div>
-              <div className="text-sm text-muted-foreground">Role: {impersonating.role}</div>
+              <div className="font-medium">Currently impersonating: {currentStaff?.name}</div>
+              <div className="text-sm text-muted-foreground">Role: {currentStaff?.role}</div>
             </div>
             <Button variant="outline" onClick={() => impersonate(null)}>
               Stop Impersonating
@@ -188,11 +191,11 @@ export default function AdminStaff() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
-                      {s.id !== currentStaff?.id && s.is_active && (
+                      {String(s.id) !== String(currentStaff?.id) && s.is_active && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleImpersonate(s)}
+                          onClick={() => setImpersonateTarget(s)}
                           title={!['admin'].includes(s.role) ? `Impersonate will switch to POS (${s.role} role)` : undefined}
                         >
                           <UserCheck className="h-4 w-4 mr-1" />
@@ -206,6 +209,39 @@ export default function AdminStaff() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Impersonation Re-auth Dialog */}
+        <Dialog open={!!impersonateTarget} onOpenChange={(open) => !open && setImpersonateTarget(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Impersonation</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                You are about to impersonate <strong>{impersonateTarget?.name}</strong>. 
+                For security, please enter your admin password.
+              </p>
+              <div className="space-y-2">
+                <Label>Your Password</Label>
+                <Input 
+                  type="password" 
+                  value={impersonatePassword} 
+                  onChange={(e) => setImpersonatePassword(e.target.value)}
+                  placeholder="Enter your password"
+                  onKeyDown={(e) => e.key === 'Enter' && handleImpersonate()}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setImpersonateTarget(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleImpersonate} disabled={!impersonatePassword}>
+                Start Impersonation
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

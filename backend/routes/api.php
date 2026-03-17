@@ -99,6 +99,7 @@ Route::prefix('admin')->group(function () {
 
     Route::get('/inventory', [AdminInventoryController::class, 'index']);
     Route::post('/inventory/{id}/adjust', [AdminInventoryController::class, 'adjust']);
+    Route::patch('/inventory/{id}', [AdminInventoryController::class, 'update']);
     Route::get('/reports/dashboard', [AdminReportController::class, 'dashboard']);
 
     Route::get('/staff', [AdminStaffController::class, 'index']);
@@ -142,6 +143,19 @@ Route::prefix('admin')->group(function () {
     Route::post('/registers', [RegisterController::class, 'store']);
     Route::put('/registers/{id}', [RegisterController::class, 'update']);
     Route::post('/registers/{id}/assign', [RegisterController::class, 'assignStaff']);
+
+    // Impersonation
+    Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
+    Route::post('/impersonate/stop', [App\Http\Controllers\AuthController::class, 'stopImpersonation']);
+
+    // Finance
+    Route::get('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'index']);
+    Route::post('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'store']);
+    Route::delete('/expenses/{expense}', [App\Http\Controllers\AdminExpenseController::class, 'destroy']);
+    
+    Route::get('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'index']);
+    Route::post('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'store']);
+    Route::post('/payroll/{payroll}/approve', [App\Http\Controllers\AdminPayrollController::class, 'approve']);
 });
 
 // Customer API

@@ -41,6 +41,17 @@ class AdminInventoryController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated, $inventory) {
+            $oldQty = $inventory->qty_on_hand;
+
+            // Update inventory
+            if (in_array($validated['adjustment_type'], ['reserve', 'unreserve'])) {
+                $inventory->qty_reserved += $validated['qty_change'];
+                $newQty = $inventory->qty_on_hand; // Unchanged for reservation usually, but good for log consistency
+            } else {
+                $inventory->qty_on_hand += $validated['qty_change'];
+                $newQty = $inventory->qty_on_hand;
+            }
+
             // Log the adjustment
             InventoryAdjustment::create([
                 'product_id' => $inventory->product_id,
@@ -48,18 +59,49 @@ class AdminInventoryController extends Controller
                 'qty_change' => $validated['qty_change'],
                 'notes' => $validated['notes'],
                 'staff_id' => auth()->id(),
+                'old_qty' => $oldQty,
+                'new_qty' => $newQty,
             ]);
-
-            // Update inventory
-            if (in_array($validated['adjustment_type'], ['reserve', 'unreserve'])) {
-                $inventory->qty_reserved += $validated['qty_change'];
-            } else {
-                $inventory->qty_on_hand += $validated['qty_change'];
-            }
 
             $inventory->save();
 
             return response()->json($inventory->load('product'));
+        });
+    }
+
+    /**
+     * Directly update qty_on_hand (cycle count) or reorder_level.
+     */
+    public function update(Request $request, Inventory $inventory)
+    {
+        $validated = $request->validate([
+            'qty_on_hand'   => 'sometimes|integer|min:0',
+            'reorder_level' => 'sometimes|integer|min:0',
+            'notes'         => 'nullable|string',
+        ]);
+
+        return DB::transaction(function () use ($validated, $inventory) {
+            // Log a cycle-count adjustment if qty changed
+            if (isset($validated['qty_on_hand']) && $validated['qty_on_hand'] !== $inventory->qty_on_hand) {
+                $oldQty = $inventory->qty_on_hand;
+                $change = $validated['qty_on_hand'] - $inventory->qty_on_hand;
+                InventoryAdjustment::create([
+                    'product_id'      => $inventory->product_id,
+                    'adjustment_type' => 'count',
+                    'qty_change'      => $change,
+                    'notes'           => $validated['notes'] ?? 'Direct count edit via admin',
+                    'staff_id'        => auth()->id(),
+                    'old_qty'         => $oldQty,
+                    'new_qty'         => $validated['qty_on_hand'],
+                ]);
+            }
+
+            $inventory->update(array_filter([
+                'qty_on_hand'   => $validated['qty_on_hand'] ?? null,
+                'reorder_level' => $validated['reorder_level'] ?? null,
+            ], fn($v) => $v !== null));
+
+            return response()->json($inventory->load('product.category'));
         });
     }
 }

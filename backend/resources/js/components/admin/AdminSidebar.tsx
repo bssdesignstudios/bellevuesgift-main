@@ -39,7 +39,8 @@ const ADMIN_NAV = [
   { label: 'Discounts', href: '/admin/discounts', icon: Tag, roles: ['admin', 'finance'] },
   { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin', 'finance'] },
   { label: 'Timesheets', href: '/admin/timesheets', icon: Clock, roles: ['admin', 'finance'] },
-  { label: 'Petty Cash', href: '/admin/petty-cash', icon: Wallet, roles: ['admin', 'finance'] },
+  { label: 'Expenses', href: '/admin/expenses', icon: Wallet, roles: ['admin', 'finance'] },
+  { label: 'Payroll', href: '/admin/payroll', icon: Wallet, roles: ['admin', 'finance'] },
   { label: 'Recurring Bills', href: '/admin/recurring-invoices', icon: RefreshCw, roles: ['admin', 'finance'] },
 ];
 

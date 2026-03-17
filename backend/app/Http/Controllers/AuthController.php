@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Staff;
 use App\Models\User;
+use App\Models\ImpersonationLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -118,11 +119,112 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
+        // End impersonation if active
+        if ($request->session()->has('admin_id')) {
+            $this->stopImpersonation($request);
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return response()->json(['message' => 'Logged out']);
+    }
+
+    /**
+     * Start impersonating another user.
+     */
+    public function impersonate(Request $request)
+    {
+        $request->validate([
+            'target_id' => 'required|exists:users,id',
+            'password' => 'required|string', // Re-auth required
+        ]);
+
+        $admin = $request->user();
+
+        if ($admin->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if (!Hash::check($request->password, $admin->password)) {
+            throw ValidationException::withMessages([
+                'password' => ['Incorrect password.'],
+            ]);
+        }
+
+        $targetUser = User::findOrFail($request->target_id);
+
+        // Security Policy: Cannot impersonate other admins
+        if ($targetUser->role === 'admin') {
+            return response()->json(['message' => 'Cannot impersonate another admin.'], 403);
+        }
+
+        // Store admin ID in session
+        $request->session()->put('admin_id', $admin->id);
+        
+        // Log the start
+        ImpersonationLog::create([
+            'admin_id' => $admin->id,
+            'target_id' => $targetUser->id,
+            'started_at' => now(),
+        ]);
+
+        Auth::login($targetUser);
+        $request->session()->regenerate();
+
+        $staffRecord = $this->resolveStaff($targetUser);
+
+        return response()->json([
+            'staff' => [
+                'id' => $targetUser->id,
+                'staff_uuid' => $staffRecord->id,
+                'name' => $targetUser->name,
+                'email' => $targetUser->email,
+                'role' => $targetUser->role,
+            ],
+            'impersonating' => true,
+        ]);
+    }
+
+    /**
+     * Stop impersonating and return to admin session.
+     */
+    public function stopImpersonation(Request $request)
+    {
+        $adminId = $request->session()->get('admin_id');
+
+        if (!$adminId) {
+            return response()->json(['message' => 'Not impersonating'], 400);
+        }
+
+        $admin = User::findOrFail($adminId);
+        $currentUser = $request->user();
+
+        // Log the end
+        ImpersonationLog::where('admin_id', $adminId)
+            ->where('target_id', $currentUser->id)
+            ->whereNull('ended_at')
+            ->update(['ended_at' => now()]);
+
+        // Clean session
+        $request->session()->forget('admin_id');
+
+        Auth::login($admin);
+        $request->session()->regenerate();
+
+        $staffRecord = $this->resolveStaff($admin);
+
+        return response()->json([
+            'staff' => [
+                'id' => $admin->id,
+                'staff_uuid' => $staffRecord->id,
+                'name' => $admin->name,
+                'email' => $admin->email,
+                'role' => $admin->role,
+            ],
+            'impersonating' => false,
+        ]);
     }
 }

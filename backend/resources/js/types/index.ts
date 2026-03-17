@@ -73,6 +73,7 @@ export interface Staff {
   role: 'cashier' | 'warehouse' | 'warehouse_manager' | 'admin' | 'finance';
   is_active: boolean;
   pos_pin?: string | null;
+  impersonated_by_admin_id?: number | null;
   created_at: string;
 }
 
