@@ -71,7 +71,7 @@ Route::prefix('pos')->group(function () {
     Route::get('/categories', [PosProductController::class, 'categories']);
     Route::get('/products', [PosProductController::class, 'products']);
     Route::post('/coupons/validate', [CouponController::class, 'validate']);
-    Route::post('/gift-cards/check', [GiftCardController::class, 'check']);
+    Route::post('/check-gift-card', [GiftCardController::class, 'check']);
 
     Route::get('/repair-tickets/lookup', [RepairTicketController::class, 'posLookup']);
     Route::patch('/repair-tickets/{id}/pickup', [RepairTicketController::class, 'markPickedUp']);

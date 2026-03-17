@@ -134,6 +134,7 @@ class AdminRepairTicketController extends Controller
 
         $payments = DB::table('payments')
             ->where('repair_ticket_id', $id)
+            ->select('id', 'amount', 'method as payment_method', 'note', 'created_at')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -160,7 +161,7 @@ class AdminRepairTicketController extends Controller
             'repair_ticket_id' => $id,
             'order_id'         => null,
             'amount'           => $validated['amount'],
-            'payment_method'   => $validated['payment_method'],
+            'method'           => $validated['payment_method'],
             'status'           => 'completed',
             'note'             => $validated['note'] ?? null,
             'created_at'       => now(),
