@@ -6,6 +6,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Inventory;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -50,6 +51,13 @@ class AdminProductController extends Controller
         }
 
         $product = Product::create($validated);
+
+        Inventory::create([
+            'product_id'    => $product->id,
+            'qty_on_hand'   => 0,
+            'qty_reserved'  => 0,
+            'reorder_level' => 0,
+        ]);
 
         return response()->json($product, 201);
     }
