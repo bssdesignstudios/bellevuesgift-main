@@ -186,7 +186,8 @@ export default function AdminRepairTickets() {
   const addTaskMutation = useMutation({
     mutationFn: async (task: { ticket_id: string; title: string; description: string; due_date: string | null }) => {
       await axios.post(`/api/admin/repair-tickets/${task.ticket_id}/tasks`, {
-        description: task.title + (task.description ? ': ' + task.description : ''),
+        title: task.title,
+        description: task.description || null,
       });
     },
     onSuccess: () => {

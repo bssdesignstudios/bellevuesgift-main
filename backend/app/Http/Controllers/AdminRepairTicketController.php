@@ -46,7 +46,7 @@ class AdminRepairTicketController extends Controller
     public function tasks($id)
     {
         $tasks = DB::table('repair_tasks')
-            ->where('repair_ticket_id', $id)
+            ->where('ticket_id', $id)
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -56,21 +56,27 @@ class AdminRepairTicketController extends Controller
     public function addTask(Request $request, $id)
     {
         $validated = $request->validate([
-            'description' => 'required|string',
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string',
             'assigned_to' => 'nullable|uuid',
         ]);
 
-        $task = DB::table('repair_tasks')->insertGetId([
-            'id'               => Str::uuid(),
-            'repair_ticket_id' => $id,
-            'description'      => $validated['description'],
-            'assigned_to'      => $validated['assigned_to'] ?? null,
-            'status'           => 'pending',
-            'created_at'       => now(),
-            'updated_at'       => now(),
+        $uuid = (string) Str::uuid();
+
+        DB::table('repair_tasks')->insert([
+            'id'          => $uuid,
+            'ticket_id'   => $id,
+            'title'       => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'assigned_to' => $validated['assigned_to'] ?? null,
+            'status'      => 'todo',
+            'created_at'  => now(),
+            'updated_at'  => now(),
         ]);
 
-        return response()->json(['id' => $task], 201);
+        $task = DB::table('repair_tasks')->where('id', $uuid)->first();
+
+        return response()->json($task, 201);
     }
 
     public function updateTask(Request $request, $id, $taskId)
