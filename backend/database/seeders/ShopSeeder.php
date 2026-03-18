@@ -1053,10 +1053,19 @@ class ShopSeeder extends Seeder
                 array_merge($prod, ['id' => Product::where('sku', $prod['sku'])->value('id') ?? Str::uuid(), 'is_active' => true])
             );
             
-            \App\Models\Inventory::firstOrCreate(
-                ['product_id' => $p->id, 'location' => 'Freeport Store'],
-                ['qty_on_hand' => 100, 'qty_reserved' => 0, 'reorder_level' => 10]
-            );
+            $exists = \App\Models\Inventory::where('product_id', $p->id)->exists();
+            if (!$exists) {
+                \App\Models\Inventory::insert([
+                    'id'            => (string) Str::uuid(),
+                    'product_id'    => $p->id,
+                    'location'      => 'Freeport Store',
+                    'qty_on_hand'   => 100,
+                    'qty_reserved'  => 0,
+                    'reorder_level' => 10,
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ]);
+            }
         }
 
         // 4. Registers
