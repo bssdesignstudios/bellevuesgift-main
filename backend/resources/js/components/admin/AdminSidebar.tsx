@@ -17,7 +17,8 @@ import {
   Clock,
   Wallet,
   RefreshCw,
-  Monitor
+  Monitor,
+  LogIn
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -116,6 +117,13 @@ export function AdminSidebar() {
           <Button variant="ghost" size="sm" className="w-full text-white border border-white/20 hover:bg-white/10 hover:text-white">
             <Store className="h-4 w-4 mr-2" />
             Open POS
+          </Button>
+        </Link>
+
+        <Link href="/staff/login" className="block w-full">
+          <Button variant="ghost" size="sm" className="w-full text-white/70 hover:bg-white/10 hover:text-white">
+            <LogIn className="h-4 w-4 mr-2" />
+            Staff Login
           </Button>
         </Link>
 

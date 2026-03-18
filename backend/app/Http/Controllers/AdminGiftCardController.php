@@ -43,6 +43,23 @@ class AdminGiftCardController extends Controller
         return response()->json($giftCard, 201);
     }
 
+    public function update(Request $request, $id)
+    {
+        $giftCard = GiftCard::findOrFail($id);
+
+        $validated = $request->validate([
+            'code' => 'sometimes|string|max:255|unique:gift_cards,code,' . $id,
+            'balance' => 'sometimes|numeric|min:0',
+            'initial_balance' => 'sometimes|numeric|min:0',
+            'is_active' => 'sometimes|boolean',
+            'notes' => 'nullable|string',
+        ]);
+
+        $giftCard->update($validated);
+
+        return response()->json($giftCard);
+    }
+
     public function toggleActive($id)
     {
         $giftCard = GiftCard::findOrFail($id);

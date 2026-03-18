@@ -20,6 +20,7 @@ use App\Http\Controllers\AdminCouponController;
 use App\Http\Controllers\AdminRepairTicketController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\VendorController;
+use App\Http\Controllers\AdminTimesheetController;
 
 /*
 |--------------------------------------------------------------------------
@@ -120,6 +121,7 @@ Route::prefix('admin')->group(function () {
 
     Route::get('/gift-cards', [AdminGiftCardController::class, 'index']);
     Route::post('/gift-cards', [AdminGiftCardController::class, 'store']);
+    Route::put('/gift-cards/{id}', [AdminGiftCardController::class, 'update']);
     Route::patch('/gift-cards/{id}/toggle-active', [AdminGiftCardController::class, 'toggleActive']);
 
     Route::get('/coupons', [AdminCouponController::class, 'index']);
@@ -145,6 +147,8 @@ Route::prefix('admin')->group(function () {
 
     Route::get('/vendors', [VendorController::class, 'index']);
     Route::post('/vendors', [VendorController::class, 'store']);
+    Route::put('/vendors/{id}', [VendorController::class, 'update']);
+    Route::delete('/vendors/{id}', [VendorController::class, 'destroy']);
 
     Route::get('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'index']);
     Route::post('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'store']);
@@ -155,6 +159,14 @@ Route::prefix('admin')->group(function () {
 
     Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
     Route::post('/impersonate/stop', [App\Http\Controllers\AuthController::class, 'stopImpersonation']);
+
+    // Timesheets
+    Route::get('/timesheets', [AdminTimesheetController::class, 'index']);
+    Route::post('/timesheets', [AdminTimesheetController::class, 'store']);
+    Route::post('/timesheets/clock-in', [AdminTimesheetController::class, 'clockIn']);
+    Route::post('/timesheets/{timeLog}/clock-out', [AdminTimesheetController::class, 'clockOut']);
+    Route::patch('/timesheets/{timeLog}', [AdminTimesheetController::class, 'update']);
+    Route::delete('/timesheets/{timeLog}', [AdminTimesheetController::class, 'destroy']);
 });
 
 // Customer API

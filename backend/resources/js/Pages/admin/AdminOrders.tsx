@@ -12,7 +12,7 @@ import { Search, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { Order, OrderItem } from '@/types';
 import { ORDER_STATUSES } from '@/lib/constants';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePage } from '@inertiajs/react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 export default function AdminOrders() {
@@ -21,7 +21,8 @@ export default function AdminOrders() {
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const queryClient = useQueryClient();
-  const { effectiveStaff } = useAuth();
+  const pageProps = usePage().props as any;
+  const effectiveStaff = pageProps?.auth?.staff ?? null;
   const { data: orders } = useQuery({
     queryKey: ['admin-orders', search, statusFilter, channelFilter],
     queryFn: async () => {

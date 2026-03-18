@@ -23,14 +23,14 @@ export default function AdminVendors() {
     const { data: vendors, isLoading } = useQuery({
         queryKey: ['admin-vendors', search],
         queryFn: async () => {
-            const response = await axios.get('/api/vendors', { params: { search } });
+            const response = await axios.get('/api/admin/vendors', { params: { search } });
             return response.data as Vendor[];
         }
     });
 
     const deleteVendor = useMutation({
         mutationFn: async (id: string) => {
-            await axios.delete(`/api/vendors/${id}`);
+            await axios.delete(`/api/admin/vendors/${id}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
@@ -159,9 +159,9 @@ function VendorForm({
     const mutation = useMutation({
         mutationFn: async () => {
             if (vendor) {
-                await axios.put(`/api/vendors/${vendor.id}`, form);
+                await axios.put(`/api/admin/vendors/${vendor.id}`, form);
             } else {
-                await axios.post('/api/vendors', form);
+                await axios.post('/api/admin/vendors', form);
             }
         },
         onSuccess: () => {
