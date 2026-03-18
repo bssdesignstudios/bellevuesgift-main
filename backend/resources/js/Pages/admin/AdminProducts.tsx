@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,9 +21,11 @@ export default function AdminProducts() {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { staff } = useAuth();
-  const isWarehouse = staff?.role === 'warehouse';
-  const canManageProducts = staff?.role === 'admin' || staff?.role === 'warehouse_manager' || staff?.role === 'warehouse';
+  // AuthProvider sits above Inertia's <App>, so useAuth().staff is always null here.
+  // Read staff role directly from Inertia page props instead (same pattern as AdminLayout).
+  const pageProps = (usePage().props as any);
+  const staffRole: string = pageProps?.auth?.staff?.role ?? '';
+  const canManageProducts = ['admin', 'warehouse_manager', 'warehouse'].includes(staffRole);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ['admin-products', search],
@@ -195,8 +198,9 @@ function ProductForm({
   categories: Category[];
   onSuccess: () => void;
 }) {
-  const { staff } = useAuth();
-  const canManageProducts = staff?.role === 'admin' || staff?.role === 'warehouse_manager' || staff?.role === 'warehouse';
+  const pageProps = (usePage().props as any);
+  const staffRole: string = pageProps?.auth?.staff?.role ?? '';
+  const canManageProducts = ['admin', 'warehouse_manager', 'warehouse'].includes(staffRole);
   const [form, setForm] = useState({
     name: product?.name || '',
     sku: product?.sku || '',
