@@ -13,17 +13,21 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { Product, Category, Vendor } from '@/types';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AdminProducts() {
   const [search, setSearch] = useState('');
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { staff } = useAuth();
+  const isWarehouse = staff?.role === 'warehouse';
+  const canManageProducts = staff?.role === 'admin' || staff?.role === 'warehouse_manager';
 
   const { data: products, isLoading } = useQuery({
     queryKey: ['admin-products', search],
     queryFn: async () => {
-      const response = await axios.get('/api/products', { params: { search } });
+      const response = await axios.get('/api/admin/products', { params: { search } });
       return response.data as Product[];
     }
   });
@@ -31,14 +35,14 @@ export default function AdminProducts() {
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const response = await axios.get('/api/categories');
+      const response = await axios.get('/api/admin/categories');
       return response.data as Category[];
     }
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      await axios.put(`/api/products/${id}`, { is_active });
+      await axios.patch(`/api/admin/products/${id}/toggle-active`, { is_active });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
@@ -47,7 +51,7 @@ export default function AdminProducts() {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
-      await axios.delete(`/api/products/${id}`);
+      await axios.delete(`/api/admin/products/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
@@ -60,27 +64,29 @@ export default function AdminProducts() {
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Products</h1>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setEditProduct(null)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{editProduct ? 'Edit Product' : 'Add Product'}</DialogTitle>
-              </DialogHeader>
-              <ProductForm
-                product={editProduct}
-                categories={categories || []}
-                onSuccess={() => {
-                  setIsDialogOpen(false);
-                  queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-                }}
-              />
-            </DialogContent>
-          </Dialog>
+          {canManageProducts && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => setEditProduct(null)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>{editProduct ? 'Edit Product' : 'Add Product'}</DialogTitle>
+                </DialogHeader>
+                <ProductForm
+                  product={editProduct}
+                  categories={categories || []}
+                  onSuccess={() => {
+                    setIsDialogOpen(false);
+                    queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -136,6 +142,7 @@ export default function AdminProducts() {
                   <TableCell>
                     <Switch
                       checked={product.is_active}
+                      disabled={!canManageProducts}
                       onCheckedChange={(checked) =>
                         toggleActive.mutate({ id: product.id, is_active: checked })
                       }
@@ -151,20 +158,22 @@ export default function AdminProducts() {
                           setIsDialogOpen(true);
                         }}
                       >
-                        <Pencil className="h-4 w-4" />
+                        {canManageProducts ? <Pencil className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive"
-                        onClick={() => {
-                          if (confirm('Delete this product?')) {
-                            deleteProduct.mutate(product.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canManageProducts && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          onClick={() => {
+                            if (confirm('Delete this product?')) {
+                              deleteProduct.mutate(product.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -186,6 +195,8 @@ function ProductForm({
   categories: Category[];
   onSuccess: () => void;
 }) {
+  const { staff } = useAuth();
+  const canManageProducts = staff?.role === 'admin' || staff?.role === 'warehouse_manager';
   const [form, setForm] = useState({
     name: product?.name || '',
     sku: product?.sku || '',
@@ -208,7 +219,7 @@ function ProductForm({
   const { data: vendors } = useQuery({
     queryKey: ['vendors', vendorSearch],
     queryFn: async () => {
-      const response = await axios.get('/api/vendors', { params: { search: vendorSearch } });
+      const response = await axios.get('/api/admin/vendors', { params: { search: vendorSearch } });
       return response.data as Vendor[];
     },
     enabled: vendorSearch.length >= 2,
@@ -242,7 +253,7 @@ function ProductForm({
 
   const createVendorMutation = useMutation({
     mutationFn: async (name: string) => {
-      const response = await axios.post('/api/vendors', { name });
+      const response = await axios.post('/api/admin/vendors', { name });
       return response.data as Vendor;
     },
     onSuccess: (newVendor) => {
@@ -274,9 +285,9 @@ function ProductForm({
       };
 
       if (product) {
-        await axios.put(`/api/products/${product.id}`, data);
+        await axios.put(`/api/admin/products/${product.id}`, data);
       } else {
-        await axios.post('/api/products', data);
+        await axios.post('/api/admin/products', data);
       }
     },
     onSuccess: () => {
@@ -405,13 +416,19 @@ function ProductForm({
       </div>
 
       <div className="flex items-center gap-2">
-        <Switch checked={form.is_active} onCheckedChange={(checked) => setForm({ ...form, is_active: checked })} />
+        <Switch checked={form.is_active} disabled={!canManageProducts} onCheckedChange={(checked) => setForm({ ...form, is_active: checked })} />
         <Label>Active</Label>
       </div>
 
-      <Button type="submit" className="w-full h-12 text-lg" disabled={mutation.isPending}>
-        {mutation.isPending ? 'Saving...' : (product ? 'Update Product' : 'Create Product')}
-      </Button>
+      {canManageProducts ? (
+        <Button type="submit" className="w-full h-12 text-lg" disabled={mutation.isPending}>
+          {mutation.isPending ? 'Saving...' : (product ? 'Update Product' : 'Create Product')}
+        </Button>
+      ) : (
+        <Button type="button" variant="outline" className="w-full h-12 text-lg" onClick={onSuccess}>
+          Close (View Only)
+        </Button>
+      )}
     </form>
   );
 }

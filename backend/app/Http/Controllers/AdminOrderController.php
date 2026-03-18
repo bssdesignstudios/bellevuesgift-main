@@ -30,6 +30,12 @@ class AdminOrderController extends Controller
         return response()->json($orders);
     }
 
+    public function show($id)
+    {
+        $order = Order::with(['items', 'customer', 'staff', 'register'])->findOrFail($id);
+        return response()->json($order);
+    }
+
     public function updateStatus(Request $request, $id)
     {
         $validated = $request->validate([

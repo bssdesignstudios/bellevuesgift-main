@@ -12,6 +12,9 @@ class RoleMiddleware
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
         if (! Auth::check()) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
             // POS domain → PIN login, everything else → staff login
             $loginUrl = $request->getHost() === 'bellevuepos.cloud'
                 ? '/pos/login'
@@ -23,6 +26,10 @@ class RoleMiddleware
 
         if (in_array($user->role, $roles, true)) {
             return $next($request);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         return redirect('/');

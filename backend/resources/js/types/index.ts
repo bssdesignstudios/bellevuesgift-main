@@ -116,7 +116,7 @@ export interface Payment {
   id: string;
   order_id: string;
   amount: number;
-  method: 'cash' | 'card' | 'gift_card';
+  method: 'cash' | 'card' | 'gift_card' | 'check';
   reference: string | null;
   created_at: string;
 }

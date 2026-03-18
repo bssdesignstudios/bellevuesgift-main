@@ -49,6 +49,12 @@ class AdminCategoryController extends Controller
         return response()->json($category);
     }
 
+    public function toggleActive(Request $request, Category $category)
+    {
+        $category->update(['is_active' => $request->is_active]);
+        return response()->json($category);
+    }
+
     public function destroy(Category $category)
     {
         $category->delete();

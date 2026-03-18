@@ -7,14 +7,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Category;
+use App\Models\Inventory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AdminProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['category']);
+        $query = Product::with(['category', 'inventory']);
 
         if ($request->has('search')) {
             $search = $request->query('search');
@@ -31,11 +34,15 @@ class AdminProductController extends Controller
     {
         $validated = $request->validate([
             'category_id' => 'nullable|uuid|exists:categories,id',
+            'vendor_id' => 'nullable|uuid|exists:vendors,id',
+            'vendor' => 'nullable|string|max:255',
             'name' => 'required|string|max:255',
             'slug' => 'nullable|string|unique:products,slug',
             'sku' => 'required|string|unique:products,sku',
             'barcode' => 'nullable|string',
             'description' => 'nullable|string',
+            'cost' => 'nullable|numeric|min:0',
+            'markup_percentage' => 'nullable|numeric|min:0',
             'price' => 'required|numeric|min:0',
             'sale_price' => 'nullable|numeric|min:0',
             'tax_class' => 'nullable|string',
@@ -45,24 +52,39 @@ class AdminProductController extends Controller
             'is_active' => 'nullable|boolean',
         ]);
 
-        if (empty($validated['slug'])) {
-            $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(5);
-        }
+        return DB::transaction(function () use ($validated) {
+            if (empty($validated['slug'])) {
+                $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(5);
+            }
 
-        $product = Product::create($validated);
+            $product = Product::create($validated);
 
-        return response()->json($product, 201);
+            // Automatically create inventory record
+            Inventory::create([
+                'product_id' => $product->id,
+                'location' => 'Main Warehouse',
+                'qty_on_hand' => 0,
+                'qty_reserved' => 0,
+                'reorder_level' => 5,
+            ]);
+
+            return response()->json($product, 201);
+        });
     }
 
     public function update(Request $request, Product $product)
     {
         $validated = $request->validate([
             'category_id' => 'sometimes|nullable|uuid|exists:categories,id',
+            'vendor_id' => 'sometimes|nullable|uuid|exists:vendors,id',
+            'vendor' => 'sometimes|nullable|string|max:255',
             'name' => 'sometimes|required|string|max:255',
             'slug' => 'sometimes|required|string|unique:products,slug,' . $product->id,
             'sku' => 'sometimes|required|string|unique:products,sku,' . $product->id,
             'barcode' => 'sometimes|nullable|string',
             'description' => 'sometimes|nullable|string',
+            'cost' => 'sometimes|nullable|numeric|min:0',
+            'markup_percentage' => 'sometimes|nullable|numeric|min:0',
             'price' => 'sometimes|required|numeric|min:0',
             'sale_price' => 'sometimes|nullable|numeric|min:0',
             'tax_class' => 'sometimes|nullable|string',

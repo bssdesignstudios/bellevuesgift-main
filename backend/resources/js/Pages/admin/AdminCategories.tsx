@@ -20,14 +20,14 @@ export default function AdminCategories() {
   const { data: categories } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const response = await axios.get('/api/categories');
+      const response = await axios.get('/api/admin/categories');
       return response.data as Category[];
     }
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      await axios.patch(`/api/categories/${id}/toggle-active`, { is_active });
+      await axios.patch(`/api/admin/categories/${id}/toggle-active`, { is_active });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
@@ -36,7 +36,7 @@ export default function AdminCategories() {
 
   const deleteCategory = useMutation({
     mutationFn: async (id: string) => {
-      await axios.delete(`/api/categories/${id}`);
+      await axios.delete(`/api/admin/categories/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
@@ -156,9 +156,9 @@ function CategoryForm({
       };
 
       if (category) {
-        await axios.put(`/api/categories/${category.id}`, data);
+        await axios.put(`/api/admin/categories/${category.id}`, data);
       } else {
-        await axios.post('/api/categories', data);
+        await axios.post('/api/admin/categories', data);
       }
     },
     onSuccess: () => {
