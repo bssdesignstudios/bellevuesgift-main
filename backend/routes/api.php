@@ -87,91 +87,72 @@ Route::prefix('repair')->group(function () {
 });
 
 // Admin API
-Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
-    // 1. Common / Overview / Generic Admin (Admin + Finance)
-    Route::middleware(['role:admin,finance'])->group(function () {
-        Route::get('/categories', [AdminCategoryController::class, 'index']);
-        Route::get('/products', [AdminProductController::class, 'index']);
-        Route::get('/reports/dashboard', [AdminReportController::class, 'dashboard']);
-        Route::get('/customers', [AdminCustomerController::class, 'index']);
-        Route::get('/gift-cards', [AdminGiftCardController::class, 'index']);
-        Route::post('/gift-cards', [AdminGiftCardController::class, 'store']);
-        Route::patch('/gift-cards/{id}/toggle-active', [AdminGiftCardController::class, 'toggleActive']);
-        
-        // Orders
-        Route::get('/orders', [AdminOrderController::class, 'index']);
-        Route::get('/orders/{id}', [AdminOrderController::class, 'show']);
-        Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
+Route::prefix('admin')->group(function () {
+    Route::get('/categories', [AdminCategoryController::class, 'index']);
+    Route::post('/categories', [AdminCategoryController::class, 'store']);
+    Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
+    Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy']);
+    Route::patch('/categories/{category}/toggle-active', [AdminCategoryController::class, 'toggleActive']);
 
-        // Repair Tickets
-        Route::get('/repair-tickets', [AdminRepairTicketController::class, 'index']);
-        Route::patch('/repair-tickets/{id}/status', [AdminRepairTicketController::class, 'updateStatus']);
-        Route::patch('/repair-tickets/{id}/billing', [AdminRepairTicketController::class, 'updateBilling']);
-        Route::get('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'tasks']);
-        Route::post('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'addTask']);
-        Route::patch('/repair-tickets/{id}/tasks/{taskId}', [AdminRepairTicketController::class, 'updateTask']);
-        Route::get('/repair-tickets/staff', [AdminRepairTicketController::class, 'staff']);
-        Route::get('/repair-tickets/{id}/payments', [AdminRepairTicketController::class, 'listPayments']);
-        Route::post('/repair-tickets/{id}/payments', [AdminRepairTicketController::class, 'recordPayment']);
+    Route::get('/products', [AdminProductController::class, 'index']);
+    Route::post('/products', [AdminProductController::class, 'store']);
+    Route::put('/products/{product}', [AdminProductController::class, 'update']);
+    Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
 
-        // Finance
-        Route::get('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'index']);
-        Route::post('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'store']);
-        Route::delete('/expenses/{expense}', [App\Http\Controllers\AdminExpenseController::class, 'destroy']);
-        Route::get('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'index']);
-        Route::post('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'store']);
-        Route::post('/payroll/{payroll}/approve', [App\Http\Controllers\AdminPayrollController::class, 'approve']);
-    });
+    Route::get('/inventory', [AdminInventoryController::class, 'index']);
+    Route::post('/inventory/{id}/adjust', [AdminInventoryController::class, 'adjust']);
+    Route::patch('/inventory/{id}', [AdminInventoryController::class, 'update']);
 
-    // 2. Warehouse Operations (Admin + Warehouse + Finance for Inventory visibility)
-    Route::middleware(['role:admin,warehouse,warehouse_manager,finance'])->group(function () {
-        Route::get('/inventory', [AdminInventoryController::class, 'index']);
-        Route::post('/inventory/{id}/adjust', [AdminInventoryController::class, 'adjust']);
-        Route::patch('/inventory/{id}', [AdminInventoryController::class, 'update']);
-        Route::get('/products', [AdminProductController::class, 'index']);
-        Route::get('/categories', [AdminCategoryController::class, 'index']);
-        Route::get('/vendors', [VendorController::class, 'index']);
-    });
+    Route::get('/reports/dashboard', [AdminReportController::class, 'dashboard']);
 
-    // 3. Product Catalog Management (Admin + Warehouse Manager)
-    Route::middleware(['role:admin,warehouse_manager'])->group(function () {
-        Route::post('/categories', [AdminCategoryController::class, 'store']);
-        Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
-        Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy']);
-        Route::patch('/categories/{category}/toggle-active', [AdminCategoryController::class, 'toggleActive']);
+    Route::get('/staff', [AdminStaffController::class, 'index']);
+    Route::post('/staff', [AdminStaffController::class, 'store']);
+    Route::put('/staff/{id}', [AdminStaffController::class, 'update']);
+    Route::delete('/staff/{id}', [AdminStaffController::class, 'destroy']);
+    Route::patch('/staff/{id}/toggle-active', [AdminStaffController::class, 'toggleActive']);
 
-        Route::post('/products', [AdminProductController::class, 'store']);
-        Route::put('/products/{product}', [AdminProductController::class, 'update']);
-        Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
-        Route::patch('/products/{product}/toggle-active', [AdminProductController::class, 'toggleActive']);
+    Route::get('/orders', [AdminOrderController::class, 'index']);
+    Route::get('/orders/{id}', [AdminOrderController::class, 'show']);
+    Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
 
-        Route::post('/vendors', [VendorController::class, 'store']);
+    Route::get('/customers', [AdminCustomerController::class, 'index']);
 
-        // Coupons
-        Route::get('/coupons', [AdminCouponController::class, 'index']);
-        Route::post('/coupons', [AdminCouponController::class, 'store']);
-        Route::put('/coupons/{id}', [AdminCouponController::class, 'update']);
-        Route::delete('/coupons/{id}', [AdminCouponController::class, 'destroy']);
-        Route::patch('/coupons/{id}/toggle-active', [AdminCouponController::class, 'toggleActive']);
-    });
+    Route::get('/gift-cards', [AdminGiftCardController::class, 'index']);
+    Route::post('/gift-cards', [AdminGiftCardController::class, 'store']);
+    Route::patch('/gift-cards/{id}/toggle-active', [AdminGiftCardController::class, 'toggleActive']);
 
-    // 4. Staff Management & Registers (Strictly Admin)
-    Route::middleware(['role:admin'])->group(function () {
-        Route::get('/staff', [AdminStaffController::class, 'index']);
-        Route::post('/staff', [AdminStaffController::class, 'store']);
-        Route::put('/staff/{id}', [AdminStaffController::class, 'update']);
-        Route::delete('/staff/{id}', [AdminStaffController::class, 'destroy']);
-        Route::patch('/staff/{id}/toggle-active', [AdminStaffController::class, 'toggleActive']);
+    Route::get('/coupons', [AdminCouponController::class, 'index']);
+    Route::post('/coupons', [AdminCouponController::class, 'store']);
+    Route::put('/coupons/{id}', [AdminCouponController::class, 'update']);
+    Route::delete('/coupons/{id}', [AdminCouponController::class, 'destroy']);
+    Route::patch('/coupons/{id}/toggle-active', [AdminCouponController::class, 'toggleActive']);
 
-        Route::get('/registers', [RegisterController::class, 'index']);
-        Route::post('/registers', [RegisterController::class, 'store']);
-        Route::put('/registers/{id}', [RegisterController::class, 'update']);
-        Route::post('/registers/{id}/assign', [RegisterController::class, 'assignStaff']);
+    Route::get('/repair-tickets', [AdminRepairTicketController::class, 'index']);
+    Route::patch('/repair-tickets/{id}/status', [AdminRepairTicketController::class, 'updateStatus']);
+    Route::patch('/repair-tickets/{id}/billing', [AdminRepairTicketController::class, 'updateBilling']);
+    Route::get('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'tasks']);
+    Route::post('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'addTask']);
+    Route::patch('/repair-tickets/{id}/tasks/{taskId}', [AdminRepairTicketController::class, 'updateTask']);
+    Route::get('/repair-tickets/staff', [AdminRepairTicketController::class, 'staff']);
+    Route::get('/repair-tickets/{id}/payments', [AdminRepairTicketController::class, 'listPayments']);
+    Route::post('/repair-tickets/{id}/payments', [AdminRepairTicketController::class, 'recordPayment']);
 
-        Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
-    });
+    Route::get('/registers', [RegisterController::class, 'index']);
+    Route::post('/registers', [RegisterController::class, 'store']);
+    Route::put('/registers/{id}', [RegisterController::class, 'update']);
+    Route::post('/registers/{id}/assign', [RegisterController::class, 'assignStaff']);
 
-    // Common stopping of impersonation for the session
+    Route::get('/vendors', [VendorController::class, 'index']);
+    Route::post('/vendors', [VendorController::class, 'store']);
+
+    Route::get('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'index']);
+    Route::post('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'store']);
+    Route::delete('/expenses/{expense}', [App\Http\Controllers\AdminExpenseController::class, 'destroy']);
+    Route::get('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'index']);
+    Route::post('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'store']);
+    Route::post('/payroll/{payroll}/approve', [App\Http\Controllers\AdminPayrollController::class, 'approve']);
+
+    Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
     Route::post('/impersonate/stop', [App\Http\Controllers\AuthController::class, 'stopImpersonation']);
 });
 
