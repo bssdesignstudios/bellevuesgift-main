@@ -79,9 +79,15 @@ export default function AdminGiftCards() {
     }
     createCardMutation.mutate(amount);
   };
+  
+  const giftCardsList = giftCards || [];
 
-  const totalBalance = giftCards?.reduce((sum, card) => sum + (card.is_active ? card.balance : 0), 0) || 0;
-  const activeCards = giftCards?.filter(c => c.is_active).length || 0;
+  const totalBalance = giftCardsList.reduce((sum, card) => {
+    const val = Number(card.balance) || 0;
+    return sum + (card.is_active ? val : 0);
+  }, 0);
+  
+  const activeCards = giftCardsList.filter(c => c.is_active).length;
 
   return (
     <AdminLayout>
@@ -150,7 +156,7 @@ export default function AdminGiftCards() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Cards</p>
-                <p className="text-2xl font-bold">{giftCards?.length || 0}</p>
+                <p className="text-2xl font-bold">{giftCardsList.length}</p>
               </div>
             </div>
           </CardContent>
@@ -201,7 +207,7 @@ export default function AdminGiftCards() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : giftCards?.length === 0 ? (
+          ) : giftCardsList.length === 0 ? (
             <div className="text-center py-12">
               <Gift className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No gift cards found</p>
@@ -219,11 +225,11 @@ export default function AdminGiftCards() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {giftCards?.map((card) => (
+                {giftCardsList.map((card) => (
                   <TableRow key={card.id}>
                     <TableCell className="font-mono font-medium">{card.code}</TableCell>
-                    <TableCell className="font-medium">${card.balance.toFixed(2)}</TableCell>
-                    <TableCell className="text-muted-foreground">${card.initial_balance.toFixed(2)}</TableCell>
+                    <TableCell className="font-medium">${Number(card.balance).toFixed(2)}</TableCell>
+                    <TableCell className="text-muted-foreground">${Number(card.initial_balance).toFixed(2)}</TableCell>
                     <TableCell>
                       {card.is_active ? (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
@@ -236,7 +242,7 @@ export default function AdminGiftCards() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(new Date(card.created_at), 'MMM d, yyyy')}
+                      {card.created_at ? format(new Date(card.created_at), 'MMM d, yyyy') : 'N/A'}
                     </TableCell>
                     <TableCell>
                       <Button
