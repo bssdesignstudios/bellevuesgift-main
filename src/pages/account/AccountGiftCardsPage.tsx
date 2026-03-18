@@ -112,10 +112,10 @@ export default function AccountGiftCardsPage() {
                 )}
               </div>
               <div className="text-3xl font-bold text-primary">
-                ${checkedCard.balance.toFixed(2)}
+                ${Number(checkedCard.balance).toFixed(2)}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Original value: ${checkedCard.initial_balance.toFixed(2)}
+                Original value: ${Number(checkedCard.initial_balance).toFixed(2)}
               </p>
             </div>
           )}
@@ -148,10 +148,10 @@ export default function AccountGiftCardsPage() {
                   <div className="flex items-end justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Balance</p>
-                      <p className="text-2xl font-bold">${card.balance.toFixed(2)}</p>
+                      <p className="text-2xl font-bold">${Number(card.balance).toFixed(2)}</p>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      of ${card.initial_balance.toFixed(2)}
+                      of ${Number(card.initial_balance).toFixed(2)}
                     </p>
                   </div>
                 </div>

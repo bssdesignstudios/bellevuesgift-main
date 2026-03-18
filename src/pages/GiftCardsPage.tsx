@@ -99,10 +99,10 @@ export default function GiftCardsPage() {
                 )}
               </div>
               <div className="text-3xl font-bold text-primary">
-                ${checkedCard.balance.toFixed(2)}
+                ${Number(checkedCard.balance).toFixed(2)}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Original value: ${checkedCard.initial_balance.toFixed(2)}
+                Original value: ${Number(checkedCard.initial_balance).toFixed(2)}
               </p>
             </div>
           )}

@@ -106,7 +106,7 @@ export default function AdminGiftCards() {
     createCardMutation.mutate(amount);
   };
 
-  const totalBalance = giftCards?.reduce((sum, card) => sum + (card.is_active ? card.balance : 0), 0) || 0;
+  const totalBalance = giftCards?.reduce((sum, card) => sum + (card.is_active ? Number(card.balance) : 0), 0) || 0;
   const activeCards = giftCards?.filter(c => c.is_active).length || 0;
 
   return (
@@ -247,8 +247,8 @@ export default function AdminGiftCards() {
                 {giftCards?.map((card) => (
                   <TableRow key={card.id}>
                     <TableCell className="font-mono font-medium">{card.code}</TableCell>
-                    <TableCell className="font-medium">${card.balance.toFixed(2)}</TableCell>
-                    <TableCell className="text-muted-foreground">${card.initial_balance.toFixed(2)}</TableCell>
+                    <TableCell className="font-medium">${Number(card.balance).toFixed(2)}</TableCell>
+                    <TableCell className="text-muted-foreground">${Number(card.initial_balance).toFixed(2)}</TableCell>
                     <TableCell>
                       {card.is_active ? (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
