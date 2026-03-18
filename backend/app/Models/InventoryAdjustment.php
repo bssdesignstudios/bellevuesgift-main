@@ -17,6 +17,8 @@ class InventoryAdjustment extends Model
         'product_id',
         'adjustment_type',
         'qty_change',
+        'old_qty',
+        'new_qty',
         'notes',
         'staff_id',
     ];
