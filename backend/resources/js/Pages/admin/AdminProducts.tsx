@@ -22,7 +22,7 @@ export default function AdminProducts() {
   const queryClient = useQueryClient();
   const { staff } = useAuth();
   const isWarehouse = staff?.role === 'warehouse';
-  const canManageProducts = staff?.role === 'admin' || staff?.role === 'warehouse_manager';
+  const canManageProducts = staff?.role === 'admin' || staff?.role === 'warehouse_manager' || staff?.role === 'warehouse';
 
   const { data: products, isLoading } = useQuery({
     queryKey: ['admin-products', search],
@@ -196,7 +196,7 @@ function ProductForm({
   onSuccess: () => void;
 }) {
   const { staff } = useAuth();
-  const canManageProducts = staff?.role === 'admin' || staff?.role === 'warehouse_manager';
+  const canManageProducts = staff?.role === 'admin' || staff?.role === 'warehouse_manager' || staff?.role === 'warehouse';
   const [form, setForm] = useState({
     name: product?.name || '',
     sku: product?.sku || '',

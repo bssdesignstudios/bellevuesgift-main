@@ -98,6 +98,7 @@ Route::prefix('admin')->group(function () {
     Route::post('/products', [AdminProductController::class, 'store']);
     Route::put('/products/{product}', [AdminProductController::class, 'update']);
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
+    Route::patch('/products/{product}/toggle-active', [AdminProductController::class, 'toggleActive']);
 
     Route::get('/inventory', [AdminInventoryController::class, 'index']);
     Route::post('/inventory/{id}/adjust', [AdminInventoryController::class, 'adjust']);

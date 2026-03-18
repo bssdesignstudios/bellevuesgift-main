@@ -104,4 +104,10 @@ class AdminProductController extends Controller
         $product->delete();
         return response()->json(null, 204);
     }
+
+    public function toggleActive(Product $product)
+    {
+        $product->update(['is_active' => !$product->is_active]);
+        return response()->json($product);
+    }
 }
