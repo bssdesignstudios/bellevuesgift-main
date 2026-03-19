@@ -438,6 +438,58 @@ Route::get('/ops/clear-cache', function () {
     return response()->json(['status' => 'cleared', 'time' => now()->toDateTimeString()]);
 });
 
+// Temporary diagnostic route (remove after debugging)
+Route::get('/ops/diagnose', function () {
+    $results = [];
+
+    // Check tables existence
+    $tables = ['expenses', 'payroll_logs', 'recurring_bills', 'time_logs', 'coupons', 'staff'];
+    foreach ($tables as $table) {
+        $results['tables'][$table] = [
+            'exists' => \Illuminate\Support\Facades\Schema::hasTable($table),
+        ];
+        if (\Illuminate\Support\Facades\Schema::hasTable($table)) {
+            try {
+                $results['tables'][$table]['columns'] = \Illuminate\Support\Facades\Schema::getColumnListing($table);
+                $results['tables'][$table]['count'] = \Illuminate\Support\Facades\DB::table($table)->count();
+            } catch (\Throwable $e) {
+                $results['tables'][$table]['error'] = $e->getMessage();
+            }
+        }
+    }
+
+    // Test each failing endpoint's core query
+    $tests = [
+        'expenses_query' => fn() => \App\Models\Expense::orderBy('date', 'desc')->limit(1)->get(),
+        'payroll_query' => fn() => \App\Models\PayrollLog::with(['user', 'approver'])->limit(1)->get(),
+        'timesheets_query' => fn() => \App\Models\TimeLog::orderBy('clock_in', 'desc')->limit(1)->get(),
+    ];
+
+    // Test recurring bills if model exists
+    if (class_exists(\App\Models\RecurringBill::class)) {
+        $tests['recurring_bills_query'] = fn() => \App\Models\RecurringBill::orderBy('created_at', 'desc')->limit(1)->get();
+    }
+
+    foreach ($tests as $name => $test) {
+        try {
+            $result = $test();
+            $results['queries'][$name] = ['success' => true, 'count' => count($result)];
+        } catch (\Throwable $e) {
+            $results['queries'][$name] = ['success' => false, 'error' => $e->getMessage(), 'trace' => array_slice(explode("\n", $e->getTraceAsString()), 0, 5)];
+        }
+    }
+
+    // Check migration status
+    try {
+        $migrations = \Illuminate\Support\Facades\DB::table('migrations')->orderBy('id', 'desc')->limit(10)->pluck('migration')->toArray();
+        $results['recent_migrations'] = $migrations;
+    } catch (\Throwable $e) {
+        $results['migrations_error'] = $e->getMessage();
+    }
+
+    return response()->json($results, 200, [], JSON_PRETTY_PRINT);
+});
+
 // Fallback
 Route::fallback(function () {
     return Inertia::render('NotFound');
