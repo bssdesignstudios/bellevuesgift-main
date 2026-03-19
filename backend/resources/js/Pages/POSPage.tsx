@@ -339,9 +339,99 @@ function POSContent({
   const vatAmount = afterDiscount * VAT_RATE;
   const total = afterDiscount + vatAmount;
 
+  const cartTabContent = (
+    <>
+      {/* Cart Items */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {cart.map((item: CartItem) => {
+          const price = item.product.sale_price ?? item.product.price;
+          return (
+            <div key={item.product.id} className="flex items-center gap-2 bg-muted rounded-md p-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{item.product.name}</div>
+                <div className="text-xs text-muted-foreground">${Number(price).toFixed(2)} ea</div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, -1)}>
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-6 text-center text-sm">{item.qty}</span>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, 1)}>
+                  <Plus className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeFromCart(item.product.id)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+        {cart.length === 0 && (
+          <div className="text-center text-muted-foreground py-8">
+            Cart is empty
+          </div>
+        )}
+      </div>
+
+      {/* Coupon */}
+      <div className="p-3 border-t shrink-0">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Coupon code"
+            value={couponCode}
+            onChange={(e) => setCouponCode(e.target.value)}
+            disabled={!!appliedCoupon}
+          />
+          <Button variant="outline" onClick={applyCoupon} disabled={!!appliedCoupon}>
+            Apply
+          </Button>
+        </div>
+        {appliedCoupon && (
+          <div className="flex items-center justify-between mt-2 text-sm text-success">
+            <span>{appliedCoupon.code}</span>
+            <span>-{appliedCoupon.type === 'percent' ? `${appliedCoupon.value}%` : `$${appliedCoupon.value}`}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Totals */}
+      <div className="p-3 border-t space-y-1 text-sm shrink-0">
+        <div className="flex justify-between">
+          <span>Subtotal</span>
+          <span>${subtotal.toFixed(2)}</span>
+        </div>
+        {discount > 0 && (
+          <div className="flex justify-between text-success">
+            <span>Discount</span>
+            <span>-${discount.toFixed(2)}</span>
+          </div>
+        )}
+        <div className="flex justify-between">
+          <span>VAT (10%)</span>
+          <span>${vatAmount.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between font-bold text-lg pt-2 border-t">
+          <span>Total</span>
+          <span>${total.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="p-3 border-t space-y-2 shrink-0">
+        <Button className="w-full" size="lg" disabled={cart.length === 0} onClick={() => { setCheckoutOpen(true); setMobileCartOpen(false); }}>
+          <CreditCard className="h-4 w-4 mr-2" />
+          Pay ${total.toFixed(2)}
+        </Button>
+        <Button variant="outline" className="w-full" onClick={clearCart} disabled={cart.length === 0}>
+          Clear Cart
+        </Button>
+      </div>
+    </>
+  );
+
   const cartPanel = (
-    <Tabs defaultValue="cart" className="flex-1 flex flex-col">
-      <TabsList className="w-full rounded-none border-b grid grid-cols-4">
+    <Tabs defaultValue="cart" className="h-full flex flex-col">
+      <TabsList className="w-full rounded-none border-b grid grid-cols-4 shrink-0">
         <TabsTrigger value="cart" className="text-xs">
           <ShoppingCart className="h-4 w-4 mr-1" />
           Cart ({cart.length})
@@ -360,103 +450,21 @@ function POSContent({
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="cart" className="flex-1 flex flex-col m-0">
-        {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {cart.map((item: CartItem) => {
-            const price = item.product.sale_price ?? item.product.price;
-            return (
-              <div key={item.product.id} className="flex items-center gap-2 bg-muted rounded-md p-2">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{item.product.name}</div>
-                  <div className="text-xs text-muted-foreground">${Number(price).toFixed(2)} ea</div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, -1)}>
-                    <Minus className="h-3 w-3" />
-                  </Button>
-                  <span className="w-6 text-center text-sm">{item.qty}</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, 1)}>
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeFromCart(item.product.id)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-          {cart.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">
-              Cart is empty
-            </div>
-          )}
-        </div>
-
-        {/* Coupon */}
-        <div className="p-3 border-t">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Coupon code"
-              value={couponCode}
-              onChange={(e) => setCouponCode(e.target.value)}
-              disabled={!!appliedCoupon}
-            />
-            <Button variant="outline" onClick={applyCoupon} disabled={!!appliedCoupon}>
-              Apply
-            </Button>
-          </div>
-          {appliedCoupon && (
-            <div className="flex items-center justify-between mt-2 text-sm text-success">
-              <span>{appliedCoupon.code}</span>
-              <span>-{appliedCoupon.type === 'percent' ? `${appliedCoupon.value}%` : `$${appliedCoupon.value}`}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Totals */}
-        <div className="p-3 border-t space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
-          </div>
-          {discount > 0 && (
-            <div className="flex justify-between text-success">
-              <span>Discount</span>
-              <span>-${discount.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <span>VAT (10%)</span>
-            <span>${vatAmount.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-lg pt-2 border-t">
-            <span>Total</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="p-3 border-t space-y-2">
-          <Button className="w-full" size="lg" disabled={cart.length === 0} onClick={() => { setCheckoutOpen(true); setMobileCartOpen(false); }}>
-            <CreditCard className="h-4 w-4 mr-2" />
-            Pay ${total.toFixed(2)}
-          </Button>
-          <Button variant="outline" className="w-full" onClick={clearCart} disabled={cart.length === 0}>
-            Clear Cart
-          </Button>
+      <TabsContent value="cart" className="m-0 flex-1 overflow-y-auto">
+        <div className="h-full flex flex-col">
+          {cartTabContent}
         </div>
       </TabsContent>
 
-      <TabsContent value="pickup" className="flex-1 m-0 p-4 overflow-y-auto">
+      <TabsContent value="pickup" className="m-0 flex-1 overflow-y-auto p-4">
         <PickupTab staffId={effectiveStaff?.id} />
       </TabsContent>
 
-      <TabsContent value="repair" className="flex-1 m-0 p-4 overflow-y-auto">
+      <TabsContent value="repair" className="m-0 flex-1 overflow-y-auto p-4">
         <RepairTab staffId={effectiveStaff?.id} />
       </TabsContent>
 
-      <TabsContent value="refund" className="flex-1 m-0 p-4 overflow-y-auto">
+      <TabsContent value="refund" className="m-0 flex-1 overflow-y-auto p-4">
         <RefundTab staffId={effectiveStaff?.id} />
       </TabsContent>
     </Tabs>
@@ -563,11 +571,10 @@ function POSContent({
 
         {/* Mobile cart drawer (slide up from bottom) */}
         <div
-          className={`fixed inset-x-0 bottom-0 z-50 bg-card rounded-t-2xl shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${mobileCartOpen ? 'translate-y-0' : 'translate-y-full'}`}
-          style={{ maxHeight: '85vh' }}
+          className={`fixed inset-x-0 bottom-0 z-50 h-[85vh] bg-card rounded-t-2xl shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${mobileCartOpen ? 'translate-y-0' : 'translate-y-full'}`}
         >
-          {/* Drag handle + close */}
-          <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
+          {/* Header + close */}
+          <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
             <div className="flex items-center gap-2 font-semibold">
               <ShoppingCart className="h-4 w-4" />
               Cart
@@ -577,7 +584,7 @@ function POSContent({
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {cartPanel}
           </div>
         </div>
