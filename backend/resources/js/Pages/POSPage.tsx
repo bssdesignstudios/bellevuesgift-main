@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Receipt, Package, RotateCcw, LogOut, Wrench, Monitor, WifiOff } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Receipt, Package, RotateCcw, LogOut, Wrench, Monitor, WifiOff, X, ChevronUp } from 'lucide-react';
 import { playBeep } from '@/lib/beep';
 import { VAT_RATE } from '@/lib/constants';
 import { Product, Category, CartItem, Order } from '@/types';
@@ -123,48 +123,48 @@ export default function POSPage() {
       />
 
       {/* Header */}
-      <header className="bg-header text-header-foreground px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <header className="bg-header text-header-foreground px-3 py-2 lg:px-4 lg:py-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 lg:gap-4 min-w-0">
           <img
             src={bellevueLogo}
             alt="Bellevue"
-            className="h-8 brightness-0 invert"
+            className="h-6 lg:h-8 brightness-0 invert shrink-0"
           />
-          <div className="text-sm">
-            <div className="font-medium">{displayName}</div>
-            <div className="opacity-70 capitalize">{displayRole}</div>
+          <div className="text-xs lg:text-sm min-w-0">
+            <div className="font-medium truncate">{displayName}</div>
+            <div className="opacity-70 capitalize hidden sm:block">{displayRole}</div>
           </div>
           {activeRegisterId && registers && (
-            <div className="flex items-center gap-1 text-sm bg-white/10 px-2 py-1 rounded">
+            <div className="hidden sm:flex items-center gap-1 text-xs lg:text-sm bg-white/10 px-2 py-1 rounded">
               <Monitor className="h-3 w-3" />
-              {registers.find(r => r.id === activeRegisterId)?.name || 'Unknown Register'}
+              <span className="truncate max-w-[100px] lg:max-w-none">{registers.find(r => r.id === activeRegisterId)?.name || 'Unknown Register'}</span>
             </div>
           )}
           {impersonating && (
-            <Button size="sm" variant="secondary" onClick={() => impersonate(null)}>
+            <Button size="sm" variant="secondary" className="hidden sm:inline-flex" onClick={() => impersonate(null)}>
               Stop Impersonating
             </Button>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 lg:gap-4 shrink-0">
           <OfflineIndicator
             isOnline={isOnline}
             pendingCount={pendingCount}
             isSyncing={isSyncing}
             onSync={syncQueue}
           />
-          <span className="text-sm opacity-70">Freeport Store</span>
+          <span className="text-xs lg:text-sm opacity-70 hidden md:inline">Freeport Store</span>
           {effectiveStaff?.role === 'admin' && !onPOSDomain && (
             <Link href="/admin">
-              <Button variant="ghost" size="sm" className="text-header-foreground hover:bg-white/10 hover:text-white">
+              <Button variant="ghost" size="sm" className="text-header-foreground hover:bg-white/10 hover:text-white text-xs lg:text-sm">
                 Admin
               </Button>
             </Link>
           )}
           {effectiveStaff?.role === 'cashier' && (
-            <span className="text-xs opacity-70">Cashier Mode</span>
+            <span className="text-xs opacity-70 hidden sm:inline">Cashier Mode</span>
           )}
-          <Button variant="ghost" size="icon" className="text-header-foreground hover:bg-white/10 hover:text-white" onClick={handleSignOut}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 lg:h-9 lg:w-9 text-header-foreground hover:bg-white/10 hover:text-white" onClick={handleSignOut}>
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
@@ -203,6 +203,7 @@ function POSContent({
   isOnline, addToQueue
 }: any) {
   const queryClient = useQueryClient();
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
 
   const { data: categories } = useQuery({
     queryKey: ['pos-categories'],
@@ -338,40 +339,166 @@ function POSContent({
   const vatAmount = afterDiscount * VAT_RATE;
   const total = afterDiscount + vatAmount;
 
+  const cartPanel = (
+    <Tabs defaultValue="cart" className="flex-1 flex flex-col">
+      <TabsList className="w-full rounded-none border-b grid grid-cols-4">
+        <TabsTrigger value="cart" className="text-xs">
+          <ShoppingCart className="h-4 w-4 mr-1" />
+          Cart ({cart.length})
+        </TabsTrigger>
+        <TabsTrigger value="pickup" className="text-xs">
+          <Package className="h-4 w-4 mr-1" />
+          Pickup
+        </TabsTrigger>
+        <TabsTrigger value="repair" className="text-xs">
+          <Wrench className="h-4 w-4 mr-1" />
+          Repair
+        </TabsTrigger>
+        <TabsTrigger value="refund" className="text-xs">
+          <RotateCcw className="h-4 w-4 mr-1" />
+          Refund
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="cart" className="flex-1 flex flex-col m-0">
+        {/* Cart Items */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {cart.map((item: CartItem) => {
+            const price = item.product.sale_price ?? item.product.price;
+            return (
+              <div key={item.product.id} className="flex items-center gap-2 bg-muted rounded-md p-2">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{item.product.name}</div>
+                  <div className="text-xs text-muted-foreground">${Number(price).toFixed(2)} ea</div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, -1)}>
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  <span className="w-6 text-center text-sm">{item.qty}</span>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, 1)}>
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeFromCart(item.product.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {cart.length === 0 && (
+            <div className="text-center text-muted-foreground py-8">
+              Cart is empty
+            </div>
+          )}
+        </div>
+
+        {/* Coupon */}
+        <div className="p-3 border-t">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Coupon code"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value)}
+              disabled={!!appliedCoupon}
+            />
+            <Button variant="outline" onClick={applyCoupon} disabled={!!appliedCoupon}>
+              Apply
+            </Button>
+          </div>
+          {appliedCoupon && (
+            <div className="flex items-center justify-between mt-2 text-sm text-success">
+              <span>{appliedCoupon.code}</span>
+              <span>-{appliedCoupon.type === 'percent' ? `${appliedCoupon.value}%` : `$${appliedCoupon.value}`}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Totals */}
+        <div className="p-3 border-t space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span>Subtotal</span>
+            <span>${subtotal.toFixed(2)}</span>
+          </div>
+          {discount > 0 && (
+            <div className="flex justify-between text-success">
+              <span>Discount</span>
+              <span>-${discount.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span>VAT (10%)</span>
+            <span>${vatAmount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-lg pt-2 border-t">
+            <span>Total</span>
+            <span>${total.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="p-3 border-t space-y-2">
+          <Button className="w-full" size="lg" disabled={cart.length === 0} onClick={() => { setCheckoutOpen(true); setMobileCartOpen(false); }}>
+            <CreditCard className="h-4 w-4 mr-2" />
+            Pay ${total.toFixed(2)}
+          </Button>
+          <Button variant="outline" className="w-full" onClick={clearCart} disabled={cart.length === 0}>
+            Clear Cart
+          </Button>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="pickup" className="flex-1 m-0 p-4 overflow-y-auto">
+        <PickupTab staffId={effectiveStaff?.id} />
+      </TabsContent>
+
+      <TabsContent value="repair" className="flex-1 m-0 p-4 overflow-y-auto">
+        <RepairTab staffId={effectiveStaff?.id} />
+      </TabsContent>
+
+      <TabsContent value="refund" className="flex-1 m-0 p-4 overflow-y-auto">
+        <RefundTab staffId={effectiveStaff?.id} />
+      </TabsContent>
+    </Tabs>
+  );
+
   return (
     <>
-      {/* Categories Sidebar */}
-      <div className="w-48 bg-muted border-r overflow-y-auto">
-        <div className="p-2 space-y-1">
-          <Button
-            variant={selectedCategory === 'all' ? 'default' : 'ghost'}
-            className="w-full justify-start"
-            onClick={() => setSelectedCategory('all')}
-          >
-            All Products
-          </Button>
-          {categories?.map(cat => (
+      {/* ── Mobile layout (hidden on lg+) ────────────────────── */}
+      <div className="lg:hidden flex-1 flex flex-col overflow-hidden">
+        {/* Category horizontal scroll strip */}
+        <div className="bg-muted border-b overflow-x-auto flex-shrink-0">
+          <div className="flex gap-1 p-2 w-max min-w-full">
             <Button
-              key={cat.id}
-              variant={selectedCategory === cat.id ? 'default' : 'ghost'}
-              className="w-full justify-start text-left"
-              onClick={() => setSelectedCategory(cat.id)}
+              size="sm"
+              variant={selectedCategory === 'all' ? 'default' : 'ghost'}
+              className="whitespace-nowrap text-xs"
+              onClick={() => setSelectedCategory('all')}
             >
-              {cat.name}
+              All
             </Button>
-          ))}
+            {categories?.map(cat => (
+              <Button
+                key={cat.id}
+                size="sm"
+                variant={selectedCategory === cat.id ? 'default' : 'ghost'}
+                className="whitespace-nowrap text-xs"
+                onClick={() => setSelectedCategory(cat.id)}
+              >
+                {cat.name}
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Products Grid */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b bg-background">
+        {/* Search bar */}
+        <div className="p-3 border-b bg-background flex-shrink-0">
           <form onSubmit={handleSearch}>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
-                placeholder="Scan barcode or search product..."
+                placeholder="Scan barcode or search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -380,15 +507,14 @@ function POSContent({
           </form>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {/* Product grid — full width, scrollable, padded above floating button */}
+        <div className="flex-1 overflow-y-auto p-3 pb-24">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {products?.map(product => {
               const price = product.sale_price ?? product.price;
-              // If no inventory row, treat as unlimited stock (digital/gift card products)
               const available = product.inventory
                 ? product.inventory.qty_on_hand - (product.inventory.qty_reserved || 0)
                 : Infinity;
-
               return (
                 <Card
                   key={product.id}
@@ -397,14 +523,13 @@ function POSContent({
                 >
                   <CardContent className="p-3">
                     {product.image_url && (
-                      <img src={product.image_url} alt={product.name} className="w-full h-20 object-cover rounded mb-2" />
+                      <img src={product.image_url} alt={product.name} className="w-full h-16 object-cover rounded mb-2" />
                     )}
                     <div className="font-medium text-sm line-clamp-2">{product.name}</div>
-                    <div className="text-xs text-muted-foreground">{product.sku}</div>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="font-bold">${Number(price).toFixed(2)}</span>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="font-bold text-sm">${Number(price).toFixed(2)}</span>
                       <span className={`text-xs ${isFinite(available) && available < 10 ? 'text-warning' : 'text-muted-foreground'}`}>
-                        {isFinite(available) ? `${available} left` : 'In Stock'}
+                        {isFinite(available) ? `${available} left` : ''}
                       </span>
                     </div>
                   </CardContent>
@@ -413,130 +538,130 @@ function POSContent({
             })}
           </div>
         </div>
+
+        {/* Floating cart button */}
+        <button
+          onClick={() => setMobileCartOpen(true)}
+          className="fixed bottom-5 right-5 z-30 flex items-center gap-2 bg-primary text-primary-foreground rounded-full px-5 py-3 shadow-xl font-semibold text-sm"
+        >
+          <ShoppingCart className="h-5 w-5" />
+          {cart.length > 0 && (
+            <span className="bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs font-bold">
+              {cart.reduce((s: number, i: CartItem) => s + i.qty, 0)}
+            </span>
+          )}
+          <span>${total.toFixed(2)}</span>
+        </button>
+
+        {/* Mobile cart drawer backdrop */}
+        {mobileCartOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={() => setMobileCartOpen(false)}
+          />
+        )}
+
+        {/* Mobile cart drawer (slide up from bottom) */}
+        <div
+          className={`fixed inset-x-0 bottom-0 z-50 bg-card rounded-t-2xl shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${mobileCartOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          style={{ maxHeight: '85vh' }}
+        >
+          {/* Drag handle + close */}
+          <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
+            <div className="flex items-center gap-2 font-semibold">
+              <ShoppingCart className="h-4 w-4" />
+              Cart
+              {cart.length > 0 && <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs">{cart.reduce((s: number, i: CartItem) => s + i.qty, 0)}</span>}
+            </div>
+            <button onClick={() => setMobileCartOpen(false)} className="p-1 rounded-md hover:bg-muted">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {cartPanel}
+          </div>
+        </div>
       </div>
 
-      {/* Cart Panel */}
-      <div className="w-80 bg-card border-l flex flex-col">
-        <Tabs defaultValue="cart" className="flex-1 flex flex-col">
-          <TabsList className="w-full rounded-none border-b grid grid-cols-4">
-            <TabsTrigger value="cart" className="text-xs">
-              <ShoppingCart className="h-4 w-4 mr-1" />
-              Cart ({cart.length})
-            </TabsTrigger>
-            <TabsTrigger value="pickup" className="text-xs">
-              <Package className="h-4 w-4 mr-1" />
-              Pickup
-            </TabsTrigger>
-            <TabsTrigger value="repair" className="text-xs">
-              <Wrench className="h-4 w-4 mr-1" />
-              Repair
-            </TabsTrigger>
-            <TabsTrigger value="refund" className="text-xs">
-              <RotateCcw className="h-4 w-4 mr-1" />
-              Refund
-            </TabsTrigger>
-          </TabsList>
+      {/* ── Desktop layout (hidden below lg) ─────────────────── */}
+      <div className="hidden lg:flex flex-1 overflow-hidden">
+        {/* Categories Sidebar */}
+        <div className="w-48 bg-muted border-r overflow-y-auto">
+          <div className="p-2 space-y-1">
+            <Button
+              variant={selectedCategory === 'all' ? 'default' : 'ghost'}
+              className="w-full justify-start"
+              onClick={() => setSelectedCategory('all')}
+            >
+              All Products
+            </Button>
+            {categories?.map(cat => (
+              <Button
+                key={cat.id}
+                variant={selectedCategory === cat.id ? 'default' : 'ghost'}
+                className="w-full justify-start text-left"
+                onClick={() => setSelectedCategory(cat.id)}
+              >
+                {cat.name}
+              </Button>
+            ))}
+          </div>
+        </div>
 
-          <TabsContent value="cart" className="flex-1 flex flex-col m-0">
-            {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {cart.map((item: CartItem) => {
-                const price = item.product.sale_price ?? item.product.price;
+        {/* Products Grid */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="p-4 border-b bg-background">
+            <form onSubmit={handleSearch}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  ref={searchInputRef}
+                  placeholder="Scan barcode or search product..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </form>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+              {products?.map(product => {
+                const price = product.sale_price ?? product.price;
+                const available = product.inventory
+                  ? product.inventory.qty_on_hand - (product.inventory.qty_reserved || 0)
+                  : Infinity;
                 return (
-                  <div key={item.product.id} className="flex items-center gap-2 bg-muted rounded-md p-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{item.product.name}</div>
-                      <div className="text-xs text-muted-foreground">${Number(price).toFixed(2)} ea</div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, -1)}>
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-6 text-center text-sm">{item.qty}</span>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, 1)}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeFromCart(item.product.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+                  <Card
+                    key={product.id}
+                    className={`cursor-pointer hover:border-primary transition-colors ${available <= 0 ? 'opacity-50' : ''}`}
+                    onClick={() => available > 0 && addToCart(product)}
+                  >
+                    <CardContent className="p-3">
+                      {product.image_url && (
+                        <img src={product.image_url} alt={product.name} className="w-full h-20 object-cover rounded mb-2" />
+                      )}
+                      <div className="font-medium text-sm line-clamp-2">{product.name}</div>
+                      <div className="text-xs text-muted-foreground">{product.sku}</div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="font-bold">${Number(price).toFixed(2)}</span>
+                        <span className={`text-xs ${isFinite(available) && available < 10 ? 'text-warning' : 'text-muted-foreground'}`}>
+                          {isFinite(available) ? `${available} left` : 'In Stock'}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
-              {cart.length === 0 && (
-                <div className="text-center text-muted-foreground py-8">
-                  Cart is empty
-                </div>
-              )}
             </div>
+          </div>
+        </div>
 
-            {/* Coupon */}
-            <div className="p-3 border-t">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Coupon code"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value)}
-                  disabled={!!appliedCoupon}
-                />
-                <Button variant="outline" onClick={applyCoupon} disabled={!!appliedCoupon}>
-                  Apply
-                </Button>
-              </div>
-              {appliedCoupon && (
-                <div className="flex items-center justify-between mt-2 text-sm text-success">
-                  <span>{appliedCoupon.code}</span>
-                  <span>-{appliedCoupon.type === 'percent' ? `${appliedCoupon.value}%` : `$${appliedCoupon.value}`}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Totals */}
-            <div className="p-3 border-t space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
-              </div>
-              {discount > 0 && (
-                <div className="flex justify-between text-success">
-                  <span>Discount</span>
-                  <span>-${discount.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span>VAT (10%)</span>
-                <span>${vatAmount.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                <span>Total</span>
-                <span>${total.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="p-3 border-t space-y-2">
-              <Button className="w-full" size="lg" disabled={cart.length === 0} onClick={() => setCheckoutOpen(true)}>
-                <CreditCard className="h-4 w-4 mr-2" />
-                Pay ${total.toFixed(2)}
-              </Button>
-              <Button variant="outline" className="w-full" onClick={clearCart} disabled={cart.length === 0}>
-                Clear Cart
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="pickup" className="flex-1 m-0 p-4 overflow-y-auto">
-            <PickupTab staffId={effectiveStaff?.id} />
-          </TabsContent>
-
-          <TabsContent value="repair" className="flex-1 m-0 p-4 overflow-y-auto">
-            <RepairTab staffId={effectiveStaff?.id} />
-          </TabsContent>
-
-          <TabsContent value="refund" className="flex-1 m-0 p-4 overflow-y-auto">
-            <RefundTab staffId={effectiveStaff?.id} />
-          </TabsContent>
-        </Tabs>
+        {/* Cart Panel */}
+        <div className="w-80 bg-card border-l flex flex-col">
+          {cartPanel}
+        </div>
       </div>
 
       {/* Checkout Dialog */}
