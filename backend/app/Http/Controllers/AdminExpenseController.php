@@ -10,21 +10,25 @@ class AdminExpenseController extends Controller
 {
     public function index()
     {
-        return response()->json(Expense::with('staff')->orderBy('date', 'desc')->get());
+        return response()->json(Expense::orderBy('date', 'desc')->get());
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'category' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'notes' => 'nullable|string',
-            'date' => 'required|date',
+            'title'        => 'nullable|string|max:255',
+            'vendor_payee' => 'nullable|string|max:255',
+            'category'     => 'required|string',
+            'amount'       => 'required|numeric|min:0',
+            'notes'        => 'nullable|string',
+            'date'         => 'required|date',
         ]);
+
+        $staffId = \App\Models\Staff::where('user_id', Auth::id())->value('id');
 
         $expense = Expense::create([
             ...$validated,
-            'staff_id' => Auth::id(),
+            'staff_id' => $staffId,
         ]);
 
         return response()->json($expense, 201);
@@ -41,7 +45,7 @@ class AdminExpenseController extends Controller
             'date'         => 'required|date',
         ]);
         $expense->update($validated);
-        return response()->json($expense->fresh()->load('staff'));
+        return response()->json($expense->fresh());
     }
 
     public function destroy(Expense $expense)

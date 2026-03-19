@@ -16,15 +16,19 @@ class AdminPayrollController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'amount' => 'required|numeric|min:0',
+            'user_id'          => 'required|exists:users,id',
+            'amount'           => 'required|numeric|min:0',
             'pay_period_start' => 'required|date',
-            'pay_period_end' => 'required|date|after_or_equal:pay_period_start',
+            'pay_period_end'   => 'required|date|after_or_equal:pay_period_start',
+            'total_hours'      => 'nullable|numeric|min:0',
+            'pay_rate'         => 'nullable|numeric|min:0',
+            'gross_pay'        => 'nullable|numeric|min:0',
+            'notes'            => 'nullable|string',
         ]);
 
         $payroll = PayrollLog::create([
             ...$validated,
-            'status' => 'pending',
+            'status' => $validated['status'] ?? 'pending',
         ]);
 
         return response()->json($payroll, 201);

@@ -21,6 +21,11 @@ class AdminCouponController extends Controller
 
     public function store(Request $request)
     {
+        // Frontend may send discount_type instead of type
+        if ($request->has('discount_type') && !$request->has('type')) {
+            $request->merge(['type' => $request->input('discount_type')]);
+        }
+
         $validated = $request->validate([
             'code' => 'required|string|unique:coupons,code',
             'type' => 'required|in:percent,fixed',
@@ -43,6 +48,11 @@ class AdminCouponController extends Controller
 
     public function update(Request $request, $id)
     {
+        // Frontend may send discount_type instead of type
+        if ($request->has('discount_type') && !$request->has('type')) {
+            $request->merge(['type' => $request->input('discount_type')]);
+        }
+
         $coupon = Coupon::findOrFail($id);
         $coupon->update($request->only(['code', 'type', 'value', 'min_purchase', 'max_uses', 'expires_at', 'is_active']));
 
