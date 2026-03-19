@@ -10,8 +10,7 @@ return new class extends Migration
     {
         Schema::create('time_logs', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->uuid('staff_id')->nullable();
-            $table->foreign('staff_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreignUuid('staff_id')->nullable()->constrained('staff')->nullOnDelete();
             $table->string('staff_name');
             $table->timestamp('clock_in');
             $table->timestamp('clock_out')->nullable();
