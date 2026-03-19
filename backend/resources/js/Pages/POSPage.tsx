@@ -186,7 +186,7 @@ export default function POSPage() {
           checkoutOpen={checkoutOpen}
           setCheckoutOpen={setCheckoutOpen}
           searchInputRef={searchInputRef}
-          effectiveStaff={effectiveStaff}
+          effectiveStaff={resolvedStaff}
           isOnline={isOnline}
           addToQueue={addToQueue}
         />
