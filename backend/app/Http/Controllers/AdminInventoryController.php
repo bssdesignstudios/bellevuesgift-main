@@ -44,7 +44,15 @@ class AdminInventoryController extends Controller
 
         $perPage = min((int) $request->query('per_page', 25), 100);
 
-        return response()->json($query->paginate($perPage));
+        $paginated = $query->paginate($perPage);
+
+        $summary = [
+            'total'        => Inventory::count(),
+            'low_stock'    => Inventory::whereRaw('qty_on_hand > 0 AND qty_on_hand <= reorder_level')->count(),
+            'out_of_stock' => Inventory::where('qty_on_hand', '<=', 0)->count(),
+        ];
+
+        return response()->json(array_merge($paginated->toArray(), ['summary' => $summary]));
     }
 
     public function adjust(Request $request, Inventory $inventory)
