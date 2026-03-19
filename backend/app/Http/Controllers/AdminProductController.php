@@ -23,11 +23,46 @@ class AdminProductController extends Controller
             $search = $request->query('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
             });
         }
 
-        return response()->json($query->orderBy('name')->get());
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->query('category_id'));
+        }
+
+        if ($request->filled('is_active')) {
+            $query->where('is_active', $request->query('is_active') === 'true');
+        }
+
+        if ($request->filled('on_sale') && $request->query('on_sale') === 'true') {
+            $query->whereNotNull('sale_price')->where('sale_price', '>', 0);
+        }
+
+        if ($request->filled('stock')) {
+            $stock = $request->query('stock');
+            $query->whereHas('inventory', function ($q) use ($stock) {
+                if ($stock === 'out') {
+                    $q->where('qty_on_hand', '<=', 0);
+                } elseif ($stock === 'low') {
+                    $q->whereColumn('qty_on_hand', '<=', 'reorder_level')->where('qty_on_hand', '>', 0);
+                } elseif ($stock === 'in') {
+                    $q->whereColumn('qty_on_hand', '>', 'reorder_level');
+                }
+            });
+        }
+
+        $sortBy = $request->query('sort', 'name');
+        $sortDir = $request->query('dir', 'asc');
+        $allowedSorts = ['name', 'price', 'sku', 'created_at'];
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $sortDir === 'desc' ? 'desc' : 'asc');
+        } else {
+            $query->orderBy('name');
+        }
+
+        return response()->json($query->get());
     }
 
     public function store(Request $request)

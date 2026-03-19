@@ -11,26 +11,49 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Filter, ArrowUpDown, X, Tag, Package, AlertTriangle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Product, Category, Vendor } from '@/types';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AdminProducts() {
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [stockFilter, setStockFilter] = useState<string>('all');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [saleFilter, setSaleFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const queryClient = useQueryClient();
-  // AuthProvider sits above Inertia's <App>, so useAuth().staff is always null here.
-  // Read staff role directly from Inertia page props instead (same pattern as AdminLayout).
   const pageProps = (usePage().props as any);
   const staffRole: string = pageProps?.auth?.staff?.role ?? '';
   const canManageProducts = ['admin', 'warehouse_manager', 'warehouse'].includes(staffRole);
 
+  const hasActiveFilters = categoryFilter !== 'all' || stockFilter !== 'all' || activeFilter !== 'all' || saleFilter !== 'all';
+
+  const clearFilters = () => {
+    setCategoryFilter('all');
+    setStockFilter('all');
+    setActiveFilter('all');
+    setSaleFilter('all');
+    setSearch('');
+  };
+
   const { data: products, isLoading } = useQuery({
-    queryKey: ['admin-products', search],
+    queryKey: ['admin-products', search, categoryFilter, stockFilter, activeFilter, saleFilter, sortBy, sortDir],
     queryFn: async () => {
-      const response = await axios.get('/api/admin/products', { params: { search } });
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      if (categoryFilter !== 'all') params.category_id = categoryFilter;
+      if (activeFilter !== 'all') params.is_active = activeFilter;
+      if (saleFilter === 'on_sale') params.on_sale = 'true';
+      if (stockFilter !== 'all') params.stock = stockFilter;
+      params.sort = sortBy;
+      params.dir = sortDir;
+      const response = await axios.get('/api/admin/products', { params });
       return response.data as Product[];
     }
   });
@@ -42,6 +65,25 @@ export default function AdminProducts() {
       return response.data as Category[];
     }
   });
+
+  // Summary stats
+  const totalProducts = products?.length ?? 0;
+  const activeProducts = products?.filter(p => p.is_active).length ?? 0;
+  const lowStockProducts = products?.filter(p => {
+    const qty = p.inventory?.qty_on_hand ?? 0;
+    const reorder = p.inventory?.reorder_level ?? 5;
+    return qty > 0 && qty <= reorder;
+  }).length ?? 0;
+  const outOfStockProducts = products?.filter(p => (p.inventory?.qty_on_hand ?? 0) <= 0).length ?? 0;
+
+  const toggleSort = (col: string) => {
+    if (sortBy === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortDir('asc');
+    }
+  };
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
@@ -92,26 +134,111 @@ export default function AdminProducts() {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
+        {/* Summary Badges */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge variant="outline" className="py-1.5 px-3 text-sm">
+            <Package className="h-3.5 w-3.5 mr-1.5" />
+            {totalProducts} total
+          </Badge>
+          <Badge variant="outline" className="py-1.5 px-3 text-sm text-green-700 border-green-200 bg-green-50">
+            {activeProducts} active
+          </Badge>
+          {lowStockProducts > 0 && (
+            <Badge variant="outline" className="py-1.5 px-3 text-sm text-amber-700 border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+              {lowStockProducts} low stock
+            </Badge>
+          )}
+          {outOfStockProducts > 0 && (
+            <Badge variant="outline" className="py-1.5 px-3 text-sm text-red-700 border-red-200 bg-red-50">
+              {outOfStockProducts} out of stock
+            </Badge>
+          )}
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 max-w-sm min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products..."
+              placeholder="Search name, SKU, barcode..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
             />
           </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories?.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={stockFilter} onValueChange={setStockFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Stock" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Stock</SelectItem>
+              <SelectItem value="in">In Stock</SelectItem>
+              <SelectItem value="low">Low Stock</SelectItem>
+              <SelectItem value="out">Out of Stock</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={activeFilter} onValueChange={setActiveFilter}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="true">Active</SelectItem>
+              <SelectItem value="false">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={saleFilter} onValueChange={setSaleFilter}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Sale" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="on_sale">On Sale</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
         </div>
 
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>SKU</TableHead>
+                <TableHead>
+                  <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-foreground">
+                    Product
+                    {sortBy === 'name' && <ArrowUpDown className="h-3 w-3" />}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button onClick={() => toggleSort('sku')} className="flex items-center gap-1 hover:text-foreground">
+                    SKU
+                    {sortBy === 'sku' && <ArrowUpDown className="h-3 w-3" />}
+                  </button>
+                </TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">
+                  <button onClick={() => toggleSort('price')} className="flex items-center gap-1 ml-auto hover:text-foreground">
+                    Price
+                    {sortBy === 'price' && <ArrowUpDown className="h-3 w-3" />}
+                  </button>
+                </TableHead>
                 <TableHead className="text-right">Sale</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead>Active</TableHead>
@@ -119,6 +246,15 @@ export default function AdminProducts() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {products?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                    {hasActiveFilters || search
+                      ? 'No products match your filters.'
+                      : 'No products found.'}
+                  </TableCell>
+                </TableRow>
+              )}
               {products?.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>
@@ -140,7 +276,13 @@ export default function AdminProducts() {
                     {product.sale_price ? `$${Number(product.sale_price).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell className="text-right">
-                    {product.inventory?.qty_on_hand || 0}
+                    {(() => {
+                      const qty = product.inventory?.qty_on_hand ?? 0;
+                      const reorder = product.inventory?.reorder_level ?? 5;
+                      if (qty <= 0) return <span className="text-red-600 font-medium">0</span>;
+                      if (qty <= reorder) return <span className="text-amber-600 font-medium">{qty}</span>;
+                      return <span>{qty}</span>;
+                    })()}
                   </TableCell>
                   <TableCell>
                     <Switch
