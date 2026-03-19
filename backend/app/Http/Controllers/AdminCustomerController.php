@@ -2,27 +2,39 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class AdminCustomerController extends Controller
 {
     public function index(Request $request)
     {
-        $query = DB::table('customers')
-            ->orderBy('created_at', 'desc');
+        $query = Customer::query()->orderBy('created_at', 'desc');
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                  ->orWhere('email', 'like', "%{$s}%")
+                  ->orWhere('phone', 'like', "%{$s}%");
             });
         }
 
-        $customers = $query->limit(500)->get();
+        return response()->json($query->limit(500)->get());
+    }
 
-        return response()->json($customers);
+    public function show(Customer $customer)
+    {
+        $customer->load(['orders' => function ($q) {
+            $q->with('items')->orderBy('created_at', 'desc')->limit(10);
+        }]);
+
+        $orderStats = [
+            'total_orders'  => $customer->orders()->count(),
+            'total_spent'   => (float) $customer->orders()->where('payment_status', 'paid')->sum('total'),
+            'last_order_at' => $customer->orders()->latest()->value('created_at'),
+        ];
+
+        return response()->json(array_merge($customer->toArray(), ['order_stats' => $orderStats]));
     }
 }

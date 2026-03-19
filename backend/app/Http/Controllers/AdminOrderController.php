@@ -10,7 +10,7 @@ class AdminOrderController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Order::with('items')
+        $query = Order::with(['items', 'customer', 'staff'])
             ->orderBy('created_at', 'desc');
 
         if ($request->has('status') && $request->status !== 'all') {

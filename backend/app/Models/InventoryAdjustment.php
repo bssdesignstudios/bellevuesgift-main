@@ -19,6 +19,8 @@ class InventoryAdjustment extends Model
         'qty_change',
         'notes',
         'staff_id',
+        'old_qty',
+        'new_qty',
     ];
 
     public function product()

@@ -19,6 +19,7 @@ use App\Http\Controllers\AdminGiftCardController;
 use App\Http\Controllers\AdminCouponController;
 use App\Http\Controllers\AdminRepairTicketController;
 use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\AdminTimesheetController;
 
 /*
 |--------------------------------------------------------------------------
@@ -98,8 +99,8 @@ Route::prefix('admin')->group(function () {
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
 
     Route::get('/inventory', [AdminInventoryController::class, 'index']);
-    Route::post('/inventory/{id}/adjust', [AdminInventoryController::class, 'adjust']);
-    Route::patch('/inventory/{id}', [AdminInventoryController::class, 'update']);
+    Route::post('/inventory/{inventory}/adjust', [AdminInventoryController::class, 'adjust']);
+    Route::patch('/inventory/{inventory}', [AdminInventoryController::class, 'update']);
     Route::get('/reports/dashboard', [AdminReportController::class, 'dashboard']);
 
     Route::get('/staff', [AdminStaffController::class, 'index']);
@@ -114,6 +115,7 @@ Route::prefix('admin')->group(function () {
 
     // Customers
     Route::get('/customers', [AdminCustomerController::class, 'index']);
+    Route::get('/customers/{customer}', [AdminCustomerController::class, 'show']);
 
     // Gift Cards
     Route::get('/gift-cards', [AdminGiftCardController::class, 'index']);
@@ -147,6 +149,13 @@ Route::prefix('admin')->group(function () {
     // Impersonation
     Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
     Route::post('/impersonate/stop', [App\Http\Controllers\AuthController::class, 'stopImpersonation']);
+
+    // Timesheets
+    Route::get('/timesheets', [AdminTimesheetController::class, 'index']);
+    Route::post('/timesheets', [AdminTimesheetController::class, 'store']);
+    Route::put('/timesheets/{timesheet}', [AdminTimesheetController::class, 'update']);
+    Route::delete('/timesheets/{timesheet}', [AdminTimesheetController::class, 'destroy']);
+    Route::get('/timesheets/staff', [AdminTimesheetController::class, 'staff']);
 
     // Finance
     Route::get('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'index']);

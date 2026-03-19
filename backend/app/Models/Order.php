@@ -37,7 +37,8 @@ class Order extends Model
 
     public function customer()
     {
-        return $this->belongsTo(\App\Models\User::class, 'customer_id');
+        // customer_id is a UUID FK to the customers table (not users)
+        return $this->belongsTo(\App\Models\Customer::class, 'customer_id');
     }
 
     public function register()

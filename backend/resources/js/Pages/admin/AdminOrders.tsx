@@ -162,7 +162,23 @@ export default function AdminOrders() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <div className="font-medium text-muted-foreground">Customer</div>
-                    <div>{selectedOrder.customer?.name || 'Walk-in'}</div>
+                    <div className="font-medium">
+                      {selectedOrder.customer?.name || (selectedOrder.channel === 'pos' ? 'Walk-in' : 'Guest')}
+                    </div>
+                    {selectedOrder.customer ? (
+                      <div className="text-xs text-muted-foreground space-y-0.5 mt-0.5">
+                        {selectedOrder.customer.phone && <div>📞 {selectedOrder.customer.phone}</div>}
+                        {selectedOrder.customer.email && <div>✉ {selectedOrder.customer.email}</div>}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div>
+                    <div className="font-medium text-muted-foreground">Customer Type</div>
+                    <div>
+                      {selectedOrder.customer
+                        ? (selectedOrder.channel === 'web' ? 'Registered / Online' : 'Registered / POS')
+                        : (selectedOrder.channel === 'pos' ? 'Walk-in' : 'Guest / Unregistered')}
+                    </div>
                   </div>
                   <div>
                     <div className="font-medium text-muted-foreground">Channel</div>
