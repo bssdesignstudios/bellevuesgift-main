@@ -21,18 +21,13 @@ class AdminCouponController extends Controller
 
     public function store(Request $request)
     {
-        // Frontend may send discount_type instead of type
-        if ($request->has('discount_type') && !$request->has('type')) {
-            $request->merge(['type' => $request->input('discount_type')]);
-        }
-
         $validated = $request->validate([
             'code' => 'required|string|unique:coupons,code',
-            'type' => 'required|in:percent,fixed',
+            'discount_type' => 'required|in:percent,fixed',
             'value' => 'required|numeric|min:0',
-            'min_purchase' => 'nullable|numeric|min:0',
-            'max_uses' => 'nullable|integer|min:1',
-            'expires_at' => 'nullable|date',
+            'min_order_amount' => 'nullable|numeric|min:0',
+            'start_at' => 'nullable|date',
+            'end_at' => 'nullable|date',
             'is_active' => 'boolean',
         ]);
 
@@ -40,7 +35,6 @@ class AdminCouponController extends Controller
             ...$validated,
             'code' => strtoupper($validated['code']),
             'is_active' => $validated['is_active'] ?? true,
-            'used_count' => 0,
         ]);
 
         return response()->json($coupon, 201);
@@ -48,13 +42,8 @@ class AdminCouponController extends Controller
 
     public function update(Request $request, $id)
     {
-        // Frontend may send discount_type instead of type
-        if ($request->has('discount_type') && !$request->has('type')) {
-            $request->merge(['type' => $request->input('discount_type')]);
-        }
-
         $coupon = Coupon::findOrFail($id);
-        $coupon->update($request->only(['code', 'type', 'value', 'min_purchase', 'max_uses', 'expires_at', 'is_active']));
+        $coupon->update($request->only(['code', 'discount_type', 'value', 'min_order_amount', 'start_at', 'end_at', 'is_active']));
 
         return response()->json($coupon->fresh());
     }

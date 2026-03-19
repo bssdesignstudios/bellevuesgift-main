@@ -8,29 +8,36 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration {
     public function up(): void
     {
-        // 1. Expand roles in staff table
-        // Note: For MySQL, we often use string instead of enum if we want to change it easily, 
-        // but since it's already an enum, we'll try to update it.
-        // If it's SQLite (for tests), enum is just a string.
-        if (DB::getDriverName() !== 'sqlite') {
+        // 1. Expand roles in staff table — use DB-driver-safe approach
+        $driver = DB::getDriverName();
+        if ($driver === 'pgsql') {
+            // PostgreSQL: drop old check constraint and add new one with expanded roles
+            DB::statement("ALTER TABLE staff DROP CONSTRAINT IF EXISTS staff_role_check");
+            DB::statement("ALTER TABLE staff ADD CONSTRAINT staff_role_check CHECK (role::text = ANY (ARRAY['cashier','warehouse_manager','admin','warehouse','finance']::text[]))");
+        } elseif ($driver === 'mysql') {
             DB::statement("ALTER TABLE staff MODIFY COLUMN role ENUM('cashier', 'warehouse_manager', 'admin', 'warehouse', 'finance') NOT NULL");
         }
+        // SQLite: no-op (enum is just text)
 
         // 2. Add impersonation_logs table
-        Schema::create('impersonation_logs', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignId('admin_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('target_id')->constrained('users')->cascadeOnDelete();
-            $table->timestamp('started_at')->useCurrent();
-            $table->timestamp('ended_at')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('impersonation_logs')) {
+            Schema::create('impersonation_logs', function (Blueprint $table) {
+                $table->uuid('id')->primary();
+                $table->foreignId('admin_id')->constrained('users')->cascadeOnDelete();
+                $table->foreignId('target_id')->constrained('users')->cascadeOnDelete();
+                $table->timestamp('started_at')->useCurrent();
+                $table->timestamp('ended_at')->nullable();
+                $table->timestamps();
+            });
+        }
 
         // 3. Update inventory_adjustments for better auditing
-        Schema::table('inventory_adjustments', function (Blueprint $table) {
-            $table->integer('old_qty')->nullable();
-            $table->integer('new_qty')->nullable();
-        });
+        if (!Schema::hasColumn('inventory_adjustments', 'old_qty')) {
+            Schema::table('inventory_adjustments', function (Blueprint $table) {
+                $table->integer('old_qty')->nullable();
+                $table->integer('new_qty')->nullable();
+            });
+        }
     }
 
     public function down(): void
@@ -41,7 +48,11 @@ return new class extends Migration {
 
         Schema::dropIfExists('impersonation_logs');
 
-        if (DB::getDriverName() !== 'sqlite') {
+        $driver = DB::getDriverName();
+        if ($driver === 'pgsql') {
+            DB::statement("ALTER TABLE staff DROP CONSTRAINT IF EXISTS staff_role_check");
+            DB::statement("ALTER TABLE staff ADD CONSTRAINT staff_role_check CHECK (role::text = ANY (ARRAY['cashier','warehouse_manager','admin']::text[]))");
+        } elseif ($driver === 'mysql') {
             DB::statement("ALTER TABLE staff MODIFY COLUMN role ENUM('cashier', 'warehouse_manager', 'admin') NOT NULL");
         }
     }

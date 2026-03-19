@@ -15,15 +15,19 @@ class Coupon extends Model
 
     protected $fillable = [
         'code',
-        'type',
+        'discount_type',
         'value',
+        'min_order_amount',
         'is_active',
-        'expires_at',
+        'start_at',
+        'end_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-        'expires_at' => 'datetime',
+        'start_at' => 'datetime',
+        'end_at' => 'datetime',
         'value' => 'decimal:2',
+        'min_order_amount' => 'decimal:2',
     ];
 }

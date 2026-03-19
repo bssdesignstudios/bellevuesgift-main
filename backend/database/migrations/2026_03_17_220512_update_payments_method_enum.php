@@ -11,9 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('payments', function (Blueprint $table) {
-            $table->string('method')->change();
-        });
+        $driver = \Illuminate\Support\Facades\DB::getDriverName();
+        if ($driver === 'pgsql') {
+            // PostgreSQL: drop the check constraint to allow any string value
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check");
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE payments ALTER COLUMN method TYPE varchar(255)");
+        } else {
+            Schema::table('payments', function (Blueprint $table) {
+                $table->string('method')->change();
+            });
+        }
     }
 
     /**
