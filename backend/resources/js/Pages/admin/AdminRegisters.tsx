@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Monitor, Users, Clock } from 'lucide-react';
+import { Plus, Pencil, Monitor, Users, Clock, Eye } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 interface RegisterData {
@@ -34,6 +35,7 @@ export default function AdminRegisters() {
   const [editRegister, setEditRegister] = useState<RegisterData | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [assignRegister, setAssignRegister] = useState<RegisterData | null>(null);
+  const [detailRegister, setDetailRegister] = useState<RegisterData | null>(null);
   const queryClient = useQueryClient();
 
   const { data: registers } = useQuery({
@@ -62,6 +64,7 @@ export default function AdminRegisters() {
   });
 
   return (
+    <>
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
@@ -183,6 +186,14 @@ export default function AdminRegisters() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => setDetailRegister(reg)}
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => { setEditRegister(reg); setIsDialogOpen(true); }}
                         title="Edit"
                       >
@@ -213,6 +224,13 @@ export default function AdminRegisters() {
         </div>
       </div>
     </AdminLayout>
+    {detailRegister && (
+      <RegisterDetail
+        register={detailRegister}
+        onClose={() => setDetailRegister(null)}
+      />
+    )}
+    </>
   );
 }
 
@@ -339,5 +357,128 @@ function AssignStaffForm({
         {mutation.isPending ? 'Saving...' : 'Save Assignments'}
       </Button>
     </div>
+  );
+}
+
+function RegisterDetail({ register, onClose }: { register: RegisterData; onClose: () => void }) {
+  const { data: recentOrders } = useQuery({
+    queryKey: ['register-orders', register.id],
+    queryFn: async () => {
+      const { data } = await axios.get('/api/admin/orders', {
+        params: { register_id: register.id, limit: 10 }
+      });
+      return data as any[];
+    },
+    enabled: !!register.id,
+  });
+
+  return (
+    <Sheet open onOpenChange={open => !open && onClose()}>
+      <SheetContent side="right" className="w-[480px] sm:w-[540px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Monitor className="h-5 w-5" />
+            {register.name}
+          </SheetTitle>
+        </SheetHeader>
+        <div className="space-y-6 mt-6">
+          {/* Core info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Location</p>
+              <p className="font-medium mt-1">{register.location || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Status</p>
+              <div className="mt-1">
+                <Badge className={register.is_active ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'}>
+                  {register.is_active ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Assigned staff */}
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Assigned Staff</p>
+            {register.assigned_staff?.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {register.assigned_staff.map(s => (
+                  <Badge key={s.id} variant="secondary">{s.name} <span className="ml-1 opacity-60 capitalize">({s.role})</span></Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No staff assigned</p>
+            )}
+          </div>
+
+          {/* Session info */}
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Current Session</p>
+            {(register as any).active_session ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-1">
+                <div className="flex items-center gap-2 text-green-700 font-medium">
+                  <Clock className="h-4 w-4" />
+                  Session Open
+                </div>
+                <p className="text-sm">
+                  Opened: {new Date((register as any).active_session.opened_at).toLocaleString()}
+                </p>
+                {(register as any).session_duration_minutes != null && (
+                  <p className="text-sm">
+                    Duration: {Math.floor((register as any).session_duration_minutes / 60)}h {(register as any).session_duration_minutes % 60}m
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No active session</p>
+            )}
+          </div>
+
+          {/* Today's metrics */}
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Today's Metrics</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Sales</p>
+                <p className="text-xl font-bold">${Number((register as any).today_sales || 0).toFixed(2)}</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Transactions</p>
+                <p className="text-xl font-bold">{(register as any).today_orders || 0}</p>
+              </div>
+            </div>
+            {(register as any).last_transaction_at && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Last transaction: {new Date((register as any).last_transaction_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+
+          {/* Recent orders */}
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Recent Orders</p>
+            {recentOrders && recentOrders.length > 0 ? (
+              <div className="space-y-2">
+                {recentOrders.slice(0, 8).map((order: any) => (
+                  <div key={order.id} className="flex items-center justify-between py-1.5 border-b last:border-0">
+                    <div>
+                      <p className="text-sm font-medium">{order.order_number}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">${Number(order.total).toFixed(2)}</p>
+                      <Badge variant="outline" className="text-xs capitalize">{order.payment_status}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No recent orders</p>
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

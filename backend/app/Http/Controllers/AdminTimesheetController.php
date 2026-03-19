@@ -27,6 +27,9 @@ class AdminTimesheetController extends Controller
         if ($request->filled('date_to')) {
             $query->whereDate('clock_in', '<=', $request->query('date_to'));
         }
+        if ($request->filled('staff_id')) {
+            $query->where('staff_id', $request->query('staff_id'));
+        }
 
         $logs = $query->limit(100)->get();
 

@@ -30,6 +30,20 @@ class AdminExpenseController extends Controller
         return response()->json($expense, 201);
     }
 
+    public function update(Request $request, Expense $expense)
+    {
+        $validated = $request->validate([
+            'title'        => 'nullable|string|max:255',
+            'vendor_payee' => 'nullable|string|max:255',
+            'category'     => 'required|string',
+            'amount'       => 'required|numeric|min:0',
+            'notes'        => 'nullable|string',
+            'date'         => 'required|date',
+        ]);
+        $expense->update($validated);
+        return response()->json($expense->fresh()->load('staff'));
+    }
+
     public function destroy(Expense $expense)
     {
         $expense->delete();

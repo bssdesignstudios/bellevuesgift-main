@@ -10,6 +10,8 @@ class Expense extends Model
     use HasFactory, \App\Traits\HasUuid;
 
     protected $fillable = [
+        'title',
+        'vendor_payee',
         'category',
         'amount',
         'notes',

@@ -9,8 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('inventory_adjustments', function (Blueprint $table) {
-            $table->integer('old_qty')->default(0)->after('qty_change');
-            $table->integer('new_qty')->default(0)->after('old_qty');
+            if (!Schema::hasColumn('inventory_adjustments', 'old_qty')) {
+                $table->integer('old_qty')->default(0)->after('qty_change');
+            }
+            if (!Schema::hasColumn('inventory_adjustments', 'new_qty')) {
+                $table->integer('new_qty')->default(0)->after('old_qty');
+            }
         });
     }
 

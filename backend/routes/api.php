@@ -152,10 +152,17 @@ Route::prefix('admin')->group(function () {
 
     Route::get('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'index']);
     Route::post('/expenses', [App\Http\Controllers\AdminExpenseController::class, 'store']);
+    Route::put('/expenses/{expense}', [App\Http\Controllers\AdminExpenseController::class, 'update']);
     Route::delete('/expenses/{expense}', [App\Http\Controllers\AdminExpenseController::class, 'destroy']);
     Route::get('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'index']);
     Route::post('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'store']);
     Route::post('/payroll/{payroll}/approve', [App\Http\Controllers\AdminPayrollController::class, 'approve']);
+
+    Route::get('/recurring-bills', [App\Http\Controllers\AdminRecurringBillController::class, 'index']);
+    Route::post('/recurring-bills', [App\Http\Controllers\AdminRecurringBillController::class, 'store']);
+    Route::put('/recurring-bills/{recurringBill}', [App\Http\Controllers\AdminRecurringBillController::class, 'update']);
+    Route::delete('/recurring-bills/{recurringBill}', [App\Http\Controllers\AdminRecurringBillController::class, 'destroy']);
+    Route::post('/recurring-bills/{recurringBill}/mark-paid', [App\Http\Controllers\AdminRecurringBillController::class, 'markPaid']);
 
     Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
     Route::post('/impersonate/stop', [App\Http\Controllers\AuthController::class, 'stopImpersonation']);
