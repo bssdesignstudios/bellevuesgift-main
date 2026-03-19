@@ -234,7 +234,7 @@ Route::get('/account/profile', function () {
 })->name('account.profile');
 
 // POS (Admin, Cashier, Warehouse)
-Route::middleware(['auth', 'role:admin,cashier,warehouse,warehouse_manager'])->group(function () {
+Route::middleware(['auth', 'role:admin,cashier,warehouse_manager'])->group(function () {
     Route::get('/pos', function () {
         return Inertia::render('POSPage');
     })->name('pos');
@@ -288,7 +288,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->prefix('admin')->group(function () {
 
     // 1. Common / Overview (Admin + Finance)
-    Route::middleware(['role:admin,finance'])->group(function () {
+    Route::middleware(['role:admin,finance_controller'])->group(function () {
         Route::get('/', function () {
             return Inertia::render('admin/AdminOverview');
         })->name('admin');
@@ -344,14 +344,14 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     });
 
     // 2. Warehouse Operations (Admin + Warehouse + Finance for Inventory visibility)
-    Route::middleware(['role:admin,warehouse,warehouse_manager,finance'])->group(function () {
+    Route::middleware(['role:admin,warehouse_manager,finance_controller'])->group(function () {
         Route::get('/inventory', function () {
             return Inertia::render('admin/AdminInventory');
         })->name('admin.inventory');
     });
 
     // 3. Product Catalog (Admin + Warehouse)
-    Route::middleware(['role:admin,warehouse,warehouse_manager'])->group(function () {
+    Route::middleware(['role:admin,warehouse_manager'])->group(function () {
         Route::get('/products', function () {
             return Inertia::render('admin/AdminProducts');
         })->name('admin.products');

@@ -7,27 +7,37 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { Category } from '@/types';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
+interface CategoryWithCount extends Category {
+  products_count: number;
+}
+
 export default function AdminCategories() {
-  const [editCategory, setEditCategory] = useState<Category | null>(null);
+  const [editCategory, setEditCategory] = useState<CategoryWithCount | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: categories } = useQuery({
+  const { data: categories } = useQuery<CategoryWithCount[]>({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const response = await axios.get('/api/categories');
-      return response.data as Category[];
+      const response = await axios.get('/api/admin/categories');
+      return response.data as CategoryWithCount[];
     }
   });
 
+  const filtered = (categories ?? []).filter(c =>
+    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.slug.toLowerCase().includes(search.toLowerCase())
+  );
+
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      await axios.patch(`/api/categories/${id}/toggle-active`, { is_active });
+      await axios.put(`/api/admin/categories/${id}`, { is_active });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
@@ -36,7 +46,7 @@ export default function AdminCategories() {
 
   const deleteCategory = useMutation({
     mutationFn: async (id: string) => {
-      await axios.delete(`/api/categories/${id}`);
+      await axios.delete(`/api/admin/categories/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
@@ -48,7 +58,10 @@ export default function AdminCategories() {
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Categories</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Categories</h1>
+            <p className="text-sm text-muted-foreground">{categories?.length ?? 0} categories</p>
+          </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setEditCategory(null)}>
@@ -71,6 +84,16 @@ export default function AdminCategories() {
           </Dialog>
         </div>
 
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search categories..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
@@ -78,16 +101,26 @@ export default function AdminCategories() {
                 <TableHead>Name</TableHead>
                 <TableHead>Slug</TableHead>
                 <TableHead className="text-center">Sort Order</TableHead>
+                <TableHead className="text-center">Products</TableHead>
                 <TableHead>Active</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories?.map((category) => (
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No categories found
+                  </TableCell>
+                </TableRow>
+              ) : filtered.map((category) => (
                 <TableRow key={category.id}>
                   <TableCell className="font-medium">{category.name}</TableCell>
                   <TableCell className="font-mono text-sm">{category.slug}</TableCell>
                   <TableCell className="text-center">{category.sort_order}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="secondary">{category.products_count ?? 0}</Badge>
+                  </TableCell>
                   <TableCell>
                     <Switch
                       checked={category.is_active}
@@ -113,6 +146,10 @@ export default function AdminCategories() {
                         size="icon"
                         className="text-destructive"
                         onClick={() => {
+                          if (category.products_count > 0) {
+                            toast.error(`Cannot delete — ${category.products_count} products use this category`);
+                            return;
+                          }
                           if (confirm('Delete this category?')) {
                             deleteCategory.mutate(category.id);
                           }
@@ -156,9 +193,9 @@ function CategoryForm({
       };
 
       if (category) {
-        await axios.put(`/api/categories/${category.id}`, data);
+        await axios.put(`/api/admin/categories/${category.id}`, data);
       } else {
-        await axios.post('/api/categories', data);
+        await axios.post('/api/admin/categories', data);
       }
     },
     onSuccess: () => {

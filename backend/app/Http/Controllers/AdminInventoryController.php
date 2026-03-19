@@ -17,19 +17,34 @@ class AdminInventoryController extends Controller
     {
         $query = Inventory::with(['product', 'product.category']);
 
-        if ($request->has('search')) {
-            $search = $request->query('search');
-            $query->whereHas('product', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $s = $request->query('search');
+            $query->whereHas('product', function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                  ->orWhere('sku', 'like', "%{$s}%");
             });
         }
 
-        if ($request->query('filter') === 'low') {
-            $query->whereRaw('qty_on_hand < reorder_level');
+        if ($request->filled('category_id')) {
+            $query->whereHas('product', fn($q) => $q->where('category_id', $request->query('category_id')));
         }
 
-        return response()->json($query->orderBy('qty_on_hand')->get());
+        switch ($request->query('filter')) {
+            case 'low':
+                $query->whereRaw('qty_on_hand > 0 AND qty_on_hand <= reorder_level');
+                break;
+            case 'out_of_stock':
+                $query->where('qty_on_hand', '<=', 0);
+                break;
+        }
+
+        $sortColumn = in_array($request->query('sort'), ['qty_on_hand', 'reorder_level']) ? $request->query('sort') : 'qty_on_hand';
+        $sortDir = $request->query('sort_dir') === 'desc' ? 'desc' : 'asc';
+        $query->orderBy($sortColumn, $sortDir);
+
+        $perPage = min((int) $request->query('per_page', 25), 100);
+
+        return response()->json($query->paginate($perPage));
     }
 
     public function adjust(Request $request, Inventory $inventory)

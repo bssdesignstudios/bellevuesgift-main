@@ -15,17 +15,46 @@ class AdminProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['category']);
+        $query = Product::with(['category', 'inventory']);
 
-        if ($request->has('search')) {
-            $search = $request->query('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $s = $request->query('search');
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                  ->orWhere('sku', 'like', "%{$s}%")
+                  ->orWhere('barcode', 'like', "%{$s}%");
             });
         }
 
-        return response()->json($query->orderBy('name')->get());
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->query('category_id'));
+        }
+
+        if ($request->query('is_active') !== null && $request->query('is_active') !== '') {
+            $query->where('is_active', filter_var($request->query('is_active'), FILTER_VALIDATE_BOOLEAN));
+        }
+
+        if ($request->filled('stock_status')) {
+            switch ($request->query('stock_status')) {
+                case 'in_stock':
+                    $query->whereHas('inventory', fn($q) => $q->where('qty_on_hand', '>', 0));
+                    break;
+                case 'out_of_stock':
+                    $query->whereHas('inventory', fn($q) => $q->where('qty_on_hand', '<=', 0));
+                    break;
+                case 'low_stock':
+                    $query->whereHas('inventory', fn($q) => $q->whereRaw('qty_on_hand > 0 AND qty_on_hand <= reorder_level'));
+                    break;
+            }
+        }
+
+        $sortColumn = in_array($request->query('sort'), ['name', 'price', 'sku', 'created_at']) ? $request->query('sort') : 'name';
+        $sortDir = $request->query('sort_dir') === 'desc' ? 'desc' : 'asc';
+        $query->orderBy($sortColumn, $sortDir);
+
+        $perPage = min((int) $request->query('per_page', 25), 100);
+
+        return response()->json($query->paginate($perPage));
     }
 
     public function store(Request $request)

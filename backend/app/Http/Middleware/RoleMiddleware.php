@@ -21,7 +21,8 @@ class RoleMiddleware
 
         $user = Auth::user();
 
-        if (in_array($user->role, $roles, true)) {
+        // super_admin bypasses all role restrictions
+        if ($user->role === 'super_admin' || in_array($user->role, $roles, true)) {
             return $next($request);
         }
 

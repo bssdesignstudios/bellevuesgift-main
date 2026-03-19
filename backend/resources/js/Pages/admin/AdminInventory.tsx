@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, Plus, Minus, RotateCcw, Loader2, Pencil, Check, X } from 'lucide-react';
+import { Search, Plus, Minus, RotateCcw, Loader2, Pencil, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { Category } from '@/types';
 
 interface InventoryItem {
   id: string;
@@ -26,6 +27,14 @@ interface InventoryItem {
     sku: string;
     category: { name: string } | null;
   };
+}
+
+interface PaginatedInventory {
+  data: InventoryItem[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
 }
 
 // Inline editable cell — click the number to edit
@@ -93,16 +102,37 @@ function InlineEdit({
 
 export default function AdminInventory() {
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'low'>('all');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'low' | 'out_of_stock'>('all');
+  const [categoryId, setCategoryId] = useState('');
+  const [page, setPage] = useState(1);
   const [adjustDialog, setAdjustDialog] = useState<{ item: InventoryItem; type: 'receive' | 'adjust' | 'count' } | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: inventory, isLoading } = useQuery({
-    queryKey: ['admin-inventory', search, filter],
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [filter, categoryId]);
+
+  const { data: paginated, isLoading } = useQuery<PaginatedInventory>({
+    queryKey: ['admin-inventory', debouncedSearch, filter, categoryId, page],
     queryFn: async () => {
-      const response = await axios.get('/api/admin/inventory', { params: { search, filter } });
-      return response.data as InventoryItem[];
+      const params: Record<string, string | number> = { page, per_page: 25, filter };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (categoryId) params.category_id = categoryId;
+      const response = await axios.get('/api/admin/inventory', { params });
+      return response.data as PaginatedInventory;
     },
+  });
+
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ['admin-categories'],
+    queryFn: async () => {
+      const response = await axios.get('/api/admin/categories');
+      return response.data as Category[];
+    }
   });
 
   // Direct PATCH update (qty or reorder level)
@@ -120,31 +150,27 @@ export default function AdminInventory() {
     },
   });
 
-  const lowCount = inventory?.filter(i => i.qty_on_hand < i.reorder_level).length ?? 0;
-  const outCount = inventory?.filter(i => i.qty_on_hand <= 0).length ?? 0;
+  const inventory = paginated?.data ?? [];
+  const totalPages = paginated?.last_page ?? 1;
+  const total = paginated?.total ?? 0;
 
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Inventory</h1>
-          <div className="flex gap-2">
-            {outCount > 0 && (
-              <Badge variant="destructive">{outCount} Out of Stock</Badge>
-            )}
-            {lowCount > 0 && (
-              <Badge className="bg-orange-500 text-white">{lowCount} Low Stock</Badge>
-            )}
+          <div>
+            <h1 className="text-3xl font-bold">Inventory</h1>
+            <p className="text-sm text-muted-foreground">{total} items</p>
           </div>
         </div>
 
         <p className="text-sm text-muted-foreground">
-          💡 Click any <strong>On Hand</strong> or <strong>Reorder Level</strong> number to edit it directly.
+          Click any <strong>On Hand</strong> or <strong>Reorder Level</strong> number to edit it directly.
           Use the +/−/↺ buttons for logged adjustments.
         </p>
 
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search products..."
@@ -153,13 +179,27 @@ export default function AdminInventory() {
               className="pl-10"
             />
           </div>
-          <Select value={filter} onValueChange={(v) => setFilter(v as 'all' | 'low')}>
-            <SelectTrigger className="w-40">
+
+          <Select value={categoryId || 'all'} onValueChange={(v) => setCategoryId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories?.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filter} onValueChange={(v) => setFilter(v as 'all' | 'low' | 'out_of_stock')}>
+            <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Items</SelectItem>
               <SelectItem value="low">Low Stock</SelectItem>
+              <SelectItem value="out_of_stock">Out of Stock</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -189,14 +229,14 @@ export default function AdminInventory() {
                   </TableCell>
                 </TableRow>
               )}
-              {!isLoading && inventory?.length === 0 && (
+              {!isLoading && inventory.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                     No inventory items found.
                   </TableCell>
                 </TableRow>
               )}
-              {inventory?.map((item) => {
+              {inventory.map((item) => {
                 const available = item.qty_on_hand - item.qty_reserved;
                 const isLow = item.qty_on_hand > 0 && item.qty_on_hand < item.reorder_level;
                 const isOut = item.qty_on_hand <= 0;
@@ -264,6 +304,21 @@ export default function AdminInventory() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Page {page} of {totalPages} — {total} total</p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                <ChevronLeft className="h-4 w-4" /> Prev
+              </Button>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Adjustment Dialog */}
         <Dialog open={!!adjustDialog} onOpenChange={() => setAdjustDialog(null)}>
