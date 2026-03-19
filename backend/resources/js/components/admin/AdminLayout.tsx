@@ -84,7 +84,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <ImpersonationBanner />
       <div className="flex flex-1">
         <AdminSidebar />
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto pt-14 lg:pt-0">
           {children}
         </main>
       </div>

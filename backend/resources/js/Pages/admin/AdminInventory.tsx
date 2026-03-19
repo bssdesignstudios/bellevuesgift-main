@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, Plus, Minus, RotateCcw, Loader2, Pencil, Check, X } from 'lucide-react';
+import { Search, Plus, Minus, RotateCcw, Loader2, Pencil, Check, X, ArrowUpDown, Package, AlertTriangle, Download } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 interface InventoryItem {
@@ -24,7 +24,7 @@ interface InventoryItem {
     id: string;
     name: string;
     sku: string;
-    category: { name: string } | null;
+    category: { id: string; name: string } | null;
   };
 }
 
@@ -94,15 +94,43 @@ function InlineEdit({
 export default function AdminInventory() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'low'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [stockFilter, setStockFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [adjustDialog, setAdjustDialog] = useState<{ item: InventoryItem; type: 'receive' | 'adjust' | 'count' } | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: inventory, isLoading } = useQuery({
-    queryKey: ['admin-inventory', search, filter],
+  const { data: rawInventory, isLoading } = useQuery({
+    queryKey: ['admin-inventory', search],
     queryFn: async () => {
-      const response = await axios.get('/api/admin/inventory', { params: { search, filter } });
+      const response = await axios.get('/api/admin/inventory', { params: { search } });
       return response.data as InventoryItem[];
     },
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const response = await axios.get('/api/admin/categories');
+      return response.data as Array<{ id: string; name: string }>;
+    },
+  });
+
+  // Client-side filters
+  const inventory = rawInventory?.filter(item => {
+    if (categoryFilter !== 'all' && item.product?.category?.id !== categoryFilter) return false;
+    if (stockFilter === 'out' && item.qty_on_hand > 0) return false;
+    if (stockFilter === 'low' && !(item.qty_on_hand > 0 && item.qty_on_hand <= item.reorder_level)) return false;
+    if (stockFilter === 'in' && item.qty_on_hand <= item.reorder_level) return false;
+    return true;
+  }).sort((a, b) => {
+    let cmp = 0;
+    if (sortBy === 'name') cmp = (a.product?.name ?? '').localeCompare(b.product?.name ?? '');
+    else if (sortBy === 'sku') cmp = (a.product?.sku ?? '').localeCompare(b.product?.sku ?? '');
+    else if (sortBy === 'qty') cmp = a.qty_on_hand - b.qty_on_hand;
+    else if (sortBy === 'available') cmp = (a.qty_on_hand - a.qty_reserved) - (b.qty_on_hand - b.qty_reserved);
+    return sortDir === 'desc' ? -cmp : cmp;
   });
 
   // Direct PATCH update (qty or reorder level)
@@ -120,60 +148,120 @@ export default function AdminInventory() {
     },
   });
 
-  const lowCount = inventory?.filter(i => i.qty_on_hand < i.reorder_level).length ?? 0;
-  const outCount = inventory?.filter(i => i.qty_on_hand <= 0).length ?? 0;
+  const totalCount = rawInventory?.length ?? 0;
+  const lowCount = rawInventory?.filter(i => i.qty_on_hand > 0 && i.qty_on_hand <= i.reorder_level).length ?? 0;
+  const outCount = rawInventory?.filter(i => i.qty_on_hand <= 0).length ?? 0;
+  const inStockCount = totalCount - outCount;
+
+  const hasActiveFilters = categoryFilter !== 'all' || stockFilter !== 'all';
+  const clearFilters = () => { setCategoryFilter('all'); setStockFilter('all'); setSearch(''); };
+
+  const toggleSort = (col: string) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
+  };
 
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Inventory</h1>
-          <div className="flex gap-2">
-            {outCount > 0 && (
-              <Badge variant="destructive">{outCount} Out of Stock</Badge>
-            )}
-            {lowCount > 0 && (
-              <Badge className="bg-orange-500 text-white">{lowCount} Low Stock</Badge>
-            )}
-          </div>
+        </div>
+
+        {/* Summary Badges */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge variant="outline" className="py-1.5 px-3 text-sm">
+            <Package className="h-3.5 w-3.5 mr-1.5" />
+            {totalCount} items
+          </Badge>
+          <Badge variant="outline" className="py-1.5 px-3 text-sm text-green-700 border-green-200 bg-green-50">
+            {inStockCount} in stock
+          </Badge>
+          {lowCount > 0 && (
+            <Badge variant="outline" className="py-1.5 px-3 text-sm text-amber-700 border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+              {lowCount} low stock
+            </Badge>
+          )}
+          {outCount > 0 && (
+            <Badge variant="outline" className="py-1.5 px-3 text-sm text-red-700 border-red-200 bg-red-50">
+              {outCount} out of stock
+            </Badge>
+          )}
         </div>
 
         <p className="text-sm text-muted-foreground">
-          💡 Click any <strong>On Hand</strong> or <strong>Reorder Level</strong> number to edit it directly.
+          Click any <strong>On Hand</strong> or <strong>Reorder Level</strong> number to edit it directly.
           Use the +/−/↺ buttons for logged adjustments.
         </p>
 
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 max-w-sm min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products..."
+              placeholder="Search name, SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
             />
           </div>
-          <Select value={filter} onValueChange={(v) => setFilter(v as 'all' | 'low')}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Items</SelectItem>
-              <SelectItem value="low">Low Stock</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories?.map(cat => (
+                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
+          <Select value={stockFilter} onValueChange={setStockFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Stock" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Stock</SelectItem>
+              <SelectItem value="in">In Stock</SelectItem>
+              <SelectItem value="low">Low Stock</SelectItem>
+              <SelectItem value="out">Out of Stock</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
         </div>
 
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>SKU</TableHead>
+                <TableHead>
+                  <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-foreground">
+                    Product {sortBy === 'name' && <ArrowUpDown className="h-3 w-3" />}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button onClick={() => toggleSort('sku')} className="flex items-center gap-1 hover:text-foreground">
+                    SKU {sortBy === 'sku' && <ArrowUpDown className="h-3 w-3" />}
+                  </button>
+                </TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead className="text-right">On Hand</TableHead>
+                <TableHead className="text-right">
+                  <button onClick={() => toggleSort('qty')} className="flex items-center gap-1 ml-auto hover:text-foreground">
+                    On Hand {sortBy === 'qty' && <ArrowUpDown className="h-3 w-3" />}
+                  </button>
+                </TableHead>
                 <TableHead className="text-right">Reserved</TableHead>
-                <TableHead className="text-right">Available</TableHead>
+                <TableHead className="text-right">
+                  <button onClick={() => toggleSort('available')} className="flex items-center gap-1 ml-auto hover:text-foreground">
+                    Available {sortBy === 'available' && <ArrowUpDown className="h-3 w-3" />}
+                  </button>
+                </TableHead>
                 <TableHead className="text-right">Reorder Level</TableHead>
                 <TableHead className="text-center">Actions</TableHead>
               </TableRow>
