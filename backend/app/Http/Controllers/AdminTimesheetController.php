@@ -44,6 +44,7 @@ class AdminTimesheetController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'staff_id'   => 'nullable|integer|exists:users,id',
             'staff_name' => 'required|string|max:255',
             'clock_in'   => 'required|date',
             'clock_out'  => 'nullable|date|after:clock_in',
@@ -58,8 +59,11 @@ class AdminTimesheetController extends Controller
             $validated['status'] = 'completed';
         }
 
+        $staffId = $validated['staff_id'] ?? auth()->id();
+        unset($validated['staff_id']);
+
         $log = TimeLog::create(array_merge($validated, [
-            'staff_id' => auth()->id(),
+            'staff_id' => $staffId,
         ]));
 
         return response()->json($log, 201);

@@ -24,6 +24,10 @@ interface RegisterData {
     opened_at: string;
     opening_balance: string;
   } | null;
+  today_sales: number;
+  today_orders: number;
+  last_transaction_at: string | null;
+  session_duration_minutes: number | null;
 }
 
 export default function AdminRegisters() {
@@ -114,6 +118,7 @@ export default function AdminRegisters() {
                 <TableHead>Location</TableHead>
                 <TableHead>Assigned Staff</TableHead>
                 <TableHead>Current Session</TableHead>
+                <TableHead>Today's Sales</TableHead>
                 <TableHead>Active</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -143,16 +148,29 @@ export default function AdminRegisters() {
                   </TableCell>
                   <TableCell>
                     {reg.active_session ? (
-                      <div className="flex items-center gap-1 text-sm">
-                        <Clock className="h-3 w-3 text-green-600" />
-                        <span className="text-green-600 font-medium">Open</span>
-                        <span className="text-muted-foreground">
-                          since {new Date(reg.active_session.opened_at).toLocaleTimeString()}
-                        </span>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Clock className="h-3 w-3 text-green-600" />
+                          <span className="text-green-600 font-medium">Open</span>
+                          <span className="text-muted-foreground">
+                            since {new Date(reg.active_session.opened_at).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        {reg.session_duration_minutes != null && (
+                          <div className="text-xs text-muted-foreground pl-4">
+                            {Math.floor(reg.session_duration_minutes / 60)}h {reg.session_duration_minutes % 60}m
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">Closed</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div className="font-medium">${Number(reg.today_sales || 0).toFixed(2)}</div>
+                      <div className="text-muted-foreground text-xs">{reg.today_orders || 0} orders</div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Switch
@@ -185,7 +203,7 @@ export default function AdminRegisters() {
               ))}
               {(!registers || registers.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No registers yet. Click "Add Register" to create one.
                   </TableCell>
                 </TableRow>

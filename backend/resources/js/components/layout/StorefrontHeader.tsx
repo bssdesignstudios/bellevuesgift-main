@@ -275,13 +275,30 @@ export function StorefrontHeader() {
                 </Button>
               </Link>
 
-              {/* REPAIR & INSTALLATIONS */}
-              <Link href="/repair">
-                <Button variant="ghost" className="h-12 text-slate-800 hover:bg-slate-50 gap-2 font-medium">
-                  <Wrench className="h-4 w-4" />
-                  REPAIR & INSTALLATIONS
-                </Button>
-              </Link>
+              {/* REPAIR & INSTALLATIONS dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-12 gap-2 text-slate-800 hover:bg-slate-50 font-medium">
+                    <Wrench className="h-4 w-4" />
+                    REPAIR & INSTALLATIONS
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuItem asChild>
+                    <Link href="/repair" className="flex items-center gap-2 w-full">
+                      <Wrench className="h-4 w-4 text-muted-foreground" />
+                      Request Repair
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/repair/status" className="flex items-center gap-2 w-full">
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                      Check My Repair Status
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* GIFT CARDS dropdown */}
               <DropdownMenu>
@@ -368,6 +385,12 @@ export function StorefrontHeader() {
             </Link>
             <Link href="/repair" className="block py-2 font-semibold" onClick={() => setMobileMenuOpen(false)}>
               REPAIR & INSTALLATIONS
+            </Link>
+            <Link href="/repair" className="block py-2 pl-4 text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
+              Request Repair
+            </Link>
+            <Link href="/repair/status" className="block py-2 pl-4 text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
+              Check Repair Status
             </Link>
             <Link href="/gift-cards" className="block py-2 font-semibold" onClick={() => setMobileMenuOpen(false)}>
               GIFT CARDS

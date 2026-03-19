@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Register;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class RegisterController extends Controller
@@ -16,7 +17,34 @@ class RegisterController extends Controller
             ->orderBy('name')
             ->get();
 
-        return response()->json($registers);
+        $today = Carbon::today();
+
+        return response()->json($registers->map(function ($reg) use ($today) {
+            $data = $reg->toArray();
+
+            // Today's operational metrics
+            $todayOrders = \App\Models\Order::where('register_id', $reg->id)
+                ->whereDate('created_at', $today)
+                ->where('payment_status', 'paid')
+                ->get();
+
+            $data['today_sales'] = $todayOrders->sum('total');
+            $data['today_orders'] = $todayOrders->count();
+
+            $lastOrder = \App\Models\Order::where('register_id', $reg->id)
+                ->orderByDesc('created_at')
+                ->first();
+            $data['last_transaction_at'] = $lastOrder?->created_at;
+
+            if ($reg->activeSession) {
+                $openedAt = Carbon::parse($reg->activeSession->opened_at);
+                $data['session_duration_minutes'] = (int) $openedAt->diffInMinutes(now());
+            } else {
+                $data['session_duration_minutes'] = null;
+            }
+
+            return $data;
+        }));
     }
 
     public function store(Request $request)

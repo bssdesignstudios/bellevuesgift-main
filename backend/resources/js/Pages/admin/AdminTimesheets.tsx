@@ -313,18 +313,47 @@ export default function AdminTimesheets() {
 
 function TimeLogForm({ onSuccess }: { onSuccess: () => void }) {
   const [form, setForm] = useState({
+    staff_id: '',
     staff_name: '',
     clock_in: '',
     clock_out: '',
     task: '',
     notes: '',
   });
+  const [staffSearch, setStaffSearch] = useState('');
+  const [staffDropdownOpen, setStaffDropdownOpen] = useState(false);
+
+  const { data: allStaff } = useQuery({
+    queryKey: ['admin-staff-for-timesheet'],
+    queryFn: async () => {
+      const { data } = await axios.get('/api/admin/staff');
+      return (data as any[]).filter(s =>
+        ['super_admin', 'admin', 'finance_controller', 'cashier', 'warehouse_manager', 'warehouse'].includes(s.role) &&
+        s.is_active !== false
+      );
+    },
+  });
+
+  const filteredStaff = (allStaff || []).filter((s: any) =>
+    s.name.toLowerCase().includes(staffSearch.toLowerCase()) ||
+    s.email?.toLowerCase().includes(staffSearch.toLowerCase())
+  );
+
+  const selectStaff = (s: any) => {
+    setForm({ ...form, staff_id: String(s.id), staff_name: s.name });
+    setStaffSearch(s.name);
+    setStaffDropdownOpen(false);
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
       await axios.post('/api/admin/timesheets', {
-        ...form,
+        staff_id: form.staff_id || null,
+        staff_name: form.staff_name,
+        clock_in: form.clock_in,
         clock_out: form.clock_out || null,
+        task: form.task || null,
+        notes: form.notes || null,
       });
     },
     onSuccess: () => {
@@ -336,13 +365,43 @@ function TimeLogForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form onSubmit={e => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
-      <div>
-        <Label>Staff Name</Label>
-        <Input value={form.staff_name} onChange={e => setForm({ ...form, staff_name: e.target.value })} required />
+      <div className="relative">
+        <Label>Staff Member <span className="text-destructive">*</span></Label>
+        <Input
+          value={staffSearch}
+          onChange={e => {
+            setStaffSearch(e.target.value);
+            setForm({ ...form, staff_id: '', staff_name: e.target.value });
+            setStaffDropdownOpen(true);
+          }}
+          onFocus={() => setStaffDropdownOpen(true)}
+          placeholder="Search staff by name or email..."
+          required={!form.staff_id}
+        />
+        {staffDropdownOpen && filteredStaff.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+            {filteredStaff.map((s: any) => (
+              <button
+                key={s.id}
+                type="button"
+                className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between"
+                onClick={() => selectStaff(s)}
+              >
+                <span className="font-medium text-sm">{s.name}</span>
+                <span className="text-xs text-muted-foreground capitalize">{s.role?.replace(/_/g, ' ')}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {staffDropdownOpen && filteredStaff.length === 0 && staffSearch && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg p-3 text-sm text-muted-foreground">
+            No staff found matching "{staffSearch}"
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Clock In</Label>
+          <Label>Clock In <span className="text-destructive">*</span></Label>
           <Input type="datetime-local" value={form.clock_in} onChange={e => setForm({ ...form, clock_in: e.target.value })} required />
         </div>
         <div>
@@ -358,7 +417,7 @@ function TimeLogForm({ onSuccess }: { onSuccess: () => void }) {
         <Label>Notes</Label>
         <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} />
       </div>
-      <Button type="submit" className="w-full" disabled={mutation.isPending}>
+      <Button type="submit" className="w-full" disabled={mutation.isPending || !form.staff_name}>
         {mutation.isPending ? 'Saving...' : 'Add Entry'}
       </Button>
     </form>

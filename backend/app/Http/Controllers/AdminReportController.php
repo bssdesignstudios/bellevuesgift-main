@@ -84,6 +84,21 @@ class AdminReportController extends Controller
                 ];
             });
 
+        // Discount stats: orders with discount_amount > 0 in period
+        $totalDiscountOrders = Order::whereBetween('created_at', [$start, $end])
+            ->where('discount_amount', '>', 0)
+            ->count();
+        $totalDiscountValue = Order::whereBetween('created_at', [$start, $end])
+            ->where('discount_amount', '>', 0)
+            ->sum('discount_amount');
+
+        $discountStats = [
+            'orders_with_discount' => $totalDiscountOrders,
+            'total_discount_value' => round((float) $totalDiscountValue, 2),
+            'active_coupons' => DB::table('coupons')->where('is_active', true)->count(),
+            'total_coupons' => DB::table('coupons')->count(),
+        ];
+
         $stats = [
             'total_sales' => Order::whereBetween('created_at', [$start, $end])->where('payment_status', 'paid')->sum('total'),
             'order_count' => Order::whereBetween('created_at', [$start, $end])->where('payment_status', 'paid')->count(),
@@ -102,7 +117,8 @@ class AdminReportController extends Controller
                     return [
                         'name' => $item->staff->name ?? 'Unknown',
                         'total' => $item->total,
-                        'count' => $item->count
+                        'count' => $item->count,
+                        'avg_value' => $item->count > 0 ? round($item->total / $item->count, 2) : 0,
                     ];
                 }),
 
@@ -144,6 +160,15 @@ class AdminReportController extends Controller
             ],
 
             'top_customers' => $topCustomers,
+
+            'gift_card_stats' => [
+                'sold' => \App\Models\GiftCard::whereBetween('created_at', [$start, $end])->count(),
+                'total_issued' => \App\Models\GiftCard::whereBetween('created_at', [$start, $end])->sum('initial_balance'),
+                'total_redeemed' => \App\Models\GiftCard::sum(DB::raw('initial_balance - balance')),
+                'active_count' => \App\Models\GiftCard::where('is_active', true)->count(),
+            ],
+
+            'discount_stats' => $discountStats,
         ];
 
         return response()->json($stats);

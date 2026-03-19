@@ -117,6 +117,10 @@ Route::get('/repair', function () {
     return Inertia::render('RepairPage');
 })->name('repair');
 
+Route::get('/repair/status', function () {
+    return Inertia::render('RepairStatusPage');
+})->name('repair.status');
+
 Route::get('/sale', function () {
     try {
         $products = Product::with('category')->where('is_active', true)->whereNotNull('sale_price')->get();

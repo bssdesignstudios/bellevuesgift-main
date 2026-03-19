@@ -15,14 +15,17 @@ interface ReportStats {
   order_count: number;
   avg_order_value: number;
   daily_sales: Array<{ date: string; sales: number; orders: number; vat: number; posTotal?: number; webTotal?: number }>;
-  cashier_sales: Array<{ name: string; total: number; count: number }>;
+  cashier_sales?: Array<{ name: string; total: number; count: number; avg_value?: number }>;
   top_products: Array<{ product?: { name: string; sku: string }; total_qty: number; total_revenue: number }>;
   repair_analytics?: {
     openTickets: number;
     avgTurnaround: number;
-    totalRevenue: number;
+    totalRevenue?: number;
     statusCounts: Record<string, number>;
   };
+  register_sales?: Array<{ register: string; total: number; count: number; avg_value?: number }>;
+  gift_card_stats?: { sold: number; total_issued: number; total_redeemed: number; active_count: number };
+  discount_stats?: { orders_with_discount: number; total_discount_value: number; active_coupons: number; total_coupons: number };
 }
 
 export default function AdminReports() {
@@ -144,6 +147,9 @@ export default function AdminReports() {
             <TabsTrigger value="sales">Sales</TabsTrigger>
             <TabsTrigger value="cashiers">Cashiers</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="registers">Registers</TabsTrigger>
+            <TabsTrigger value="gift-cards">Gift Cards</TabsTrigger>
+            <TabsTrigger value="repairs">Repairs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="sales" className="space-y-4">
@@ -194,6 +200,7 @@ export default function AdminReports() {
                       <TableHead>Staff Name</TableHead>
                       <TableHead className="text-right">Transactions</TableHead>
                       <TableHead className="text-right">Total Revenue</TableHead>
+                      <TableHead className="text-right">Avg Order</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -202,6 +209,7 @@ export default function AdminReports() {
                         <TableCell className="font-medium">{s.name}</TableCell>
                         <TableCell className="text-right">{s.count}</TableCell>
                         <TableCell className="text-right font-bold">${Number(s.total).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${s.count > 0 ? (Number(s.total) / s.count).toFixed(2) : '0.00'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -241,6 +249,102 @@ export default function AdminReports() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="registers" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Sales by Register</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => exportToCSV(stats?.register_sales || [], 'register_sales')}>
+                  <Download className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Register</TableHead>
+                      <TableHead className="text-right">Transactions</TableHead>
+                      <TableHead className="text-right">Total Sales</TableHead>
+                      <TableHead className="text-right">Avg Order</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stats?.register_sales?.length ? stats.register_sales.map((r, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{r.register}</TableCell>
+                        <TableCell className="text-right">{r.count}</TableCell>
+                        <TableCell className="text-right font-bold">${Number(r.total).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${r.count > 0 ? (Number(r.total) / r.count).toFixed(2) : '0.00'}</TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">No register sales in this period.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="gift-cards" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Cards Sold</CardTitle></CardHeader>
+                <CardContent><div className="text-2xl font-bold">{stats?.gift_card_stats?.sold ?? 0}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Balance Issued</CardTitle></CardHeader>
+                <CardContent><div className="text-2xl font-bold">${Number(stats?.gift_card_stats?.total_issued ?? 0).toFixed(2)}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Amount Redeemed</CardTitle></CardHeader>
+                <CardContent><div className="text-2xl font-bold">${Number(stats?.gift_card_stats?.total_redeemed ?? 0).toFixed(2)}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Active Cards</CardTitle></CardHeader>
+                <CardContent><div className="text-2xl font-bold">{stats?.gift_card_stats?.active_count ?? 0}</div></CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="repairs" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Open Tickets</CardTitle></CardHeader>
+                <CardContent><div className="text-2xl font-bold text-amber-500">{stats?.repair_analytics?.openTickets ?? 0}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Avg Turnaround</CardTitle></CardHeader>
+                <CardContent><div className="text-2xl font-bold">{stats?.repair_analytics?.avgTurnaround ?? 0} days</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Completion Rate</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {(() => {
+                      const counts = stats?.repair_analytics?.statusCounts || {};
+                      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+                      const done = (counts['completed'] || 0) + (counts['picked_up'] || 0);
+                      return total > 0 ? `${Math.round((done / total) * 100)}%` : 'N/A';
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            {stats?.repair_analytics?.statusCounts && Object.keys(stats.repair_analytics.statusCounts).length > 0 && (
+              <Card>
+                <CardHeader><CardTitle>Status Breakdown</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {Object.entries(stats.repair_analytics.statusCounts).map(([status, count]) => (
+                      <div key={status} className="flex items-center justify-between py-1 border-b last:border-0">
+                        <span className="capitalize text-sm font-medium">{status.replace(/_/g, ' ')}</span>
+                        <Badge variant="secondary">{count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
