@@ -140,7 +140,7 @@ class AdminRepairTicketController extends Controller
 
         $payments = DB::table('payments')
             ->where('repair_ticket_id', $id)
-            ->select('id', 'amount', 'method as payment_method', 'note', 'created_at')
+            ->select('id', 'amount', 'method as payment_method', 'reference', 'created_at')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -157,7 +157,7 @@ class AdminRepairTicketController extends Controller
         $validated = $request->validate([
             'amount'         => 'required|numeric|min:0.01',
             'payment_method' => 'required|string|in:cash,card,gift_card,check',
-            'note'           => 'nullable|string',
+            'reference'      => 'nullable|string',
         ]);
 
         $paymentId = (string) Str::uuid();
@@ -168,8 +168,7 @@ class AdminRepairTicketController extends Controller
             'order_id'         => null,
             'amount'           => $validated['amount'],
             'method'           => $validated['payment_method'],
-            'status'           => 'completed',
-            'note'             => $validated['note'] ?? null,
+            'reference'        => $validated['reference'] ?? null,
             'created_at'       => now(),
             'updated_at'       => now(),
         ]);

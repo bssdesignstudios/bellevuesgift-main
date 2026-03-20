@@ -8,6 +8,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Inventory;
 use App\Models\InventoryAdjustment;
+use App\Models\Staff;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -59,7 +60,7 @@ class AdminInventoryController extends Controller
                 'adjustment_type' => $validated['adjustment_type'],
                 'qty_change' => $validated['qty_change'],
                 'notes' => $validated['notes'],
-                'staff_id' => auth()->id(),
+                'staff_id' => Staff::where('user_id', auth()->id())->value('id'),
                 'old_qty' => $oldQty,
                 'new_qty' => $newQty,
             ]);

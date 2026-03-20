@@ -70,7 +70,7 @@ interface Payment {
   id: string;
   amount: number;
   payment_method: string;
-  note: string | null;
+  reference: string | null;
   created_at: string;
 }
 
@@ -82,7 +82,7 @@ export default function AdminRepairTickets() {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', due_date: '' });
-  const [paymentForm, setPaymentForm] = useState({ amount: '', payment_method: 'cash', note: '' });
+  const [paymentForm, setPaymentForm] = useState({ amount: '', payment_method: 'cash', reference: '' });
   const [billingForm, setBillingForm] = useState({
     labor_hours: '', labor_rate: '', parts_cost: '', deposit_amount: '', deposit_paid: false,
   });
@@ -161,11 +161,11 @@ export default function AdminRepairTickets() {
 
   // Record payment
   const recordPaymentMutation = useMutation({
-    mutationFn: async (payload: { ticketId: string; amount: string; payment_method: string; note: string }) => {
+    mutationFn: async (payload: { ticketId: string; amount: string; payment_method: string; reference: string }) => {
       const { data: result } = await axios.post(`/api/admin/repair-tickets/${payload.ticketId}/payments`, {
         amount: parseFloat(payload.amount),
         payment_method: payload.payment_method,
-        note: payload.note || null,
+        reference: payload.reference || null,
       });
       return result as { ticket: RepairTicket };
     },
@@ -173,7 +173,7 @@ export default function AdminRepairTickets() {
       queryClient.invalidateQueries({ queryKey: ['repair-payments'] });
       queryClient.invalidateQueries({ queryKey: ['admin-repair-tickets'] });
       setSelectedTicket(result.ticket);
-      setPaymentForm({ amount: '', payment_method: 'cash', note: '' });
+      setPaymentForm({ amount: '', payment_method: 'cash', reference: '' });
       setShowPaymentDialog(false);
       toast.success('Payment recorded');
     },
@@ -649,7 +649,7 @@ export default function AdminRepairTickets() {
                             <div key={p.id} className="flex justify-between items-center text-sm border rounded p-2">
                               <div>
                                 <span className="font-medium capitalize">{p.payment_method.replace('_', ' ')}</span>
-                                {p.note && <p className="text-xs text-muted-foreground">{p.note}</p>}
+                                {p.reference && <p className="text-xs text-muted-foreground">{p.reference}</p>}
                                 <p className="text-xs text-muted-foreground">{format(new Date(p.created_at), 'MMM d, h:mm a')}</p>
                               </div>
                               <span className="font-semibold text-emerald-600">${Number(p.amount).toFixed(2)}</span>
@@ -705,11 +705,11 @@ export default function AdminRepairTickets() {
                             </Select>
                           </div>
                           <div>
-                            <Label>Note (optional)</Label>
+                            <Label>Reference (optional)</Label>
                             <Input
-                              value={paymentForm.note}
-                              onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })}
-                              placeholder="e.g., Deposit payment"
+                              value={paymentForm.reference}
+                              onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
+                              placeholder="e.g., Receipt #, deposit reference"
                             />
                           </div>
                           <Button

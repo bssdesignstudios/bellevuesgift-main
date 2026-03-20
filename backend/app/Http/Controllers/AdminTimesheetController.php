@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\TimeLog;
+use App\Models\Staff;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,7 +48,7 @@ class AdminTimesheetController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'staff_id'   => 'nullable|integer|exists:users,id',
+            'staff_id'   => 'nullable|uuid|exists:staff,id',
             'staff_name' => 'required|string|max:255',
             'clock_in'   => 'required|date',
             'clock_out'  => 'nullable|date|after:clock_in',
@@ -62,7 +63,8 @@ class AdminTimesheetController extends Controller
             $validated['status'] = 'completed';
         }
 
-        $staffId = $validated['staff_id'] ?? auth()->id();
+        // Resolve staff UUID: use provided staff_id, or look up from auth user
+        $staffId = $validated['staff_id'] ?? Staff::where('user_id', auth()->id())->value('id');
         unset($validated['staff_id']);
 
         $log = TimeLog::create(array_merge($validated, [
@@ -77,8 +79,11 @@ class AdminTimesheetController extends Controller
         $request->validate(['task' => 'nullable|string|max:255']);
 
         $user = auth()->user();
+        // Resolve staff UUID from auth user
+        $staffId = Staff::where('user_id', $user?->id)->value('id');
+
         $log  = TimeLog::create([
-            'staff_id'   => $user?->id,
+            'staff_id'   => $staffId,
             'staff_name' => $user?->name ?? 'Staff',
             'clock_in'   => now(),
             'task'       => $request->input('task'),
