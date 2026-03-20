@@ -28,7 +28,7 @@ class AdminPayrollController extends Controller
 
         $payroll = PayrollLog::create([
             ...$validated,
-            'status' => $validated['status'] ?? 'pending',
+            'status' => 'pending',
         ]);
 
         return response()->json($payroll, 201);
