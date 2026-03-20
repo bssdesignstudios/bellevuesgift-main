@@ -71,6 +71,7 @@ export default function POSPage() {
   const pageStaff = pageProps?.auth?.staff;
   const resolvedStaff = effectiveStaff ?? (pageStaff ? {
     id: String(pageStaff.id),
+    staff_uuid: pageStaff.staff_uuid,
     name: pageStaff.name,
     email: pageStaff.email,
     role: pageStaff.role,
