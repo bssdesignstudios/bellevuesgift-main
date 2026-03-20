@@ -161,6 +161,7 @@ Route::prefix('admin')->group(function () {
     Route::get('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'index']);
     Route::post('/payroll', [App\Http\Controllers\AdminPayrollController::class, 'store']);
     Route::post('/payroll/{payroll}/approve', [App\Http\Controllers\AdminPayrollController::class, 'approve']);
+    Route::post('/payroll/{payroll}/mark-paid', [App\Http\Controllers\AdminPayrollController::class, 'markPaid']);
 
     Route::get('/recurring-bills', [App\Http\Controllers\AdminRecurringBillController::class, 'index']);
     Route::post('/recurring-bills', [App\Http\Controllers\AdminRecurringBillController::class, 'store']);

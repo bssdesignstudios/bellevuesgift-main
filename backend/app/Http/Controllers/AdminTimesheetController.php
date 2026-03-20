@@ -31,18 +31,46 @@ class AdminTimesheetController extends Controller
         if ($request->filled('staff_id')) {
             $query->where('staff_id', $request->query('staff_id'));
         }
+        if ($request->filled('status') && $request->query('status') !== 'all') {
+            $query->where('status', $request->query('status'));
+        }
 
-        $logs = $query->limit(100)->get();
+        $logs = $query->limit(200)->get();
 
         $today = Carbon::today();
+
+        // Currently on shift — includes staff name and duration
+        $onShift = TimeLog::whereNull('clock_out')
+            ->where('status', 'in_progress')
+            ->get()
+            ->map(function ($log) {
+                $duration = Carbon::parse($log->clock_in)->diffInMinutes(now());
+                return [
+                    'id' => $log->id,
+                    'staff_name' => $log->staff_name,
+                    'clock_in' => $log->clock_in,
+                    'task' => $log->task,
+                    'duration_minutes' => $duration,
+                    'duration_display' => sprintf('%dh %dm', intdiv($duration, 60), $duration % 60),
+                ];
+            });
+
         $stats = [
             'today_hours'     => (float) TimeLog::whereDate('clock_in', $today)->sum('hours'),
-            'active_staff'    => TimeLog::whereNull('clock_out')->count(),
+            'today_entries'   => TimeLog::whereDate('clock_in', $today)->count(),
+            'active_staff'    => $onShift->count(),
             'pending_reviews' => TimeLog::where('status', 'pending_review')->count(),
             'avg_shift'       => round((float) TimeLog::where('status', 'completed')->avg('hours'), 1),
+            'week_hours'      => (float) TimeLog::whereBetween('clock_in', [
+                Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()
+            ])->sum('hours'),
         ];
 
-        return response()->json(['logs' => $logs, 'stats' => $stats]);
+        return response()->json([
+            'logs' => $logs,
+            'stats' => $stats,
+            'on_shift' => $onShift,
+        ]);
     }
 
     public function store(Request $request)
@@ -63,7 +91,6 @@ class AdminTimesheetController extends Controller
             $validated['status'] = 'completed';
         }
 
-        // Resolve staff UUID: use provided staff_id, or look up from auth user
         $staffId = $validated['staff_id'] ?? Staff::where('user_id', auth()->id())->value('id');
         unset($validated['staff_id']);
 
@@ -79,10 +106,9 @@ class AdminTimesheetController extends Controller
         $request->validate(['task' => 'nullable|string|max:255']);
 
         $user = auth()->user();
-        // Resolve staff UUID from auth user
         $staffId = Staff::where('user_id', $user?->id)->value('id');
 
-        $log  = TimeLog::create([
+        $log = TimeLog::create([
             'staff_id'   => $staffId,
             'staff_name' => $user?->name ?? 'Staff',
             'clock_in'   => now(),

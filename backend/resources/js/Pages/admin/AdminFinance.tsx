@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Download, Users, Pencil, Trash2, CheckCircle, Calculator, Search } from 'lucide-react';
+import { Plus, Download, Users, Pencil, Trash2, CheckCircle, Calculator, Search, DollarSign, Clock, AlertCircle, Banknote, Loader2 } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { format } from 'date-fns';
 
@@ -28,6 +28,13 @@ const EXPENSE_CATEGORIES = [
 ];
 
 const STAFF_ROLES = ['super_admin', 'admin', 'finance_controller', 'cashier', 'warehouse_manager', 'warehouse'];
+
+const PAYROLL_STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
+  pending:  { label: 'Pending Approval', color: 'text-amber-700',  bgColor: 'bg-amber-50 border-amber-200 text-amber-700' },
+  draft:    { label: 'Draft',            color: 'text-gray-600',   bgColor: 'bg-gray-50 border-gray-200 text-gray-600' },
+  approved: { label: 'Approved',         color: 'text-blue-700',   bgColor: 'bg-blue-50 border-blue-200 text-blue-700' },
+  paid:     { label: 'Paid',             color: 'text-green-700',  bgColor: 'bg-green-50 border-green-200 text-green-700' },
+};
 
 export default function AdminFinance({ defaultTab = 'expenses' }: { defaultTab?: string }) {
   return (
@@ -290,6 +297,9 @@ function ExpenseForm({ existing, onSuccess }: { existing?: any; onSuccess: () =>
 function PayrollTab() {
   const queryClient = useQueryClient();
   const [isGenOpen, setIsGenOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [approveConfirm, setApproveConfirm] = useState<any | null>(null);
+  const [markPaidConfirm, setMarkPaidConfirm] = useState<any | null>(null);
 
   const { data: payroll = [], isLoading } = useQuery({
     queryKey: ['admin-payroll'],
@@ -304,17 +314,42 @@ function PayrollTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payroll'] });
       toast.success('Payroll approved');
+      setApproveConfirm(null);
     },
-    onError: () => toast.error('Failed to approve'),
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to approve');
+      setApproveConfirm(null);
+    },
   });
 
-  const totalPayroll = payroll
-    .filter((p: any) => p.status === 'approved' || p.status === 'paid')
-    .reduce((sum: number, p: any) => sum + Number(p.gross_pay || p.amount), 0);
-  const pendingCount = payroll.filter((p: any) => p.status === 'pending' || p.status === 'draft').length;
+  const markPaidMutation = useMutation({
+    mutationFn: async (id: string) => axios.post(`/api/admin/payroll/${id}/mark-paid`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-payroll'] });
+      toast.success('Payroll marked as paid');
+      setMarkPaidConfirm(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to mark as paid');
+      setMarkPaidConfirm(null);
+    },
+  });
+
+  const pendingEntries = payroll.filter((p: any) => p.status === 'pending' || p.status === 'draft');
+  const approvedEntries = payroll.filter((p: any) => p.status === 'approved');
+  const paidEntries = payroll.filter((p: any) => p.status === 'paid');
+
+  const totalApproved = approvedEntries.reduce((sum: number, p: any) => sum + Number(p.gross_pay || p.amount), 0);
+  const totalPaid = paidEntries.reduce((sum: number, p: any) => sum + Number(p.gross_pay || p.amount), 0);
+  const totalPending = pendingEntries.reduce((sum: number, p: any) => sum + Number(p.gross_pay || p.amount), 0);
+
+  const filteredPayroll = useMemo(() => {
+    if (statusFilter === 'all') return payroll;
+    return payroll.filter((p: any) => p.status === statusFilter);
+  }, [payroll, statusFilter]);
 
   const exportCSV = () => {
-    const rows = payroll.map((p: any) => ({
+    const rows = filteredPayroll.map((p: any) => ({
       employee: p.user?.name || '',
       period_start: p.pay_period_start,
       period_end: p.pay_period_end,
@@ -322,6 +357,7 @@ function PayrollTab() {
       pay_rate: p.pay_rate || '',
       gross_pay: Number(p.gross_pay || p.amount).toFixed(2),
       status: p.status,
+      approved_by: p.approver?.name || '',
     }));
     if (!rows.length) return;
     const headers = Object.keys(rows[0]).join(',');
@@ -331,28 +367,164 @@ function PayrollTab() {
     a.href = url; a.download = `payroll_${format(new Date(), 'yyyy-MM-dd')}.csv`; a.click();
   };
 
+  const formatPeriod = (start: string, end: string) => {
+    try {
+      return `${format(new Date(start), 'MMM d')} – ${format(new Date(end), 'MMM d, yyyy')}`;
+    } catch {
+      return `${start} – ${end}`;
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Approved Payroll</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">${totalPayroll.toFixed(2)}</div></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+              Needs Approval
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600">{pendingEntries.length}</div>
+            {totalPending > 0 && <p className="text-xs text-muted-foreground">${totalPending.toFixed(2)} total</p>}
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Pending Approvals</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold text-amber-500">{pendingCount}</div></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-blue-500" />
+              Approved (Unpaid)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{approvedEntries.length}</div>
+            {totalApproved > 0 && <p className="text-xs text-muted-foreground">${totalApproved.toFixed(2)} to pay</p>}
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Entries</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{payroll.length}</div></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              <Banknote className="h-4 w-4 text-green-500" />
+              Total Paid
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">${totalPaid.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">{paidEntries.length} entries</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              All Records
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{payroll.length}</div>
+          </CardContent>
         </Card>
       </div>
 
+      {/* Pending Approvals Section */}
+      {pendingEntries.length > 0 && (
+        <div className="border-2 border-amber-200 rounded-lg bg-amber-50/50 p-4 space-y-3">
+          <h3 className="font-semibold text-amber-800 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            Pending Approvals ({pendingEntries.length})
+          </h3>
+          <div className="space-y-2">
+            {pendingEntries.map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between bg-white rounded-lg border border-amber-200 px-4 py-3">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <div className="font-medium">{p.user?.name || '—'}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatPeriod(p.pay_period_start, p.pay_period_end)}
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {Number(p.total_hours || 0).toFixed(1)}h
+                    {p.pay_rate ? ` @ $${Number(p.pay_rate).toFixed(2)}/h` : ''}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold">${Number(p.gross_pay || p.amount).toFixed(2)}</span>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => setApproveConfirm(p)}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Approve
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Approved (Ready to Pay) Section */}
+      {approvedEntries.length > 0 && (
+        <div className="border-2 border-blue-200 rounded-lg bg-blue-50/50 p-4 space-y-3">
+          <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Ready to Pay ({approvedEntries.length})
+          </h3>
+          <div className="space-y-2">
+            {approvedEntries.map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between bg-white rounded-lg border border-blue-200 px-4 py-3">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <div className="font-medium">{p.user?.name || '—'}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatPeriod(p.pay_period_start, p.pay_period_end)}
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Approved by {p.approver?.name || 'Admin'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold">${Number(p.gross_pay || p.amount).toFixed(2)}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-green-300 text-green-700 hover:bg-green-50"
+                    onClick={() => setMarkPaidConfirm(p)}
+                  >
+                    <Banknote className="h-4 w-4 mr-1" />
+                    Mark Paid
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Controls */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Payroll Records
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Payroll Records
+          </h2>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-2" />Export CSV</Button>
           <Dialog open={isGenOpen} onOpenChange={setIsGenOpen}>
@@ -367,12 +539,13 @@ function PayrollTab() {
         </div>
       </div>
 
+      {/* Full Payroll Table */}
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Employee</TableHead>
-              <TableHead>Period</TableHead>
+              <TableHead>Pay Period</TableHead>
               <TableHead className="text-right">Hours</TableHead>
               <TableHead className="text-right">Rate</TableHead>
               <TableHead className="text-right">Gross Pay</TableHead>
@@ -383,37 +556,156 @@ function PayrollTab() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
-            ) : payroll.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No payroll records yet. Generate one to get started.</TableCell></TableRow>
-            ) : payroll.map((p: any) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.user?.name || '—'}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {new Date(p.pay_period_start).toLocaleDateString()} – {new Date(p.pay_period_end).toLocaleDateString()}
-                </TableCell>
-                <TableCell className="text-right">{Number(p.total_hours || 0).toFixed(1)}h</TableCell>
-                <TableCell className="text-right">{p.pay_rate ? `$${Number(p.pay_rate).toFixed(2)}/h` : '—'}</TableCell>
-                <TableCell className="text-right font-bold">${Number(p.gross_pay || p.amount).toFixed(2)}</TableCell>
-                <TableCell>
-                  <Badge className={
-                    p.status === 'approved' || p.status === 'paid' ? 'bg-green-500 text-white' :
-                    p.status === 'pending' ? 'bg-amber-500 text-white' : 'bg-gray-400 text-white'
-                  }>{p.status}</Badge>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{p.approver?.name || '—'}</TableCell>
-                <TableCell>
-                  {(p.status === 'pending' || p.status === 'draft') && (
-                    <Button variant="ghost" size="sm" onClick={() => approveMutation.mutate(p.id)}>
-                      <CheckCircle className="h-4 w-4 mr-1 text-green-600" />Approve
-                    </Button>
-                  )}
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ))}
+            ) : filteredPayroll.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  {payroll.length === 0 ? 'No payroll records yet. Generate one to get started.' : 'No records match this filter.'}
+                </TableCell>
+              </TableRow>
+            ) : filteredPayroll.map((p: any) => {
+              const statusCfg = PAYROLL_STATUS_CONFIG[p.status] || PAYROLL_STATUS_CONFIG.draft;
+              return (
+                <TableRow key={p.id} className={p.status === 'pending' ? 'bg-amber-50/30' : ''}>
+                  <TableCell className="font-medium">{p.user?.name || '—'}</TableCell>
+                  <TableCell className="text-sm">
+                    {formatPeriod(p.pay_period_start, p.pay_period_end)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{Number(p.total_hours || 0).toFixed(1)}h</TableCell>
+                  <TableCell className="text-right tabular-nums">{p.pay_rate ? `$${Number(p.pay_rate).toFixed(2)}/h` : '—'}</TableCell>
+                  <TableCell className="text-right font-bold tabular-nums">${Number(p.gross_pay || p.amount).toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={`${statusCfg.bgColor} border font-medium`}>
+                      {statusCfg.label}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{p.approver?.name || '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {(p.status === 'pending' || p.status === 'draft') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setApproveConfirm(p)}
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />Approve
+                        </Button>
+                      )}
+                      {p.status === 'approved' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setMarkPaidConfirm(p)}
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                        >
+                          <Banknote className="h-4 w-4 mr-1" />Pay
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={!!approveConfirm} onOpenChange={(open) => !open && setApproveConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve Payroll</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-muted-foreground">
+              Confirm approval for the following payroll entry:
+            </p>
+            {approveConfirm && (
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Employee</span>
+                  <span className="font-medium">{approveConfirm.user?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Period</span>
+                  <span className="text-sm">{formatPeriod(approveConfirm.pay_period_start, approveConfirm.pay_period_end)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Hours</span>
+                  <span className="text-sm">{Number(approveConfirm.total_hours || 0).toFixed(1)}h</span>
+                </div>
+                <div className="flex justify-between border-t pt-2">
+                  <span className="font-medium">Gross Pay</span>
+                  <span className="text-lg font-bold">${Number(approveConfirm.gross_pay || approveConfirm.amount).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setApproveConfirm(null)}>Cancel</Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              disabled={approveMutation.isPending}
+              onClick={() => approveConfirm && approveMutation.mutate(approveConfirm.id)}
+            >
+              {approveMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Approving...</>
+              ) : (
+                <><CheckCircle className="h-4 w-4 mr-1" />Confirm Approval</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark Paid Confirmation Dialog */}
+      <Dialog open={!!markPaidConfirm} onOpenChange={(open) => !open && setMarkPaidConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as Paid</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-muted-foreground">
+              Confirm that payment has been made for:
+            </p>
+            {markPaidConfirm && (
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Employee</span>
+                  <span className="font-medium">{markPaidConfirm.user?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Period</span>
+                  <span className="text-sm">{formatPeriod(markPaidConfirm.pay_period_start, markPaidConfirm.pay_period_end)}</span>
+                </div>
+                <div className="flex justify-between border-t pt-2">
+                  <span className="font-medium">Amount Paid</span>
+                  <span className="text-lg font-bold text-green-600">${Number(markPaidConfirm.gross_pay || markPaidConfirm.amount).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setMarkPaidConfirm(null)}>Cancel</Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              disabled={markPaidMutation.isPending}
+              onClick={() => markPaidConfirm && markPaidMutation.mutate(markPaidConfirm.id)}
+            >
+              {markPaidMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Processing...</>
+              ) : (
+                <><Banknote className="h-4 w-4 mr-1" />Confirm Paid</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -8,9 +8,20 @@ use Illuminate\Support\Facades\Auth;
 
 class AdminPayrollController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(PayrollLog::with(['user', 'approver'])->orderBy('pay_period_end', 'desc')->get());
+        $query = PayrollLog::with(['user', 'approver'])
+            ->orderBy('pay_period_end', 'desc');
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        return response()->json($query->get());
     }
 
     public function store(Request $request)
@@ -31,16 +42,33 @@ class AdminPayrollController extends Controller
             'status' => 'pending',
         ]);
 
-        return response()->json($payroll, 201);
+        return response()->json($payroll->load(['user', 'approver']), 201);
     }
 
     public function approve(PayrollLog $payroll)
     {
+        if ($payroll->status !== 'pending') {
+            return response()->json(['message' => 'Only pending payroll can be approved.'], 422);
+        }
+
         $payroll->update([
             'status' => 'approved',
             'approved_by' => Auth::id(),
         ]);
 
-        return response()->json($payroll);
+        return response()->json($payroll->load(['user', 'approver']));
+    }
+
+    public function markPaid(PayrollLog $payroll)
+    {
+        if ($payroll->status !== 'approved') {
+            return response()->json(['message' => 'Only approved payroll can be marked as paid.'], 422);
+        }
+
+        $payroll->update([
+            'status' => 'paid',
+        ]);
+
+        return response()->json($payroll->load(['user', 'approver']));
     }
 }

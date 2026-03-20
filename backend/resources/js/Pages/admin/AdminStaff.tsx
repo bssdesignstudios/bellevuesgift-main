@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { router } from '@inertiajs/react';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,10 +10,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, UserCheck } from 'lucide-react';
+import { Plus, Pencil, Trash2, UserCheck, Search, Users, Shield, ShoppingCart, Warehouse, DollarSign, Loader2 } from 'lucide-react';
 import { Staff } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+
+const ROLE_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  admin:             { label: 'Admin',             color: 'bg-purple-100 text-purple-800 border-purple-200', icon: Shield },
+  cashier:           { label: 'Cashier',           color: 'bg-blue-100 text-blue-800 border-blue-200',     icon: ShoppingCart },
+  warehouse:         { label: 'Warehouse',         color: 'bg-amber-100 text-amber-800 border-amber-200',  icon: Warehouse },
+  warehouse_manager: { label: 'Warehouse Mgr',     color: 'bg-orange-100 text-orange-800 border-orange-200', icon: Warehouse },
+  finance:           { label: 'Finance',           color: 'bg-green-100 text-green-800 border-green-200',  icon: DollarSign },
+};
+
+function RoleBadge({ role }: { role: string }) {
+  const config = ROLE_CONFIG[role] || { label: role, color: 'bg-gray-100 text-gray-800 border-gray-200', icon: Users };
+  const Icon = config.icon;
+  return (
+    <Badge variant="outline" className={`${config.color} border font-medium gap-1`}>
+      <Icon className="h-3 w-3" />
+      {config.label}
+    </Badge>
+  );
+}
 
 export default function AdminStaff() {
   const [editStaff, setEditStaff] = useState<Staff | null>(null);
@@ -22,16 +40,41 @@ export default function AdminStaff() {
   const [deleteConfirm, setDeleteConfirm] = useState<Staff | null>(null);
   const [impersonateTarget, setImpersonateTarget] = useState<Staff | null>(null);
   const [impersonatePassword, setImpersonatePassword] = useState('');
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const queryClient = useQueryClient();
   const { impersonate, impersonating, staff: currentStaff } = useAuth();
 
-  const { data: staffList } = useQuery({
+  const { data: staffList = [], isLoading } = useQuery({
     queryKey: ['admin-staff'],
     queryFn: async () => {
       const response = await axios.get('/api/admin/staff');
       return response.data as Staff[];
     }
   });
+
+  const filtered = useMemo(() => {
+    return staffList.filter((s) => {
+      const matchSearch = !search ||
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.email.toLowerCase().includes(search.toLowerCase());
+      const matchRole = roleFilter === 'all' || s.role === roleFilter;
+      const matchStatus = statusFilter === 'all' ||
+        (statusFilter === 'active' && s.is_active) ||
+        (statusFilter === 'inactive' && !s.is_active);
+      return matchSearch && matchRole && matchStatus;
+    });
+  }, [staffList, search, roleFilter, statusFilter]);
+
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    staffList.forEach((s) => { counts[s.role] = (counts[s.role] || 0) + 1; });
+    return counts;
+  }, [staffList]);
+
+  const activeCount = staffList.filter(s => s.is_active).length;
+  const inactiveCount = staffList.filter(s => !s.is_active).length;
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string | number; is_active: boolean }) => {
@@ -59,7 +102,7 @@ export default function AdminStaff() {
 
   const handleImpersonate = async () => {
     if (!impersonateTarget) return;
-    
+
     try {
       await impersonate(String(impersonateTarget.id), impersonatePassword);
       toast.success(`Now impersonating ${impersonateTarget.name}`);
@@ -73,8 +116,16 @@ export default function AdminStaff() {
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Staff Management</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Staff Management</h1>
+            <p className="text-muted-foreground">
+              {staffList.length} team member{staffList.length !== 1 ? 's' : ''} &middot;{' '}
+              <span className="text-green-600">{activeCount} active</span>
+              {inactiveCount > 0 && <span className="text-muted-foreground"> &middot; {inactiveCount} inactive</span>}
+            </p>
+          </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setEditStaff(null)}>
@@ -97,6 +148,7 @@ export default function AdminStaff() {
           </Dialog>
         </div>
 
+        {/* Impersonation Banner */}
         {impersonating && (
           <div className="bg-warning/10 border border-warning rounded-lg p-4 flex items-center justify-between">
             <div>
@@ -108,6 +160,72 @@ export default function AdminStaff() {
             </Button>
           </div>
         )}
+
+        {/* Role Summary Pills */}
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(ROLE_CONFIG).map(([role, config]) => {
+            const count = roleCounts[role] || 0;
+            if (count === 0) return null;
+            return (
+              <button
+                key={role}
+                onClick={() => setRoleFilter(roleFilter === role ? 'all' : role)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                  roleFilter === role
+                    ? 'ring-2 ring-offset-1 ring-primary ' + config.color
+                    : config.color + ' opacity-80 hover:opacity-100'
+                }`}
+              >
+                <config.icon className="h-3.5 w-3.5" />
+                {config.label}
+                <span className="ml-0.5 font-bold">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search by name or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="All Roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {Object.entries(ROLE_CONFIG).map(([role, config]) => (
+                <SelectItem key={role} value={role}>{config.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          {(search || roleFilter !== 'all' || statusFilter !== 'all') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setSearch(''); setRoleFilter('all'); setStatusFilter('all'); }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
@@ -134,6 +252,7 @@ export default function AdminStaff() {
           </DialogContent>
         </Dialog>
 
+        {/* Staff Table */}
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
@@ -142,30 +261,54 @@ export default function AdminStaff() {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>POS PIN</TableHead>
-                <TableHead>Active</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staffList?.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell>{s.email}</TableCell>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    {staffList.length === 0 ? 'No staff members yet.' : 'No staff match your filters.'}
+                  </TableCell>
+                </TableRow>
+              ) : filtered.map((s) => (
+                <TableRow key={s.id} className={!s.is_active ? 'opacity-50' : ''}>
                   <TableCell>
-                    <Badge variant="secondary" className="capitalize">
-                      {s.role.replace('_', ' ')}
-                    </Badge>
+                    <div className="flex items-center gap-3">
+                      <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold ${
+                        s.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {s.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </div>
+                      <span className="font-medium">{s.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{s.email}</TableCell>
+                  <TableCell>
+                    <RoleBadge role={s.role} />
                   </TableCell>
                   <TableCell className="font-mono text-sm">
-                    {['admin', 'cashier'].includes(s.role) ? (s.pos_pin || '—') : '—'}
+                    {['admin', 'cashier'].includes(s.role) ? (s.pos_pin || <span className="text-muted-foreground">—</span>) : <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>
-                    <Switch
-                      checked={s.is_active}
-                      onCheckedChange={(checked) =>
-                        toggleActive.mutate({ id: s.id, is_active: checked })
-                      }
-                    />
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={s.is_active}
+                        onCheckedChange={(checked) =>
+                          toggleActive.mutate({ id: s.id, is_active: checked })
+                        }
+                      />
+                      <span className={`text-xs font-medium ${s.is_active ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {s.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -210,6 +353,13 @@ export default function AdminStaff() {
           </Table>
         </div>
 
+        {/* Showing count */}
+        {!isLoading && filtered.length > 0 && filtered.length !== staffList.length && (
+          <p className="text-sm text-muted-foreground text-center">
+            Showing {filtered.length} of {staffList.length} staff members
+          </p>
+        )}
+
         {/* Impersonation Re-auth Dialog */}
         <Dialog open={!!impersonateTarget} onOpenChange={(open) => !open && setImpersonateTarget(null)}>
           <DialogContent>
@@ -218,14 +368,14 @@ export default function AdminStaff() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <p className="text-sm text-muted-foreground">
-                You are about to impersonate <strong>{impersonateTarget?.name}</strong>. 
+                You are about to impersonate <strong>{impersonateTarget?.name}</strong>.
                 For security, please enter your admin password.
               </p>
               <div className="space-y-2">
                 <Label>Your Password</Label>
-                <Input 
-                  type="password" 
-                  value={impersonatePassword} 
+                <Input
+                  type="password"
+                  value={impersonatePassword}
                   onChange={(e) => setImpersonatePassword(e.target.value)}
                   placeholder="Enter your password"
                   onKeyDown={(e) => e.key === 'Enter' && handleImpersonate()}

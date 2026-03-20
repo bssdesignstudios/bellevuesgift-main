@@ -3,18 +3,37 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\TimeLog;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
 class AdminStaffController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $staff = User::where('role', '!=', 'customer')
-            ->orderBy('name')
-            ->get()
-            ->makeVisible('pos_pin');
+        $query = User::where('role', '!=', 'customer')
+            ->orderBy('name');
+
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                  ->orWhere('email', 'like', "%{$s}%");
+            });
+        }
+
+        if ($request->filled('role') && $request->role !== 'all') {
+            $query->where('role', $request->role);
+        }
+
+        if ($request->filled('status')) {
+            if ($request->status === 'active') $query->where('is_active', true);
+            if ($request->status === 'inactive') $query->where('is_active', false);
+        }
+
+        $staff = $query->get()->makeVisible('pos_pin');
 
         return response()->json($staff);
     }
@@ -55,7 +74,6 @@ class AdminStaffController extends Controller
             $validated['password'] = bcrypt($request->input('password'));
         }
 
-        // Allow clearing the PIN by sending empty string
         if ($request->has('pos_pin') && $request->input('pos_pin') === '') {
             $validated['pos_pin'] = null;
         }
@@ -69,7 +87,6 @@ class AdminStaffController extends Controller
     {
         $staff = User::findOrFail($id);
 
-        // Prevent deleting yourself
         if (Auth::id() == $staff->id) {
             return response()->json(['message' => 'You cannot delete your own account.'], 403);
         }
