@@ -1,7 +1,7 @@
 <?php
 /**
  * Role: Builder
- * Rationale: InventoryAdjustment model for tracking inventory changes.
+ * Rationale: InventoryAdjustment model for tracking inventory changes (stock movement history).
  */
 
 namespace App\Models;
@@ -26,5 +26,10 @@ class InventoryAdjustment extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function staff()
+    {
+        return $this->belongsTo(Staff::class);
     }
 }

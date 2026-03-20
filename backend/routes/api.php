@@ -102,6 +102,9 @@ Route::prefix('admin')->group(function () {
     Route::patch('/products/{product}/toggle-active', [AdminProductController::class, 'toggleActive']);
 
     Route::get('/inventory', [AdminInventoryController::class, 'index']);
+    Route::get('/inventory/movements', [AdminInventoryController::class, 'movements']);
+    Route::get('/inventory/reorder', [AdminInventoryController::class, 'reorder']);
+    Route::post('/inventory/batch-receive', [AdminInventoryController::class, 'batchReceive']);
     Route::post('/inventory/{id}/adjust', [AdminInventoryController::class, 'adjust']);
     Route::patch('/inventory/{id}', [AdminInventoryController::class, 'update']);
 
