@@ -681,7 +681,7 @@ function POSContent({
         vatAmount={vatAmount}
         total={total}
         couponCode={appliedCoupon?.code}
-        staffId={effectiveStaff?.id}
+        staffId={effectiveStaff?.staff_uuid || effectiveStaff?.id}
         staffName={effectiveStaff?.name || 'Staff'}
         registerName={effectiveStaff ? 'Register' : ''}
         onSuccess={clearCart}
