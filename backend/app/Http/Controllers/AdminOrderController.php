@@ -10,18 +10,27 @@ class AdminOrderController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Order::with('items')
+        $query = Order::with(['items', 'customer', 'staff'])
             ->orderBy('created_at', 'desc');
 
         if ($request->has('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 
+        if ($request->has('channel') && $request->channel !== 'all') {
+            $query->where('channel', $request->channel);
+        }
+
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', "%{$search}%")
-                  ->orWhere('notes', 'like', "%{$search}%");
+                  ->orWhere('notes', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function ($cq) use ($search) {
+                      $cq->where('name', 'like', "%{$search}%")
+                          ->orWhere('email', 'like', "%{$search}%")
+                          ->orWhere('phone', 'like', "%{$search}%");
+                  });
             });
         }
 

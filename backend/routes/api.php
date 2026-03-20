@@ -118,6 +118,7 @@ Route::prefix('admin')->group(function () {
     Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
 
     Route::get('/customers', [AdminCustomerController::class, 'index']);
+    Route::get('/customers/{customer}', [AdminCustomerController::class, 'show']);
 
     Route::get('/gift-cards', [AdminGiftCardController::class, 'index']);
     Route::post('/gift-cards', [AdminGiftCardController::class, 'store']);
