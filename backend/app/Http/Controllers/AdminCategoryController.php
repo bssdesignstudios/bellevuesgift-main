@@ -14,7 +14,7 @@ class AdminCategoryController extends Controller
 {
     public function index()
     {
-        return response()->json(Category::orderBy('sort_order')->get());
+        return response()->json(Category::withCount('products')->orderBy('sort_order')->get());
     }
 
     public function store(Request $request)

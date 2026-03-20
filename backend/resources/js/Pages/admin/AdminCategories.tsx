@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
@@ -7,23 +7,46 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Package } from 'lucide-react';
 import { Category } from '@/types';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
+interface CategoryWithCount extends Category {
+  products_count?: number;
+}
+
 export default function AdminCategories() {
-  const [editCategory, setEditCategory] = useState<Category | null>(null);
+  const [editCategory, setEditCategory] = useState<CategoryWithCount | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const queryClient = useQueryClient();
 
   const { data: categories } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
       const response = await axios.get('/api/admin/categories');
-      return response.data as Category[];
+      return response.data as CategoryWithCount[];
     }
   });
+
+  // Client-side filtering — clean implementation, easy to upgrade to server-side by
+  // adding `search` and `status` params to the API query
+  const filteredCategories = useMemo(() => {
+    if (!categories) return [];
+    return categories.filter((cat) => {
+      // Search filter
+      if (searchQuery && !cat.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      // Status filter
+      if (statusFilter === 'active' && !cat.is_active) return false;
+      if (statusFilter === 'inactive' && cat.is_active) return false;
+      return true;
+    });
+  }, [categories, searchQuery, statusFilter]);
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
@@ -44,11 +67,18 @@ export default function AdminCategories() {
     }
   });
 
+  const totalProducts = categories?.reduce((sum, cat) => sum + (cat.products_count ?? 0), 0) ?? 0;
+
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Categories</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Categories</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {categories?.length ?? 0} categories · {totalProducts} products
+            </p>
+          </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setEditCategory(null)}>
@@ -71,22 +101,62 @@ export default function AdminCategories() {
           </Dialog>
         </div>
 
+        {/* Search + Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 max-w-sm min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search categories..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex items-center border rounded-lg overflow-hidden">
+            {(['all', 'active', 'inactive'] as const).map((status) => (
+              <Button
+                key={status}
+                variant={statusFilter === status ? 'default' : 'ghost'}
+                size="sm"
+                className="rounded-none capitalize"
+                onClick={() => setStatusFilter(status)}
+              >
+                {status}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
+                <TableHead className="text-center">Products</TableHead>
                 <TableHead className="text-center">Sort Order</TableHead>
-                <TableHead>Active</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories?.map((category) => (
+              {filteredCategories.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    {searchQuery || statusFilter !== 'all'
+                      ? 'No categories match your filters.'
+                      : 'No categories yet.'}
+                  </TableCell>
+                </TableRow>
+              )}
+              {filteredCategories.map((category) => (
                 <TableRow key={category.id}>
                   <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell className="font-mono text-sm">{category.slug}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline" className="font-mono">
+                      <Package className="h-3 w-3 mr-1" />
+                      {category.products_count ?? 0}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-center">{category.sort_order}</TableCell>
                   <TableCell>
                     <Switch

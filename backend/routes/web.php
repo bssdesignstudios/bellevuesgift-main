@@ -294,7 +294,10 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     // 1. Common / Overview (Admin + Finance)
     Route::middleware(['role:admin,finance'])->group(function () {
         Route::get('/', function () {
-            return Inertia::render('admin/AdminOverview');
+            $dashboard = app(\App\Http\Controllers\OperationsDashboardController::class)->getData();
+            return Inertia::render('admin/AdminOverview', [
+                'dashboard' => $dashboard,
+            ]);
         })->name('admin');
 
         Route::get('/reports', function () {

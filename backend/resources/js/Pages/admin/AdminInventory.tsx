@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Search, Plus, Minus, RotateCcw, Loader2, Pencil, Check, X, ArrowUpDown, Package, AlertTriangle, Download } from 'lucide-react';
+import { Search, Plus, Minus, RotateCcw, Loader2, Pencil, Check, X, ArrowUpDown, Package, AlertTriangle, LayoutGrid, List } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 interface InventoryItem {
@@ -24,6 +25,7 @@ interface InventoryItem {
     id: string;
     name: string;
     sku: string;
+    image_url?: string;
     category: { id: string; name: string } | null;
   };
 }
@@ -91,14 +93,40 @@ function InlineEdit({
   );
 }
 
+// Stock level bar for card view
+function StockBar({ qty, reorderLevel }: { qty: number; reorderLevel: number }) {
+  const max = Math.max(qty, reorderLevel, 1) * 1.5;
+  const pct = Math.min((qty / max) * 100, 100);
+  const color = qty <= 0 ? 'bg-red-400' : qty <= reorderLevel ? 'bg-amber-400' : 'bg-emerald-400';
+
+  return (
+    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function getStockColor(qty: number, reorderLevel: number) {
+  if (qty <= 0) return { border: 'border-l-red-400', text: 'text-red-600', bg: 'bg-red-50' };
+  if (qty <= reorderLevel) return { border: 'border-l-amber-400', text: 'text-amber-600', bg: 'bg-amber-50' };
+  return { border: 'border-l-emerald-400', text: 'text-emerald-600', bg: 'bg-emerald-50' };
+}
+
 export default function AdminInventory() {
+  // Read URL params for default view mode and stock filter
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const defaultMode = urlParams?.get('mode') === 'cards' ? 'cards' : 'table';
+  const defaultStockFilter = urlParams?.get('stockFilter') || 'all';
+
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(defaultMode);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'low'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [stockFilter, setStockFilter] = useState<string>('all');
+  const [stockFilter, setStockFilter] = useState<string>(defaultStockFilter);
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [adjustDialog, setAdjustDialog] = useState<{ item: InventoryItem; type: 'receive' | 'adjust' | 'count' } | null>(null);
+  const [adjustingItems, setAdjustingItems] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { data: rawInventory, isLoading } = useQuery({
@@ -148,12 +176,35 @@ export default function AdminInventory() {
     },
   });
 
+  // Quick adjust for card view +/- buttons
+  const quickAdjust = useCallback(async (itemId: string, type: 'receive' | 'shrink') => {
+    if (adjustingItems.has(itemId)) return; // prevent spam
+    setAdjustingItems(prev => new Set(prev).add(itemId));
+    try {
+      await axios.post(`/api/admin/inventory/${itemId}/adjust`, {
+        adjustment_type: type,
+        qty_change: type === 'receive' ? 1 : -1,
+        notes: `Quick ${type === 'receive' ? '+1' : '-1'} from Inventory Mode`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
+      toast.success(type === 'receive' ? '+1 received' : '-1 removed');
+    } catch (error: any) {
+      toast.error('Error: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setAdjustingItems(prev => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  }, [adjustingItems, queryClient]);
+
   const totalCount = rawInventory?.length ?? 0;
   const lowCount = rawInventory?.filter(i => i.qty_on_hand > 0 && i.qty_on_hand <= i.reorder_level).length ?? 0;
   const outCount = rawInventory?.filter(i => i.qty_on_hand <= 0).length ?? 0;
   const inStockCount = totalCount - outCount;
 
-  const hasActiveFilters = categoryFilter !== 'all' || stockFilter !== 'all';
+  const hasActiveFilters = categoryFilter !== 'all' || stockFilter !== 'all' || search !== '';
   const clearFilters = () => { setCategoryFilter('all'); setStockFilter('all'); setSearch(''); };
 
   const toggleSort = (col: string) => {
@@ -195,12 +246,12 @@ export default function AdminInventory() {
           Use the +/−/↺ buttons for logged adjustments.
         </p>
 
-        {/* Filters */}
+        {/* Filters + View Toggle */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-sm min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search name, SKU..."
+              placeholder="Search name, SKU, or barcode..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -234,126 +285,261 @@ export default function AdminInventory() {
               Clear
             </Button>
           )}
+
+          {/* View Mode Toggle */}
+          <div className="ml-auto flex items-center border rounded-lg overflow-hidden">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="h-4 w-4 mr-1.5" />
+              Table
+            </Button>
+            <Button
+              variant={viewMode === 'cards' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setViewMode('cards')}
+            >
+              <LayoutGrid className="h-4 w-4 mr-1.5" />
+              Inventory Mode
+            </Button>
+          </div>
         </div>
 
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-foreground">
-                    Product {sortBy === 'name' && <ArrowUpDown className="h-3 w-3" />}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button onClick={() => toggleSort('sku')} className="flex items-center gap-1 hover:text-foreground">
-                    SKU {sortBy === 'sku' && <ArrowUpDown className="h-3 w-3" />}
-                  </button>
-                </TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">
-                  <button onClick={() => toggleSort('qty')} className="flex items-center gap-1 ml-auto hover:text-foreground">
-                    On Hand {sortBy === 'qty' && <ArrowUpDown className="h-3 w-3" />}
-                  </button>
-                </TableHead>
-                <TableHead className="text-right">Reserved</TableHead>
-                <TableHead className="text-right">
-                  <button onClick={() => toggleSort('available')} className="flex items-center gap-1 ml-auto hover:text-foreground">
-                    Available {sortBy === 'available' && <ArrowUpDown className="h-3 w-3" />}
-                  </button>
-                </TableHead>
-                <TableHead className="text-right">Reorder Level</TableHead>
-                <TableHead className="text-center">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
+        {/* TABLE VIEW */}
+        {viewMode === 'table' && (
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={8} className="h-32 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading inventory...
-                    </div>
-                  </TableCell>
+                  <TableHead>
+                    <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-foreground">
+                      Product {sortBy === 'name' && <ArrowUpDown className="h-3 w-3" />}
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button onClick={() => toggleSort('sku')} className="flex items-center gap-1 hover:text-foreground">
+                      SKU {sortBy === 'sku' && <ArrowUpDown className="h-3 w-3" />}
+                    </button>
+                  </TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">
+                    <button onClick={() => toggleSort('qty')} className="flex items-center gap-1 ml-auto hover:text-foreground">
+                      On Hand {sortBy === 'qty' && <ArrowUpDown className="h-3 w-3" />}
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right">Reserved</TableHead>
+                  <TableHead className="text-right">
+                    <button onClick={() => toggleSort('available')} className="flex items-center gap-1 ml-auto hover:text-foreground">
+                      Available {sortBy === 'available' && <ArrowUpDown className="h-3 w-3" />}
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right">Reorder Level</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
-              )}
-              {!isLoading && inventory?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                    No inventory items found.
-                  </TableCell>
-                </TableRow>
-              )}
-              {inventory?.map((item) => {
-                const available = item.qty_on_hand - item.qty_reserved;
-                const isLow = item.qty_on_hand > 0 && item.qty_on_hand < item.reorder_level;
-                const isOut = item.qty_on_hand <= 0;
-
-                return (
-                  <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-orange-50/50' : ''}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.product?.name}</span>
-                        {isOut && <Badge variant="destructive" className="text-xs">Out</Badge>}
-                        {isLow && <Badge className="bg-orange-500 text-white text-xs">Low</Badge>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{item.product?.sku || '—'}</TableCell>
-                    <TableCell>{item.product?.category?.name || '—'}</TableCell>
-                    <TableCell className="text-right">
-                      <InlineEdit
-                        value={item.qty_on_hand}
-                        label="On Hand"
-                        onSave={(v) => updateMutation.mutate({ id: item.id, qty_on_hand: v })}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">{item.qty_reserved}</TableCell>
-                    <TableCell className={`text-right font-bold ${available <= 0 ? 'text-red-600' : ''}`}>
-                      {available}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <InlineEdit
-                        value={item.reorder_level}
-                        label="Reorder Level"
-                        onSave={(v) => updateMutation.mutate({ id: item.id, reorder_level: v })}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Receive Stock"
-                          onClick={() => setAdjustDialog({ item, type: 'receive' })}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Adjustment (damage/shrink)"
-                          onClick={() => setAdjustDialog({ item, type: 'adjust' })}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Cycle Count"
-                          onClick={() => setAdjustDialog({ item, type: 'count' })}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-32 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading inventory...
                       </div>
                     </TableCell>
                   </TableRow>
+                )}
+                {!isLoading && inventory?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                      No inventory items found.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {inventory?.map((item) => {
+                  const available = item.qty_on_hand - item.qty_reserved;
+                  const isLow = item.qty_on_hand > 0 && item.qty_on_hand < item.reorder_level;
+                  const isOut = item.qty_on_hand <= 0;
+
+                  return (
+                    <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-orange-50/50' : ''}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{item.product?.name}</span>
+                          {isOut && <Badge variant="destructive" className="text-xs">Out</Badge>}
+                          {isLow && <Badge className="bg-orange-500 text-white text-xs">Low</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{item.product?.sku || '—'}</TableCell>
+                      <TableCell>{item.product?.category?.name || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <InlineEdit
+                          value={item.qty_on_hand}
+                          label="On Hand"
+                          onSave={(v) => updateMutation.mutate({ id: item.id, qty_on_hand: v })}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">{item.qty_reserved}</TableCell>
+                      <TableCell className={`text-right font-bold ${available <= 0 ? 'text-red-600' : ''}`}>
+                        {available}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <InlineEdit
+                          value={item.reorder_level}
+                          label="Reorder Level"
+                          onSave={(v) => updateMutation.mutate({ id: item.id, reorder_level: v })}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Receive Stock"
+                            onClick={() => setAdjustDialog({ item, type: 'receive' })}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Adjustment (damage/shrink)"
+                            onClick={() => setAdjustDialog({ item, type: 'adjust' })}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Cycle Count"
+                            onClick={() => setAdjustDialog({ item, type: 'count' })}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {/* CARD VIEW (Inventory Mode) */}
+        {viewMode === 'cards' && (
+          <>
+            {isLoading && (
+              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading inventory...
+              </div>
+            )}
+            {!isLoading && inventory?.length === 0 && (
+              <div className="text-center py-16 text-muted-foreground">
+                No inventory items found.
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {inventory?.map((item) => {
+                const colors = getStockColor(item.qty_on_hand, item.reorder_level);
+                const isAdjusting = adjustingItems.has(item.id);
+
+                return (
+                  <Card
+                    key={item.id}
+                    className={`border-l-4 ${colors.border} overflow-hidden`}
+                  >
+                    <CardContent className="p-4 space-y-3">
+                      {/* Product info */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {item.product?.image_url ? (
+                            <img
+                              src={item.product.image_url}
+                              alt={item.product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package className="h-6 w-6 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate" title={item.product?.name}>
+                            {item.product?.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {item.product?.sku || '—'}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {item.product?.category?.name || 'Uncategorized'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stock bar + info */}
+                      <div className="space-y-1.5">
+                        <StockBar qty={item.qty_on_hand} reorderLevel={item.reorder_level} />
+                        <div className="flex items-center justify-between text-sm">
+                          <span className={`font-bold ${colors.text}`}>
+                            {item.qty_on_hand} on hand
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Reorder: {item.reorder_level}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick action buttons */}
+                      <div className="flex items-center gap-2 pt-1 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={isAdjusting}
+                          onClick={() => quickAdjust(item.id, 'shrink')}
+                        >
+                          {isAdjusting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Minus className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={isAdjusting}
+                          onClick={() => quickAdjust(item.id, 'receive')}
+                        >
+                          {isAdjusting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setAdjustDialog({ item, type: 'count' })}
+                        >
+                          <RotateCcw className="h-4 w-4 mr-1" />
+                          Count
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
-            </TableBody>
-          </Table>
-        </div>
+            </div>
+          </>
+        )}
 
-        {/* Adjustment Dialog */}
+        {/* Adjustment Dialog (shared by both views) */}
         <Dialog open={!!adjustDialog} onOpenChange={() => setAdjustDialog(null)}>
           <DialogContent>
             <DialogHeader>

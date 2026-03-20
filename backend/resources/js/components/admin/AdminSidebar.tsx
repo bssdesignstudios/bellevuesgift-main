@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import bellevueLogo from '@/assets/bellevue-logo.webp';
 
 const ADMIN_NAV = [
-  { label: 'Overview', href: '/admin', icon: LayoutDashboard, roles: ['admin', 'finance'] },
+  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: ['admin', 'finance'] },
   { label: 'Products', href: '/admin/products', icon: Package, roles: ['admin', 'warehouse', 'warehouse_manager'] },
   { label: 'Categories', href: '/admin/categories', icon: FolderOpen, roles: ['admin', 'warehouse', 'warehouse_manager'] },
   { label: 'Inventory', href: '/admin/inventory', icon: Warehouse, roles: ['admin', 'warehouse', 'warehouse_manager', 'finance'] },

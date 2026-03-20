@@ -21,7 +21,8 @@ class AdminInventoryController extends Controller
             $search = $request->query('search');
             $query->whereHas('product', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
             });
         }
 
