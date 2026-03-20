@@ -49,14 +49,14 @@ class OrderController extends Controller
                 'payment_status' => $validated['payment_method'] === 'pay_later' ? 'pending' : 'paid',
                 'payment_method' => $validated['payment_method'],
                 'fulfillment_method' => $validated['fulfillment_method'],
-                'customer_id' => $validated['customer_id'],
+                'customer_id' => $validated['customer_id'] ?? null,
                 'staff_id' => $validated['staff_id'],
-                'register_id' => $validated['register_id'],
+                'register_id' => $validated['register_id'] ?? null,
                 'subtotal' => $validated['subtotal'],
                 'discount_amount' => $validated['discount_amount'] ?? 0,
                 'vat_amount' => $validated['vat_amount'],
                 'total' => $validated['total'],
-                'notes' => $validated['notes'],
+                'notes' => $validated['notes'] ?? null,
             ]);
 
             foreach ($validated['items'] as $itemData) {
