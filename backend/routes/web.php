@@ -428,6 +428,51 @@ Route::get('/returns', function () {
 })->name('returns');
 
 // Temporary: clear opcache (remove after deploy)
+Route::get('/ops/diagnose-checkout', function () {
+    $results = [];
+
+    // Check if enum migration ran
+    $results['migrations'] = \Illuminate\Support\Facades\DB::table('migrations')
+        ->where('migration', 'like', '%fix_orders_enum%')
+        ->pluck('migration')
+        ->toArray();
+
+    // Check column types on orders table
+    $columns = \Illuminate\Support\Facades\DB::select("
+        SELECT column_name, data_type, udt_name
+        FROM information_schema.columns
+        WHERE table_name = 'orders'
+        AND column_name IN ('fulfillment_method', 'status', 'payment_status', 'channel', 'payment_method', 'staff_id')
+    ");
+    $results['order_columns'] = $columns;
+
+    // Try a test insert to see exact error
+    try {
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        $product = \App\Models\Product::first();
+        $order = \App\Models\Order::create([
+            'order_number' => 'TEST-DIAG-' . time(),
+            'channel' => 'pos',
+            'status' => 'completed',
+            'payment_status' => 'paid',
+            'payment_method' => 'cash',
+            'fulfillment_method' => 'in_store',
+            'staff_id' => 'c67106ac-7aa4-4d26-be63-65565b0e79c4',
+            'subtotal' => 1,
+            'discount_amount' => 0,
+            'vat_amount' => 0.10,
+            'total' => 1.10,
+        ]);
+        $results['test_insert'] = 'SUCCESS: ' . $order->id;
+        \Illuminate\Support\Facades\DB::rollBack();
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\DB::rollBack();
+        $results['test_insert_error'] = $e->getMessage();
+    }
+
+    return response()->json($results, 200, [], JSON_PRETTY_PRINT);
+});
+
 Route::get('/ops/clear-cache', function () {
     if (function_exists('opcache_reset')) {
         opcache_reset();
