@@ -92,7 +92,7 @@ class AdminInventoryController extends Controller
                     'adjustment_type' => 'count',
                     'qty_change'      => $change,
                     'notes'           => $validated['notes'] ?? 'Direct count edit via admin',
-                    'staff_id'        => auth()->id(),
+                    'staff_id'        => Staff::where('user_id', auth()->id())->value('id'),
                     'old_qty'         => $oldQty,
                     'new_qty'         => $validated['qty_on_hand'],
                 ]);

@@ -7,6 +7,7 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Staff;
 
 class InventoryController extends Controller
 {
@@ -109,7 +110,7 @@ class InventoryController extends Controller
             'adjustment_type' => $adjustmentType,
             'qty_change' => $change,
             'notes' => $request->input('notes'),
-            'staff_id' => auth()->id(),
+            'staff_id' => Staff::where('user_id', auth()->id())->value('id'),
         ]);
 
         return response()->json($inventory);
