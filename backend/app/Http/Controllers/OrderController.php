@@ -37,6 +37,7 @@ class OrderController extends Controller
             'items.*.line_total' => 'required|numeric',
         ]);
 
+        try {
         return DB::transaction(function () use ($validated, $request) {
             // Generate order number (simple version for now)
             $orderNumber = 'ORD-' . strtoupper(Str::random(8));
@@ -118,6 +119,17 @@ class OrderController extends Controller
 
             return response()->json($order->load('items'), 201);
         });
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Checkout error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'validated' => $validated,
+            ]);
+            return response()->json([
+                'message' => 'Checkout failed',
+                'error' => $e->getMessage(),
+                'line' => $e->getFile() . ':' . $e->getLine(),
+            ], 500);
+        }
     }
 
     public function lookup(Request $request)
