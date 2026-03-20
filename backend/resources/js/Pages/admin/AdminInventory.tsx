@@ -107,9 +107,15 @@ function StockBar({ qty, reorderLevel }: { qty: number; reorderLevel: number }) 
 }
 
 function getStockColor(qty: number, reorderLevel: number) {
-  if (qty <= 0) return { border: 'border-l-red-400', text: 'text-red-600', bg: 'bg-red-50' };
-  if (qty <= reorderLevel) return { border: 'border-l-amber-400', text: 'text-amber-600', bg: 'bg-amber-50' };
-  return { border: 'border-l-emerald-400', text: 'text-emerald-600', bg: 'bg-emerald-50' };
+  if (qty <= 0) return { border: 'border-l-red-400', text: 'text-red-600', bg: 'bg-red-50', badge: 'bg-red-100 text-red-700 border-red-200' };
+  if (qty <= reorderLevel) return { border: 'border-l-amber-400', text: 'text-amber-600', bg: 'bg-amber-50', badge: 'bg-amber-100 text-amber-700 border-amber-200' };
+  return { border: 'border-l-emerald-400', text: 'text-emerald-600', bg: 'bg-emerald-50', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+}
+
+function getStockLabel(qty: number, reorderLevel: number) {
+  if (qty <= 0) return 'Out of Stock';
+  if (qty <= reorderLevel) return 'Low Stock';
+  return 'In Stock';
 }
 
 export default function AdminInventory() {
@@ -176,7 +182,7 @@ export default function AdminInventory() {
     },
   });
 
-  // Quick adjust for card view +/- buttons
+  // Quick adjust for card view +/- buttons with explicit feedback
   const quickAdjust = useCallback(async (itemId: string, type: 'receive' | 'shrink') => {
     if (adjustingItems.has(itemId)) return; // prevent spam
     setAdjustingItems(prev => new Set(prev).add(itemId));
@@ -189,7 +195,7 @@ export default function AdminInventory() {
       queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
       toast.success(type === 'receive' ? '+1 received' : '-1 removed');
     } catch (error: any) {
-      toast.error('Error: ' + (error.response?.data?.message || error.message));
+      toast.error('Adjustment failed: ' + (error.response?.data?.message || error.message));
     } finally {
       setAdjustingItems(prev => {
         const next = new Set(prev);
@@ -202,7 +208,7 @@ export default function AdminInventory() {
   const totalCount = rawInventory?.length ?? 0;
   const lowCount = rawInventory?.filter(i => i.qty_on_hand > 0 && i.qty_on_hand <= i.reorder_level).length ?? 0;
   const outCount = rawInventory?.filter(i => i.qty_on_hand <= 0).length ?? 0;
-  const inStockCount = totalCount - outCount;
+  const inStockCount = totalCount - outCount - lowCount;
 
   const hasActiveFilters = categoryFilter !== 'all' || stockFilter !== 'all' || search !== '';
   const clearFilters = () => { setCategoryFilter('all'); setStockFilter('all'); setSearch(''); };
@@ -217,36 +223,56 @@ export default function AdminInventory() {
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Inventory</h1>
+          {/* View Mode Toggle */}
+          <div className="flex items-center border rounded-lg overflow-hidden">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="h-4 w-4 mr-1.5" />
+              Table
+            </Button>
+            <Button
+              variant={viewMode === 'cards' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setViewMode('cards')}
+            >
+              <LayoutGrid className="h-4 w-4 mr-1.5" />
+              Inventory Mode
+            </Button>
+          </div>
         </div>
 
-        {/* Summary Badges */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <Badge variant="outline" className="py-1.5 px-3 text-sm">
-            <Package className="h-3.5 w-3.5 mr-1.5" />
-            {totalCount} items
-          </Badge>
-          <Badge variant="outline" className="py-1.5 px-3 text-sm text-green-700 border-green-200 bg-green-50">
-            {inStockCount} in stock
-          </Badge>
-          {lowCount > 0 && (
-            <Badge variant="outline" className="py-1.5 px-3 text-sm text-amber-700 border-amber-200 bg-amber-50">
-              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
-              {lowCount} low stock
-            </Badge>
-          )}
-          {outCount > 0 && (
-            <Badge variant="outline" className="py-1.5 px-3 text-sm text-red-700 border-red-200 bg-red-50">
-              {outCount} out of stock
-            </Badge>
-          )}
+        {/* Quick Stock Filters — segmented buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {[
+            { key: 'all', label: 'All', count: totalCount },
+            { key: 'in', label: 'In Stock', count: inStockCount, color: 'text-emerald-700' },
+            { key: 'low', label: 'Low Stock', count: lowCount, color: 'text-amber-700' },
+            { key: 'out', label: 'Out of Stock', count: outCount, color: 'text-red-700' },
+          ].map((f) => (
+            <Button
+              key={f.key}
+              variant={stockFilter === f.key ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStockFilter(f.key)}
+              className={stockFilter !== f.key && f.color ? f.color : ''}
+            >
+              {f.label}
+              <Badge
+                variant="secondary"
+                className={`ml-1.5 text-xs px-1.5 py-0 ${stockFilter === f.key ? 'bg-white/20 text-inherit' : ''}`}
+              >
+                {f.count}
+              </Badge>
+            </Button>
+          ))}
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          Click any <strong>On Hand</strong> or <strong>Reorder Level</strong> number to edit it directly.
-          Use the +/−/↺ buttons for logged adjustments.
-        </p>
-
-        {/* Filters + View Toggle */}
+        {/* Search + Category + Clear */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-sm min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -268,46 +294,20 @@ export default function AdminInventory() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={stockFilter} onValueChange={setStockFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Stock" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stock</SelectItem>
-              <SelectItem value="in">In Stock</SelectItem>
-              <SelectItem value="low">Low Stock</SelectItem>
-              <SelectItem value="out">Out of Stock</SelectItem>
-            </SelectContent>
-          </Select>
           {hasActiveFilters && (
             <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
               <X className="h-4 w-4 mr-1" />
-              Clear
+              Clear filters
             </Button>
           )}
-
-          {/* View Mode Toggle */}
-          <div className="ml-auto flex items-center border rounded-lg overflow-hidden">
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'ghost'}
-              size="sm"
-              className="rounded-none"
-              onClick={() => setViewMode('table')}
-            >
-              <List className="h-4 w-4 mr-1.5" />
-              Table
-            </Button>
-            <Button
-              variant={viewMode === 'cards' ? 'default' : 'ghost'}
-              size="sm"
-              className="rounded-none"
-              onClick={() => setViewMode('cards')}
-            >
-              <LayoutGrid className="h-4 w-4 mr-1.5" />
-              Inventory Mode
-            </Button>
-          </div>
         </div>
+
+        {viewMode === 'table' && (
+          <p className="text-sm text-muted-foreground">
+            Click any <strong>On Hand</strong> or <strong>Reorder Level</strong> number to edit it directly.
+            Use the +/−/↺ buttons for logged adjustments.
+          </p>
+        )}
 
         {/* TABLE VIEW */}
         {viewMode === 'table' && (
@@ -361,7 +361,7 @@ export default function AdminInventory() {
                 )}
                 {inventory?.map((item) => {
                   const available = item.qty_on_hand - item.qty_reserved;
-                  const isLow = item.qty_on_hand > 0 && item.qty_on_hand < item.reorder_level;
+                  const isLow = item.qty_on_hand > 0 && item.qty_on_hand <= item.reorder_level;
                   const isOut = item.qty_on_hand <= 0;
 
                   return (
@@ -446,6 +446,7 @@ export default function AdminInventory() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {inventory?.map((item) => {
                 const colors = getStockColor(item.qty_on_hand, item.reorder_level);
+                const statusLabel = getStockLabel(item.qty_on_hand, item.reorder_level);
                 const isAdjusting = adjustingItems.has(item.id);
 
                 return (
@@ -478,6 +479,9 @@ export default function AdminInventory() {
                             {item.product?.category?.name || 'Uncategorized'}
                           </div>
                         </div>
+                        <Badge variant="outline" className={`text-xs shrink-0 ${colors.badge}`}>
+                          {statusLabel}
+                        </Badge>
                       </div>
 
                       {/* Stock bar + info */}
@@ -493,19 +497,20 @@ export default function AdminInventory() {
                         </div>
                       </div>
 
-                      {/* Quick action buttons */}
+                      {/* Quick action buttons with loading/disabled states */}
                       <div className="flex items-center gap-2 pt-1 border-t">
                         <Button
                           variant="outline"
                           size="sm"
                           className="flex-1"
-                          disabled={isAdjusting}
+                          disabled={isAdjusting || item.qty_on_hand <= 0}
                           onClick={() => quickAdjust(item.id, 'shrink')}
+                          title={item.qty_on_hand <= 0 ? 'Cannot reduce below 0' : 'Remove 1'}
                         >
                           {isAdjusting ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Minus className="h-4 w-4" />
+                            <><Minus className="h-4 w-4 mr-1" /><span className="text-xs">-1</span></>
                           )}
                         </Button>
                         <Button
@@ -514,11 +519,12 @@ export default function AdminInventory() {
                           className="flex-1"
                           disabled={isAdjusting}
                           onClick={() => quickAdjust(item.id, 'receive')}
+                          title="Add 1"
                         >
                           {isAdjusting ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Plus className="h-4 w-4" />
+                            <><Plus className="h-4 w-4 mr-1" /><span className="text-xs">+1</span></>
                           )}
                         </Button>
                         <Button
@@ -526,9 +532,10 @@ export default function AdminInventory() {
                           size="sm"
                           className="flex-1"
                           onClick={() => setAdjustDialog({ item, type: 'count' })}
+                          disabled={isAdjusting}
                         >
                           <RotateCcw className="h-4 w-4 mr-1" />
-                          Count
+                          <span className="text-xs">Count</span>
                         </Button>
                       </div>
                     </CardContent>

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Search, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Package, FolderOpen, X } from 'lucide-react';
 import { Category } from '@/types';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
@@ -24,7 +24,7 @@ export default function AdminCategories() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const queryClient = useQueryClient();
 
-  const { data: categories } = useQuery({
+  const { data: categories, isLoading } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
       const response = await axios.get('/api/admin/categories');
@@ -37,11 +37,9 @@ export default function AdminCategories() {
   const filteredCategories = useMemo(() => {
     if (!categories) return [];
     return categories.filter((cat) => {
-      // Search filter
       if (searchQuery && !cat.name.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
       }
-      // Status filter
       if (statusFilter === 'active' && !cat.is_active) return false;
       if (statusFilter === 'inactive' && cat.is_active) return false;
       return true;
@@ -54,6 +52,7 @@ export default function AdminCategories() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
+      toast.success('Status updated');
     }
   });
 
@@ -68,6 +67,9 @@ export default function AdminCategories() {
   });
 
   const totalProducts = categories?.reduce((sum, cat) => sum + (cat.products_count ?? 0), 0) ?? 0;
+  const activeCount = categories?.filter(c => c.is_active).length ?? 0;
+  const inactiveCount = (categories?.length ?? 0) - activeCount;
+  const hasFilters = searchQuery !== '' || statusFilter !== 'all';
 
   return (
     <AdminLayout>
@@ -101,7 +103,7 @@ export default function AdminCategories() {
           </Dialog>
         </div>
 
-        {/* Search + Filters */}
+        {/* Search + Status Filter */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-sm min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -113,18 +115,31 @@ export default function AdminCategories() {
             />
           </div>
           <div className="flex items-center border rounded-lg overflow-hidden">
-            {(['all', 'active', 'inactive'] as const).map((status) => (
+            {([
+              { key: 'all' as const, label: 'All', count: categories?.length ?? 0 },
+              { key: 'active' as const, label: 'Active', count: activeCount },
+              { key: 'inactive' as const, label: 'Inactive', count: inactiveCount },
+            ]).map((f) => (
               <Button
-                key={status}
-                variant={statusFilter === status ? 'default' : 'ghost'}
+                key={f.key}
+                variant={statusFilter === f.key ? 'default' : 'ghost'}
                 size="sm"
-                className="rounded-none capitalize"
-                onClick={() => setStatusFilter(status)}
+                className="rounded-none"
+                onClick={() => setStatusFilter(f.key)}
               >
-                {status}
+                {f.label}
+                <Badge variant="secondary" className={`ml-1.5 text-xs px-1.5 py-0 ${statusFilter === f.key ? 'bg-white/20 text-inherit' : ''}`}>
+                  {f.count}
+                </Badge>
               </Button>
             ))}
           </div>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setStatusFilter('all'); }} className="text-muted-foreground">
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
         </div>
 
         <div className="border rounded-lg">
@@ -135,39 +150,57 @@ export default function AdminCategories() {
                 <TableHead className="text-center">Products</TableHead>
                 <TableHead className="text-center">Sort Order</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead></TableHead>
+                <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCategories.length === 0 && (
+              {isLoading && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    {searchQuery || statusFilter !== 'all'
+                    Loading categories...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && filteredCategories.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    {hasFilters
                       ? 'No categories match your filters.'
-                      : 'No categories yet.'}
+                      : 'No categories yet. Create one to get started.'}
                   </TableCell>
                 </TableRow>
               )}
               {filteredCategories.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
+                <TableRow key={category.id} className={!category.is_active ? 'opacity-60' : ''}>
+                  <TableCell>
+                    <span className="font-medium">{category.name}</span>
+                    {category.slug && (
+                      <span className="text-xs text-muted-foreground ml-2 font-mono">/{category.slug}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="outline" className="font-mono">
                       <Package className="h-3 w-3 mr-1" />
                       {category.products_count ?? 0}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-center">{category.sort_order}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={category.is_active}
-                      onCheckedChange={(checked) =>
-                        toggleActive.mutate({ id: category.id, is_active: checked })
-                      }
-                    />
-                  </TableCell>
+                  <TableCell className="text-center font-mono text-muted-foreground">{category.sort_order}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
+                      <Switch
+                        checked={category.is_active}
+                        onCheckedChange={(checked) =>
+                          toggleActive.mutate({ id: category.id, is_active: checked })
+                        }
+                      />
+                      <span className={`text-xs ${category.is_active ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                        {category.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -175,6 +208,7 @@ export default function AdminCategories() {
                           setEditCategory(category);
                           setIsDialogOpen(true);
                         }}
+                        title="Edit"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -183,10 +217,11 @@ export default function AdminCategories() {
                         size="icon"
                         className="text-destructive"
                         onClick={() => {
-                          if (confirm('Delete this category?')) {
+                          if (confirm('Delete this category? Products in this category will become uncategorized.')) {
                             deleteCategory.mutate(category.id);
                           }
                         }}
+                        title="Delete"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
