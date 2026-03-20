@@ -140,9 +140,9 @@ class AdminProductController extends Controller
         return response()->json(null, 204);
     }
 
-    public function toggleActive(Product $product)
+    public function toggleActive(Request $request, Product $product)
     {
-        $product->update(['is_active' => !$product->is_active]);
+        $product->update(['is_active' => $request->has('is_active') ? (bool) $request->is_active : !$product->is_active]);
         return response()->json($product);
     }
 }

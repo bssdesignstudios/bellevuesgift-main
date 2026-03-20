@@ -246,42 +246,63 @@ export default function AdminProducts() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products?.length === 0 && (
+              {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
-                    {hasActiveFilters || search
-                      ? 'No products match your filters.'
-                      : 'No products found.'}
+                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                    Loading products...
                   </TableCell>
                 </TableRow>
               )}
-              {products?.map((product) => (
-                <TableRow key={product.id}>
+              {!isLoading && products?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                    <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    {hasActiveFilters || search
+                      ? 'No products match your filters.'
+                      : 'No products found. Add your first product to get started.'}
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && products?.map((product) => (
+                <TableRow key={product.id} className={!product.is_active ? 'opacity-60' : ''}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      {product.image_url && (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-10 h-10 rounded object-cover"
-                        />
-                      )}
-                      <span className="font-medium">{product.name}</span>
+                      <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-medium block truncate">{product.name}</span>
+                        {product.barcode && (
+                          <span className="text-xs text-muted-foreground font-mono">{product.barcode}</span>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                  <TableCell>{product.category?.name}</TableCell>
+                  <TableCell>{product.category?.name || <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="text-right">${Number(product.price).toFixed(2)}</TableCell>
                   <TableCell className="text-right text-success">
-                    {product.sale_price ? `$${Number(product.sale_price).toFixed(2)}` : '-'}
+                    {product.sale_price ? `$${Number(product.sale_price).toFixed(2)}` : '—'}
                   </TableCell>
                   <TableCell className="text-right">
                     {(() => {
                       const qty = product.inventory?.qty_on_hand ?? 0;
                       const reorder = product.inventory?.reorder_level ?? 5;
-                      if (qty <= 0) return <span className="text-red-600 font-medium">0</span>;
-                      if (qty <= reorder) return <span className="text-amber-600 font-medium">{qty}</span>;
-                      return <span>{qty}</span>;
+                      if (qty <= 0) return (
+                        <Badge variant="destructive" className="text-xs">Out of Stock</Badge>
+                      );
+                      if (qty <= reorder) return (
+                        <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-xs">{qty} — Low</Badge>
+                      );
+                      return <span className="text-emerald-700 font-medium">{qty}</span>;
                     })()}
                   </TableCell>
                   <TableCell>
@@ -447,6 +468,8 @@ function ProductForm({
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4 max-h-[85vh] overflow-y-auto px-1">
+      {/* BASIC INFO */}
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Product Info</p>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Name</Label>
@@ -474,7 +497,7 @@ function ProductForm({
         </div>
         <div className="space-y-2">
           <Label>Barcode</Label>
-          <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+          <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Scan or type barcode" />
         </div>
       </div>
 
@@ -526,6 +549,8 @@ function ProductForm({
         </div>
       </div>
 
+      {/* PRICING */}
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">Pricing</p>
       <div className="grid grid-cols-3 gap-4 border-t pt-4">
         <div className="space-y-2">
           <Label>Cost ($)</Label>
@@ -553,15 +578,23 @@ function ProductForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Sale Price ($)</Label>
-          <Input type="number" step="0.01" value={form.sale_price} onChange={(e) => setForm({ ...form, sale_price: e.target.value })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Image URL</Label>
-          <Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+          <Input type="number" step="0.01" value={form.sale_price} onChange={(e) => setForm({ ...form, sale_price: e.target.value })} placeholder="Leave empty if not on sale" />
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* MEDIA */}
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">Media</p>
+      <div className="border-t pt-4 space-y-2">
+        <Label>Image URL</Label>
+        <Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." />
+        {form.image_url && (
+          <div className="mt-2 w-20 h-20 rounded-md border overflow-hidden bg-muted">
+            <img src={form.image_url} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 border-t pt-4">
         <Switch checked={form.is_active} disabled={!canManageProducts} onCheckedChange={(checked) => setForm({ ...form, is_active: checked })} />
         <Label>Active</Label>
       </div>

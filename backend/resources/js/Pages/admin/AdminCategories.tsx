@@ -147,8 +147,9 @@ export default function AdminCategories() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead className="text-center">SKU Prefix</TableHead>
                 <TableHead className="text-center">Products</TableHead>
-                <TableHead className="text-center">Sort Order</TableHead>
+                <TableHead className="text-center">Sort</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]"></TableHead>
               </TableRow>
@@ -156,14 +157,14 @@ export default function AdminCategories() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                     Loading categories...
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && filteredCategories.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                     <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     {hasFilters
                       ? 'No categories match your filters.'
@@ -177,6 +178,15 @@ export default function AdminCategories() {
                     <span className="font-medium">{category.name}</span>
                     {category.slug && (
                       <span className="text-xs text-muted-foreground ml-2 font-mono">/{category.slug}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {(category as any).sku_prefix ? (
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {(category as any).sku_prefix}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </TableCell>
                   <TableCell className="text-center">
@@ -247,6 +257,7 @@ function CategoryForm({
   const [form, setForm] = useState({
     name: category?.name || '',
     slug: category?.slug || '',
+    sku_prefix: (category as any)?.sku_prefix || '',
     sort_order: category?.sort_order?.toString() || '0',
     is_active: category?.is_active ?? true,
   });
@@ -256,6 +267,7 @@ function CategoryForm({
       const data = {
         name: form.name,
         slug: form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        sku_prefix: form.sku_prefix || null,
         sort_order: parseInt(form.sort_order) || 0,
         is_active: form.is_active,
       };
@@ -282,13 +294,25 @@ function CategoryForm({
         <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
       </div>
 
-      <div className="space-y-2">
-        <Label>Slug</Label>
-        <Input
-          value={form.slug}
-          onChange={(e) => setForm({ ...form, slug: e.target.value })}
-          placeholder="auto-generated from name"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Slug</Label>
+          <Input
+            value={form.slug}
+            onChange={(e) => setForm({ ...form, slug: e.target.value })}
+            placeholder="auto-generated from name"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>SKU Prefix</Label>
+          <Input
+            value={form.sku_prefix}
+            onChange={(e) => setForm({ ...form, sku_prefix: e.target.value.toUpperCase() })}
+            placeholder="e.g. ELEC, ACCS"
+            maxLength={10}
+          />
+          <p className="text-xs text-muted-foreground">Used to auto-generate product SKUs</p>
+        </div>
       </div>
 
       <div className="space-y-2">

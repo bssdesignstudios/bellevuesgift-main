@@ -553,7 +553,7 @@ export default function AdminInventory() {
               <DialogTitle>
                 {adjustDialog?.type === 'receive' && 'Receive Stock'}
                 {adjustDialog?.type === 'adjust' && 'Inventory Adjustment'}
-                {adjustDialog?.type === 'count' && 'Cycle Count'}
+                {adjustDialog?.type === 'count' && 'Physical Count'}
               </DialogTitle>
             </DialogHeader>
             {adjustDialog && (
@@ -638,9 +638,9 @@ function AdjustmentForm({
 
       <div className="space-y-2">
         <Label>
-          {type === 'receive' && 'Quantity to Receive'}
+          {type === 'receive' && 'How many units are you adding?'}
           {type === 'adjust' && 'Quantity'}
-          {type === 'count' && `Counted Quantity (currently ${item.qty_on_hand})`}
+          {type === 'count' && 'Enter actual count from physical inventory'}
         </Label>
         <Input
           type="number"

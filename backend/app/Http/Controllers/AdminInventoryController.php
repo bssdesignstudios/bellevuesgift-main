@@ -43,14 +43,22 @@ class AdminInventoryController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated, $inventory) {
+            // Reload with lock to prevent race conditions
+            $inventory = $inventory->fresh();
+            $inventory->lockForUpdate();
+
             $oldQty = $inventory->qty_on_hand;
 
             // Update inventory
             if (in_array($validated['adjustment_type'], ['reserve', 'unreserve'])) {
                 $inventory->qty_reserved += $validated['qty_change'];
-                $newQty = $inventory->qty_on_hand; // Unchanged for reservation usually, but good for log consistency
+                $newQty = $inventory->qty_on_hand;
             } else {
                 $inventory->qty_on_hand += $validated['qty_change'];
+                // Prevent negative stock
+                if ($inventory->qty_on_hand < 0) {
+                    $inventory->qty_on_hand = 0;
+                }
                 $newQty = $inventory->qty_on_hand;
             }
 

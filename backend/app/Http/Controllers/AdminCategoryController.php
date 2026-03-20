@@ -22,6 +22,7 @@ class AdminCategoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'slug' => 'nullable|string|unique:categories,slug',
+            'sku_prefix' => 'nullable|string|max:10',
             'sort_order' => 'nullable|integer',
             'is_active' => 'nullable|boolean',
         ]);
@@ -40,6 +41,7 @@ class AdminCategoryController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'slug' => 'sometimes|required|string|unique:categories,slug,' . $category->id,
+            'sku_prefix' => 'sometimes|nullable|string|max:10',
             'sort_order' => 'sometimes|required|integer',
             'is_active' => 'sometimes|required|boolean',
         ]);
