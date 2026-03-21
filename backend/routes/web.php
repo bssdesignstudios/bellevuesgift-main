@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminMailController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
@@ -448,6 +449,12 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::get('/sop', function () {
             return Inertia::render('admin/AdminSOP');
         })->name('admin.sop');
+    });
+
+    // 6. Mail health-check (Admin only — never exposes credentials)
+    Route::middleware(['role:admin'])->group(function () {
+        Route::get('/mail/status', [AdminMailController::class, 'status'])->name('admin.mail.status');
+        Route::post('/mail/test', [AdminMailController::class, 'test'])->name('admin.mail.test');
     });
 });
 

@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Wrench, Search, CheckCircle, Clock, Package, AlertCircle, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 const STATUS_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   submitted: { label: 'Submitted', color: 'bg-blue-500', icon: <Clock className="h-4 w-4" /> },
@@ -516,6 +517,11 @@ export default function RepairPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Device &amp; Electronics Repair"
+        description="Book a repair for your phone, laptop, or electronics at Bellevue Gifts & Supplies, Freeport. Fast turnaround, experienced technicians."
+        canonical="https://bellevue.gifts/repair"
+      />
       {content}
     </StorefrontLayout>
   );

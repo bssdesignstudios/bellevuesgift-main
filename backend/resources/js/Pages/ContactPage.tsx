@@ -9,6 +9,7 @@ import { MapPin, Phone, Mail, Clock, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { STORE_INFO } from '@/lib/constants';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 export default function ContactPage() {
   const [loading, setLoading] = useState(false);
@@ -189,6 +190,11 @@ export default function ContactPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Contact Us"
+        description="Get in touch with Bellevue Gifts & Supplies. Visit us in Freeport, call +1 (242) 352-5555, or email sales@bellevuegifts.com. We're here to help."
+        canonical="https://bellevue.gifts/contact"
+      />
       {content}
     </StorefrontLayout>
   );

@@ -13,7 +13,17 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Bellevue Gifts & Supplies'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Storefront Maintenance Mode
+    |--------------------------------------------------------------------------
+    | When true, all public/customer-facing routes return a Coming Soon page.
+    | Internal tools (/admin /pos /staff /warehouse /kiosk) are never affected.
+    | Toggle: set MAINTENANCE_MODE=true in .env, then run: php artisan config:cache
+    */
+    'maintenance_mode' => env('MAINTENANCE_MODE', false),
 
     /*
     |--------------------------------------------------------------------------

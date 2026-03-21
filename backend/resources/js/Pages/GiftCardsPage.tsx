@@ -11,6 +11,7 @@ import { Gift, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 import { useCart } from '@/contexts/CartContext';
 import { Product } from '@/types';
 
@@ -239,6 +240,11 @@ export default function GiftCardsPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Gift Cards"
+        description="Give the gift of choice with a Bellevue Gifts & Supplies gift card. Available in $25, $50, $100, and $250 denominations. Redeemable in-store and online."
+        canonical="https://bellevue.gifts/gift-cards"
+      />
       {content}
     </StorefrontLayout>
   );

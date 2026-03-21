@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Ship, Truck, MapPin, Clock, Package } from 'lucide-react';
 import { BAHAMIAN_ISLANDS, STORE_INFO } from '@/lib/constants';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 export default function ShippingPage() {
   const content = (
@@ -141,6 +142,11 @@ export default function ShippingPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Shipping &amp; Delivery"
+        description="Learn about our inter-island shipping options, delivery times, and rates across the Bahamas. Same-day pickup available in Freeport."
+        canonical="https://bellevue.gifts/shipping"
+      />
       {content}
     </StorefrontLayout>
   );

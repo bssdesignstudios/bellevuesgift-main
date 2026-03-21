@@ -24,7 +24,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'role'                   => \App\Http\Middleware\RoleMiddleware::class,
+            'storefront.maintenance' => \App\Http\Middleware\StorefrontMaintenance::class,
+        ]);
+
+        // Prepend maintenance-mode check globally on web routes.
+        // The middleware itself excludes /admin, /pos, /staff, /warehouse, /kiosk.
+        $middleware->web(prepend: [
+            \App\Http\Middleware\StorefrontMaintenance::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

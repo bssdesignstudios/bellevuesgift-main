@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Filter, X, Grid, List } from 'lucide-react';
 import { Product, Category } from '@/types';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 interface ShopPageProps {
   products: Product[];
@@ -328,6 +329,11 @@ export default function ShopPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Shop All Products"
+        description="Browse our full catalogue of office supplies, school essentials, electronics, toys, home goods and gifts. Same-day pickup in Freeport, island-wide delivery."
+        canonical="https://bellevue.gifts/shop"
+      />
       {content}
     </StorefrontLayout>
   );

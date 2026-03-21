@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { AccountLayout } from '@/components/layout/AccountLayout';
+import { PageMeta } from '@/components/PageMeta';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -52,6 +53,11 @@ export default function AccountWishlistPage() {
 
   return (
     <AccountLayout>
+      <PageMeta
+        title="My Wishlist"
+        description="View and manage your saved products on Bellevue Gifts & Supplies."
+        noIndex={true}
+      />
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-2xl font-bold">My Wishlist</h1>

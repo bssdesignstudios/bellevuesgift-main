@@ -8,6 +8,7 @@ import { CategoryCard } from '@/components/storefront/CategoryCard';
 import { Product, Category } from '@/types';
 import { STORE_INFO, CATEGORY_IMAGES, HERO_FALLBACK_IMAGE } from '@/lib/constants';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 export default function HomePage({ featuredProducts = [], categories = [] }: { featuredProducts: Product[], categories: Category[] }) {
   const [heroSearch, setHeroSearch] = useState('');
@@ -307,6 +308,11 @@ export default function HomePage({ featuredProducts = [], categories = [] }: { f
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Bahamas' #1 Office, School &amp; Gift Supplier"
+        description="Shop 5,000+ office supplies, school essentials, electronics, and gifts. Delivered island-wide across the Bahamas. Bulk orders welcome."
+        canonical="https://bellevue.gifts/"
+      />
       {content}
     </StorefrontLayout>
   );

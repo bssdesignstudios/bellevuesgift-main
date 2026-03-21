@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 export default function CartPage() {
   const { url } = usePage();
@@ -182,6 +183,11 @@ export default function CartPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Your Cart"
+        description="Review your cart and proceed to checkout at Bellevue Gifts & Supplies."
+        noIndex={true}
+      />
       {content}
     </StorefrontLayout>
   );

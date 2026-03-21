@@ -4,6 +4,7 @@ import { CategoryCard } from '@/components/storefront/CategoryCard';
 import { Category } from '@/types';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageMeta } from '@/components/PageMeta';
 
 // Category image mapping (reused from Homepage)
 const CATEGORY_IMAGES: Record<string, string> = {
@@ -27,6 +28,11 @@ const CATEGORY_IMAGES: Record<string, string> = {
 export default function AllCategoriesPage({ categories }: { categories: Category[] }) {
     return (
         <StorefrontLayout>
+            <PageMeta
+                title="Shop by Category"
+                description="Browse all product categories at Bellevue Gifts & Supplies — from school supplies and office essentials to electronics, toys, and home goods."
+                canonical="https://bellevue.gifts/categories"
+            />
             <div className="container mx-auto px-4 py-8 animate-fade-in">
                 <div className="flex items-center gap-2 mb-6">
                     <Button variant="ghost" size="icon" asChild>

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useMemo } from 'react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 export default function CategoryPage() {
   const { category, products: allProducts, slug } = usePage<{
@@ -129,6 +130,11 @@ export default function CategoryPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title={category ? `${category.name} — Shop by Category` : 'Category'}
+        description={category ? `Shop ${category.name} at Bellevue Gifts & Supplies. ${(products as any[])?.length || 0} products available in Freeport & island-wide delivery.` : 'Browse products by category.'}
+        canonical={category ? `https://bellevue.gifts/category/${category.slug}` : undefined}
+      />
       {content}
     </StorefrontLayout>
   );

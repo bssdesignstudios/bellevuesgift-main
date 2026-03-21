@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { toast } from 'sonner';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 export default function ProductPage() {
   const { product, slug } = usePage<{ product: Product | null; slug: string }>().props;
@@ -249,6 +250,14 @@ export default function ProductPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title={product ? `${product.name} — Shop` : 'Product'}
+        description={product?.description ? product.description.slice(0, 155) : `Buy ${product?.name || 'this product'} at Bellevue Gifts & Supplies, Bahamas.`}
+        ogTitle={product?.name}
+        ogImage={product?.image_url || undefined}
+        ogType="product"
+        canonical={product ? `https://bellevue.gifts/product/${product.slug}` : undefined}
+      />
       {content}
     </StorefrontLayout>
   );

@@ -11,6 +11,7 @@ import { FULFILLMENT_METHODS, BAHAMIAN_ISLANDS } from '@/lib/constants';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 import axios from 'axios';
 
 export default function CheckoutPage() {
@@ -283,6 +284,11 @@ export default function CheckoutPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Checkout"
+        description="Complete your order at Bellevue Gifts & Supplies. Secure checkout with island-wide delivery."
+        noIndex={true}
+      />
       {content}
     </StorefrontLayout>
   );

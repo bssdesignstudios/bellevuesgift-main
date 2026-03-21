@@ -10,10 +10,16 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
+        env:
+          # MAIL_PASSWORD is stored in GitHub → Settings → Secrets → MAIL_PASSWORD
+          # Never exposed in logs — passed to the remote shell as an env var.
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
         with:
           host: 143.198.3.55
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # List the env vars the remote script is allowed to read
+          envs: MAIL_PASSWORD
           timeout: 300s
           script: |
             git config --global --add safe.directory /var/www/bellevuesgift
@@ -31,6 +37,37 @@ jobs:
             php artisan queue:restart
             sudo systemctl reload php8.4-fpm
             chown -R www-data:www-data /var/www/bellevuesgift
+
+            # ── SMTP / Mail configuration ──────────────────────────────────────
+            # Write Titan SMTP settings into .env (idempotent — sed replaces existing
+            # values; grep+append handles missing keys on first run).
+            # The MAIL_PASSWORD value comes from GitHub Secret via the envs parameter
+            # and is NEVER written into this workflow file or printed to logs.
+            if [ -n "$MAIL_PASSWORD" ]; then
+              echo "Configuring Titan SMTP..."
+              # Update or insert each mail key
+              grep -q '^MAIL_MAILER=' .env && sed -i 's|^MAIL_MAILER=.*|MAIL_MAILER=smtp|' .env || echo 'MAIL_MAILER=smtp' >> .env
+              grep -q '^MAIL_SCHEME=' .env && sed -i 's|^MAIL_SCHEME=.*|MAIL_SCHEME=ssl|' .env || echo 'MAIL_SCHEME=ssl' >> .env
+              grep -q '^MAIL_HOST=' .env && sed -i 's|^MAIL_HOST=.*|MAIL_HOST=smtp0101.titan.email|' .env || echo 'MAIL_HOST=smtp0101.titan.email' >> .env
+              grep -q '^MAIL_PORT=' .env && sed -i 's|^MAIL_PORT=.*|MAIL_PORT=465|' .env || echo 'MAIL_PORT=465' >> .env
+              grep -q '^MAIL_ENCRYPTION=' .env && sed -i "s|^MAIL_ENCRYPTION=.*|MAIL_ENCRYPTION=ssl|" .env || echo 'MAIL_ENCRYPTION=ssl' >> .env
+              grep -q '^MAIL_USERNAME=' .env && sed -i 's|^MAIL_USERNAME=.*|MAIL_USERNAME=sales@bellevuegifts.com|' .env || echo 'MAIL_USERNAME=sales@bellevuegifts.com' >> .env
+              grep -q '^MAIL_PASSWORD=' .env && sed -i "s|^MAIL_PASSWORD=.*|MAIL_PASSWORD=$MAIL_PASSWORD|" .env || echo "MAIL_PASSWORD=$MAIL_PASSWORD" >> .env
+              grep -q '^MAIL_FROM_ADDRESS=' .env && sed -i 's|^MAIL_FROM_ADDRESS=.*|MAIL_FROM_ADDRESS=sales@bellevuegifts.com|' .env || echo 'MAIL_FROM_ADDRESS=sales@bellevuegifts.com' >> .env
+              grep -q '^MAIL_FROM_NAME=' .env && sed -i 's|^MAIL_FROM_NAME=.*|MAIL_FROM_NAME="Bellevue Gifts \& Supplies"|' .env || echo 'MAIL_FROM_NAME="Bellevue Gifts & Supplies"' >> .env
+              echo "Titan SMTP configured."
+            else
+              echo "MAIL_PASSWORD secret not set — skipping SMTP configuration."
+            fi
+
+            # ── Maintenance mode (default off) ────────────────────────────────
+            grep -q '^MAINTENANCE_MODE=' .env && sed -i 's|^MAINTENANCE_MODE=.*|MAINTENANCE_MODE=false|' .env || echo 'MAINTENANCE_MODE=false' >> .env
+
+            # ── APP_NAME ──────────────────────────────────────────────────────
+            grep -q '^APP_NAME=' .env && sed -i 's|^APP_NAME=.*|APP_NAME="Bellevue Gifts \& Supplies"|' .env || echo 'APP_NAME="Bellevue Gifts & Supplies"' >> .env
+
+            # Re-cache config after env changes
+            php artisan config:cache
 
             # Sync Nginx config from repo (preserves SSL blocks added by certbot)
             # Only update the base config if it has changed

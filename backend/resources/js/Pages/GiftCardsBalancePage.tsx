@@ -8,6 +8,7 @@ import { Gift, Search, CreditCard, ArrowLeft } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 interface GiftCardResult {
   code: string;
@@ -140,6 +141,11 @@ export default function GiftCardsBalancePage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Check Gift Card Balance"
+        description="Check the remaining balance on your Bellevue Gifts & Supplies gift card."
+        canonical="https://bellevue.gifts/gift-cards/balance"
+      />
       {content}
     </StorefrontLayout>
   );

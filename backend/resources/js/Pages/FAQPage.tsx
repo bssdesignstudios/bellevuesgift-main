@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Search, HelpCircle, ArrowRight } from 'lucide-react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 const faqCategories = [
   {
@@ -174,6 +175,11 @@ export default function FAQPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Frequently Asked Questions"
+        description="Find answers to common questions about ordering, delivery, returns, repairs, and bulk orders at Bellevue Gifts & Supplies."
+        canonical="https://bellevue.gifts/faq"
+      />
       {content}
     </StorefrontLayout>
   );

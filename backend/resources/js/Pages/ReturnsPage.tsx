@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from '@inertiajs/react';
 import { Package, RotateCcw, Clock, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 export default function ReturnsPage() {
   const content = (
@@ -107,6 +108,11 @@ export default function ReturnsPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Returns &amp; Exchanges"
+        description="Our hassle-free returns policy at Bellevue Gifts & Supplies. Learn how to return or exchange products purchased in-store or online."
+        canonical="https://bellevue.gifts/returns"
+      />
       {content}
     </StorefrontLayout>
   );

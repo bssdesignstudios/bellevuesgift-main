@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,11 @@ export default function TrackOrderPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="Track Your Order"
+        description="Track the status and delivery of your Bellevue Gifts & Supplies order. Enter your order number or email to get real-time updates."
+        canonical="https://bellevue.gifts/track-order"
+      />
       <div className="container mx-auto px-4 py-12 max-w-4xl animate-fade-in">
         <div className="text-center mb-12">
           <div className="w-16 h-16 bg-brand-blue/10 rounded-full flex items-center justify-center mx-auto mb-4">

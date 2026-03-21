@@ -4,6 +4,7 @@ import { Link } from '@inertiajs/react';
 import { Building, Users, Award, Heart, MapPin, ArrowRight } from 'lucide-react';
 import { STORE_INFO } from '@/lib/constants';
 import { StorefrontLayout } from '@/components/layout/StorefrontLayout';
+import { PageMeta } from '@/components/PageMeta';
 
 export default function AboutPage() {
   const content = (
@@ -133,6 +134,11 @@ export default function AboutPage() {
 
   return (
     <StorefrontLayout>
+      <PageMeta
+        title="About Bellevue Gifts &amp; Supplies"
+        description="Learn about Bellevue Gifts & Supplies, the Bahamas' leading supplier of office supplies, school essentials, and gifts since 1985. Based in Freeport, Grand Bahama."
+        canonical="https://bellevue.gifts/about"
+      />
       {content}
     </StorefrontLayout>
   );
