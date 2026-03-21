@@ -83,6 +83,8 @@ class PosController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        $notes = $validated['notes'] ?? null;
+
         // Calculate expected balance
         $cashSales = Order::where('register_id', $session->register_id)
             ->where('payment_status', 'paid')
@@ -96,7 +98,7 @@ class PosController extends Controller
             'closed_at' => Carbon::now(),
             'closing_balance' => $validated['closing_balance'],
             'expected_balance' => $expectedBalance,
-            'notes' => $validated['notes'],
+            'notes' => $notes,
         ]);
 
         PosActivityLog::create([
@@ -107,7 +109,7 @@ class PosController extends Controller
                 'closing_balance' => $validated['closing_balance'],
                 'expected_balance' => $expectedBalance,
                 'variance' => $validated['closing_balance'] - $expectedBalance,
-                'notes' => $validated['notes'],
+                'notes' => $notes,
             ],
         ]);
 
