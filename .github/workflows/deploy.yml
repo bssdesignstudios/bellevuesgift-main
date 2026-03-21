@@ -47,7 +47,7 @@ jobs:
               echo "Configuring Titan SMTP..."
               # Update or insert each mail key
               grep -q '^MAIL_MAILER=' .env && sed -i 's|^MAIL_MAILER=.*|MAIL_MAILER=smtp|' .env || echo 'MAIL_MAILER=smtp' >> .env
-              grep -q '^MAIL_SCHEME=' .env && sed -i 's|^MAIL_SCHEME=.*|MAIL_SCHEME=ssl|' .env || echo 'MAIL_SCHEME=ssl' >> .env
+              grep -q '^MAIL_SCHEME=' .env && sed -i 's|^MAIL_SCHEME=.*|MAIL_SCHEME=smtps|' .env || echo 'MAIL_SCHEME=smtps' >> .env
               grep -q '^MAIL_HOST=' .env && sed -i 's|^MAIL_HOST=.*|MAIL_HOST=smtp0101.titan.email|' .env || echo 'MAIL_HOST=smtp0101.titan.email' >> .env
               grep -q '^MAIL_PORT=' .env && sed -i 's|^MAIL_PORT=.*|MAIL_PORT=465|' .env || echo 'MAIL_PORT=465' >> .env
               grep -q '^MAIL_ENCRYPTION=' .env && sed -i "s|^MAIL_ENCRYPTION=.*|MAIL_ENCRYPTION=ssl|" .env || echo 'MAIL_ENCRYPTION=ssl' >> .env
