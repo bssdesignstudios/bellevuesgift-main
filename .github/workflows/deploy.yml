@@ -47,10 +47,12 @@ jobs:
               echo "Configuring Titan SMTP..."
               # Update or insert each mail key
               grep -q '^MAIL_MAILER=' .env && sed -i 's|^MAIL_MAILER=.*|MAIL_MAILER=smtp|' .env || echo 'MAIL_MAILER=smtp' >> .env
-              grep -q '^MAIL_SCHEME=' .env && sed -i 's|^MAIL_SCHEME=.*|MAIL_SCHEME=smtps|' .env || echo 'MAIL_SCHEME=smtps' >> .env
-              grep -q '^MAIL_HOST=' .env && sed -i 's|^MAIL_HOST=.*|MAIL_HOST=smtp0101.titan.email|' .env || echo 'MAIL_HOST=smtp0101.titan.email' >> .env
-              grep -q '^MAIL_PORT=' .env && sed -i 's|^MAIL_PORT=.*|MAIL_PORT=465|' .env || echo 'MAIL_PORT=465' >> .env
-              grep -q '^MAIL_ENCRYPTION=' .env && sed -i "s|^MAIL_ENCRYPTION=.*|MAIL_ENCRYPTION=ssl|" .env || echo 'MAIL_ENCRYPTION=ssl' >> .env
+              # Port 587 + STARTTLS (MAIL_SCHEME empty = auto STARTTLS via Symfony Mailer)
+              # Port 465 is blocked by DigitalOcean outbound firewall; 587 is typically open.
+              grep -q '^MAIL_SCHEME=' .env && sed -i 's|^MAIL_SCHEME=.*|MAIL_SCHEME=|' .env || echo 'MAIL_SCHEME=' >> .env
+              grep -q '^MAIL_HOST=' .env && sed -i 's|^MAIL_HOST=.*|MAIL_HOST=smtp.titan.email|' .env || echo 'MAIL_HOST=smtp.titan.email' >> .env
+              grep -q '^MAIL_PORT=' .env && sed -i 's|^MAIL_PORT=.*|MAIL_PORT=587|' .env || echo 'MAIL_PORT=587' >> .env
+              grep -q '^MAIL_ENCRYPTION=' .env && sed -i "s|^MAIL_ENCRYPTION=.*|MAIL_ENCRYPTION=tls|" .env || echo 'MAIL_ENCRYPTION=tls' >> .env
               grep -q '^MAIL_USERNAME=' .env && sed -i 's|^MAIL_USERNAME=.*|MAIL_USERNAME=sales@bellevuegifts.com|' .env || echo 'MAIL_USERNAME=sales@bellevuegifts.com' >> .env
               grep -q '^MAIL_PASSWORD=' .env && sed -i "s|^MAIL_PASSWORD=.*|MAIL_PASSWORD=$MAIL_PASSWORD|" .env || echo "MAIL_PASSWORD=$MAIL_PASSWORD" >> .env
               grep -q '^MAIL_FROM_ADDRESS=' .env && sed -i 's|^MAIL_FROM_ADDRESS=.*|MAIL_FROM_ADDRESS=sales@bellevuegifts.com|' .env || echo 'MAIL_FROM_ADDRESS=sales@bellevuegifts.com' >> .env
