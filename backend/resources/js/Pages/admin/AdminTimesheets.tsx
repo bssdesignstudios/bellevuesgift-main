@@ -16,6 +16,7 @@ import {
   Users, Timer, ClipboardCheck, TrendingUp, Loader2, User
 } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -357,6 +358,7 @@ export default function AdminTimesheets() {
           </DialogContent>
         </Dialog>
       )}
+      <SOPHelper context="timesheets" />
     </AdminLayout>
   );
 }

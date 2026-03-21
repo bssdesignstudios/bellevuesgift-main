@@ -52,13 +52,15 @@ class AdminInventoryController extends Controller
             $query->where('adjustment_type', $request->type);
         }
 
-        // Search by product name, SKU, barcode
+        // Search by product name, SKU, barcode, or batch ID in notes
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('product', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%")
-                    ->orWhere('barcode', 'like', "%{$search}%");
+            $query->where(function ($outer) use ($search) {
+                $outer->whereHas('product', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%");
+                })->orWhere('notes', 'like', "%{$search}%");
             });
         }
 
@@ -138,18 +140,22 @@ class AdminInventoryController extends Controller
 
         $staffId = Staff::where('user_id', auth()->id())->value('id');
         $batchNote = $validated['batch_notes'] ?? null;
+        $batchId = 'RCV-' . now()->format('Ymd-His') . '-' . strtoupper(substr(md5(uniqid()), 0, 4));
         $results = [];
 
-        DB::transaction(function () use ($validated, $staffId, $batchNote, &$results) {
+        DB::transaction(function () use ($validated, $staffId, $batchNote, $batchId, &$results) {
             foreach ($validated['items'] as $entry) {
                 $inventory = Inventory::lockForUpdate()->findOrFail($entry['inventory_id']);
                 $oldQty = $inventory->qty_on_hand;
                 $inventory->qty_on_hand += $entry['qty'];
                 $inventory->save();
 
-                $note = $entry['notes'] ?? '';
+                $note = "[{$batchId}]";
                 if ($batchNote) {
-                    $note = $batchNote . ($note ? " — {$note}" : '');
+                    $note .= " {$batchNote}";
+                }
+                if (!empty($entry['notes'])) {
+                    $note .= " — {$entry['notes']}";
                 }
 
                 InventoryAdjustment::create([
@@ -158,7 +164,7 @@ class AdminInventoryController extends Controller
                     'qty_change' => $entry['qty'],
                     'old_qty' => $oldQty,
                     'new_qty' => $inventory->qty_on_hand,
-                    'notes' => $note ?: 'Batch receiving',
+                    'notes' => $note,
                     'staff_id' => $staffId,
                 ]);
 
@@ -174,6 +180,7 @@ class AdminInventoryController extends Controller
 
         return response()->json([
             'message' => count($results) . ' item(s) received',
+            'batch_id' => $batchId,
             'results' => $results,
         ]);
     }

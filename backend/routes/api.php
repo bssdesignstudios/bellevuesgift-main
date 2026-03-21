@@ -63,6 +63,7 @@ Route::prefix('pos')->group(function () {
     Route::get('/session', [PosController::class, 'getCurrentSession']);
     Route::post('/session', [PosController::class, 'openSession']);
     Route::put('/session/{session}', [PosController::class, 'closeSession']);
+    Route::get('/session/{session}/summary', [PosController::class, 'shiftSummary']);
     Route::post('/activity', [PosController::class, 'logActivity']);
     Route::post('/checkout', [OrderController::class, 'checkout']);
     Route::get('/orders/lookup', [OrderController::class, 'lookup']);

@@ -9,6 +9,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\GiftCard;
+use App\Models\Order;
 use App\Models\PosActivityLog;
 use App\Models\Product;
 use App\Models\Register;
@@ -82,9 +83,19 @@ class PosController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        // Calculate expected balance
+        $cashSales = Order::where('register_id', $session->register_id)
+            ->where('payment_status', 'paid')
+            ->where('payment_method', 'cash')
+            ->where('created_at', '>=', $session->opened_at)
+            ->sum('total');
+
+        $expectedBalance = (float) $session->opening_balance + $cashSales;
+
         $session->update([
             'closed_at' => Carbon::now(),
             'closing_balance' => $validated['closing_balance'],
+            'expected_balance' => $expectedBalance,
             'notes' => $validated['notes'],
         ]);
 
@@ -94,11 +105,43 @@ class PosController extends Controller
             'action' => 'session_close',
             'details' => [
                 'closing_balance' => $validated['closing_balance'],
+                'expected_balance' => $expectedBalance,
+                'variance' => $validated['closing_balance'] - $expectedBalance,
                 'notes' => $validated['notes'],
             ],
         ]);
 
         return response()->json($session);
+    }
+
+    public function shiftSummary(RegisterSession $session)
+    {
+        $orders = Order::where('register_id', $session->register_id)
+            ->where('payment_status', 'paid')
+            ->where('created_at', '>=', $session->opened_at)
+            ->when($session->closed_at, fn ($q) => $q->where('created_at', '<=', $session->closed_at))
+            ->get();
+
+        $totalSales = $orders->sum('total');
+        $orderCount = $orders->count();
+
+        $cashSales = $orders->where('payment_method', 'cash')->sum('total');
+        $cardSales = $orders->where('payment_method', 'card')->sum('total');
+        $giftCardSales = $orders->where('payment_method', 'gift_card')->sum('total');
+
+        $expectedCash = (float) $session->opening_balance + $cashSales;
+
+        return response()->json([
+            'session_id' => $session->id,
+            'opened_at' => $session->opened_at,
+            'opening_balance' => (float) $session->opening_balance,
+            'total_sales' => (float) $totalSales,
+            'order_count' => $orderCount,
+            'cash_sales' => (float) $cashSales,
+            'card_sales' => (float) $cardSales,
+            'gift_card_sales' => (float) $giftCardSales,
+            'expected_cash' => $expectedCash,
+        ]);
     }
 
     public function logActivity(Request $request)

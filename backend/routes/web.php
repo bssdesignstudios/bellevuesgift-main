@@ -12,6 +12,7 @@ use App\Http\Controllers\VendorController;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -233,6 +234,31 @@ Route::get('/account/forgot-password', function () {
     return Inertia::render('account/AccountForgotPasswordPage');
 })->name('account.forgot-password');
 
+Route::post('/forgot-password', function (Request $request) {
+    $request->validate(['email' => 'required|email']);
+
+    $user = \App\Models\User::where('email', $request->email)->first();
+
+    if (!$user) {
+        // Don't reveal whether email exists
+        return response()->json(['message' => 'If that email exists, a reset link has been sent.']);
+    }
+
+    try {
+        // Try to send reset link using Laravel's built-in
+        $status = \Illuminate\Support\Facades\Password::sendResetLink(
+            $request->only('email')
+        );
+
+        return response()->json(['message' => 'If that email exists, a reset link has been sent.']);
+    } catch (\Throwable $e) {
+        // Mail not configured — return helpful message
+        return response()->json([
+            'message' => 'Password reset is not available. Please contact your administrator.'
+        ], 503);
+    }
+})->name('forgot-password');
+
 Route::get('/account/profile', function () {
     return Inertia::render('account/AccountProfilePage');
 })->name('account.profile');
@@ -377,6 +403,13 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::get('/registers', function () {
             return Inertia::render('admin/AdminRegisters');
         })->name('admin.registers');
+    });
+
+    // 5. SOP (All authenticated admin-panel roles)
+    Route::middleware(['role:admin,finance,warehouse,warehouse_manager'])->group(function () {
+        Route::get('/sop', function () {
+            return Inertia::render('admin/AdminSOP');
+        })->name('admin.sop');
     });
 });
 

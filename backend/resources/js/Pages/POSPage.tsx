@@ -20,6 +20,7 @@ import { useOfflineQueue } from '@/hooks/useOfflineQueue';
 import { useRegister } from '@/hooks/useRegister';
 import { OfflineIndicator } from '@/components/pos/OfflineIndicator';
 import { RegisterSelector } from '@/components/pos/RegisterSelector';
+import { CloseShiftDialog } from '@/components/pos/CloseShiftDialog';
 import { isPOSDomain } from '@/lib/domain';
 import { printReceipt } from '@/components/pos/ReceiptPrint';
 import { Printer } from 'lucide-react';
@@ -45,9 +46,13 @@ export default function POSPage() {
   const {
     registers,
     activeRegisterId,
+    activeSessionId,
     openSession,
+    closeSession,
     hasActiveSession
   } = useRegister(staffUuid);
+
+  const [closeShiftOpen, setCloseShiftOpen] = useState(false);
 
   // Focus search on mount
   useEffect(() => {
@@ -104,8 +109,18 @@ export default function POSPage() {
   const showRegisterSelector = !hasActiveSession && !!registers && registers.length > 0;
 
   const handleSignOut = async () => {
+    if (hasActiveSession) {
+      setCloseShiftOpen(true);
+      return;
+    }
     await signOut();
-    inertiaRouter.visit('/staff/login');
+    window.location.href = onPOSDomain ? '/pos/login' : '/staff/login';
+  };
+
+  const handleCloseShiftConfirm = async (closingBalance: number, notes?: string) => {
+    await closeSession.mutateAsync({ closingBalance, notes });
+    await signOut();
+    window.location.href = onPOSDomain ? '/pos/login' : '/staff/login';
   };
 
   const displayName = effectiveStaff?.name ?? 'Staff';
@@ -121,6 +136,14 @@ export default function POSPage() {
         registers={registers || []}
         onSelect={(registerId, openingBalance) => openSession.mutate({ registerId, openingBalance })}
         onClose={() => { }}
+      />
+
+      {/* Close Shift Dialog */}
+      <CloseShiftDialog
+        open={closeShiftOpen}
+        onOpenChange={setCloseShiftOpen}
+        sessionId={activeSessionId}
+        onConfirm={handleCloseShiftConfirm}
       />
 
       {/* Header */}

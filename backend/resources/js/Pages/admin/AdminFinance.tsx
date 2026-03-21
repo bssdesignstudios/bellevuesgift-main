@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Download, Users, Pencil, Trash2, CheckCircle, Calculator, Search, DollarSign, Clock, AlertCircle, Banknote, Loader2 } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 import { format } from 'date-fns';
 
 const EXPENSE_CATEGORIES = [
@@ -55,6 +56,7 @@ export default function AdminFinance({ defaultTab = 'expenses' }: { defaultTab?:
           <TabsContent value="payroll" className="mt-6"><PayrollTab /></TabsContent>
         </Tabs>
       </div>
+      <SOPHelper context="finance" />
     </AdminLayout>
   );
 }

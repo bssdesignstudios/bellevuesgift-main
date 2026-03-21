@@ -2,10 +2,34 @@ import { Link } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminSidebar } from './AdminSidebar';
-import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ImpersonationBanner } from './ImpersonationBanner';
+
+function OfflineBanner() {
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  if (isOnline) return null;
+
+  return (
+    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800 flex items-center gap-2">
+      <WifiOff className="h-4 w-4" />
+      Offline mode — changes may not save. Reconnect to continue.
+    </div>
+  );
+}
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -82,6 +106,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="flex flex-col min-h-screen bg-muted font-sans">
       <ImpersonationBanner />
+      <OfflineBanner />
       <div className="flex flex-1">
         <AdminSidebar />
         <main className="flex-1 overflow-auto pt-14 lg:pt-0">

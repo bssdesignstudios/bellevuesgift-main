@@ -20,6 +20,7 @@ import {
   Warehouse,
 } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 import { format } from 'date-fns';
 
 interface DashboardData {
@@ -362,6 +363,7 @@ export default function AdminOverview() {
           </div>
         </section>
       </div>
+      <SOPHelper context="dashboard" />
     </AdminLayout>
   );
 }

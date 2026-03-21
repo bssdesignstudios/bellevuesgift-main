@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 
 // ── Types ──
 
@@ -774,6 +775,7 @@ export default function AdminInventory() {
           </DialogContent>
         </Dialog>
       </div>
+      <SOPHelper context="inventory" />
     </AdminLayout>
   );
 }

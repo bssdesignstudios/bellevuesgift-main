@@ -14,6 +14,7 @@ import { Plus, Pencil, Trash2, UserCheck, Search, Users, Shield, ShoppingCart, W
 import { Staff } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   admin:             { label: 'Admin',             color: 'bg-purple-100 text-purple-800 border-purple-200', icon: Shield },
@@ -393,6 +394,7 @@ export default function AdminStaff() {
           </DialogContent>
         </Dialog>
       </div>
+      <SOPHelper context="staff" />
     </AdminLayout>
   );
 }

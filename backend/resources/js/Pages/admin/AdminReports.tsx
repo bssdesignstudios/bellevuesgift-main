@@ -10,9 +10,10 @@ import { format } from 'date-fns';
 import {
   Download, TrendingUp, TrendingDown, Minus, DollarSign, Package, Users,
   Wrench, BarChart3, ShoppingBag, CreditCard, Store, Globe, Crown,
-  Loader2, ArrowUpRight, ArrowDownRight, Layers
+  Loader2, ArrowUpRight, ArrowDownRight, Layers, Printer
 } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
@@ -228,6 +229,13 @@ export default function AdminReports() {
 
   return (
     <AdminLayout>
+      <style>{`
+        @media print {
+          nav, aside, [data-print-hide], button { display: none !important; }
+          main { padding: 0 !important; margin: 0 !important; }
+          .print\\:block { display: block !important; }
+        }
+      `}</style>
       <div className="p-6 space-y-6">
         {/* HEADER */}
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -249,6 +257,10 @@ export default function AdminReports() {
                 {range}d
               </Button>
             ))}
+            <Button variant="outline" size="sm" onClick={() => window.print()} data-print-hide>
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </Button>
           </div>
         </div>
 
@@ -992,6 +1004,7 @@ export default function AdminReports() {
           </TabsContent>
         </Tabs>
       </div>
+      <SOPHelper context="reports" />
     </AdminLayout>
   );
 }
