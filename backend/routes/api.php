@@ -33,7 +33,7 @@ use App\Http\Controllers\AdminTimesheetController;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+Route::middleware('auth:web')->get('/user', function (Request $request) {
     return $request->user();
 });
 
@@ -89,7 +89,7 @@ Route::prefix('repair')->group(function () {
 });
 
 // Admin API — protected: requires authenticated staff session
-Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
+Route::middleware('auth:web')->prefix('admin')->group(function () {
     Route::get('/categories', [AdminCategoryController::class, 'index']);
     Route::post('/categories', [AdminCategoryController::class, 'store']);
     Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
@@ -184,7 +184,7 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
 });
 
 // Customer API
-Route::middleware('auth:sanctum')->prefix('customer')->group(function () {
+Route::middleware('auth:web')->prefix('customer')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\CustomerAccountController::class, 'dashboard']);
     Route::get('/orders', [App\Http\Controllers\CustomerAccountController::class, 'orders']);
     Route::get('/orders/{orderNumber}', [App\Http\Controllers\CustomerAccountController::class, 'orderDetail']);
