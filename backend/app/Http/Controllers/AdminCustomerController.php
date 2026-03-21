@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
 
 class AdminCustomerController extends Controller
 {
@@ -41,5 +42,27 @@ class AdminCustomerController extends Controller
         }]);
 
         return response()->json($customer);
+    }
+
+    public function sendPasswordReset(string $id)
+    {
+        $customer = Customer::findOrFail($id);
+
+        // Customer must have a linked user account with an email
+        if (!$customer->user_id || !$customer->email) {
+            return response()->json([
+                'message' => 'This customer does not have an account with a registered email address.'
+            ], 422);
+        }
+
+        $status = Password::sendResetLink(['email' => $customer->email]);
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return response()->json(['message' => 'Password reset email sent to ' . $customer->email]);
+        }
+
+        return response()->json([
+            'message' => 'Could not send reset email. The customer may not have a linked account.'
+        ], 422);
     }
 }
