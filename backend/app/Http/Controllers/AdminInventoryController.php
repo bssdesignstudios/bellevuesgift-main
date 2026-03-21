@@ -194,9 +194,8 @@ class AdminInventoryController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated, $inventory) {
-            // Reload with lock to prevent race conditions
-            $inventory = $inventory->fresh();
-            $inventory->lockForUpdate();
+            // Reload with a SELECT … FOR UPDATE lock to prevent concurrent adjustment races
+            $inventory = Inventory::lockForUpdate()->findOrFail($inventory->id);
 
             $oldQty = $inventory->qty_on_hand;
 

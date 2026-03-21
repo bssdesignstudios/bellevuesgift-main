@@ -15,6 +15,7 @@ import { Order, OrderItem } from '@/types';
 import { ORDER_STATUSES } from '@/lib/constants';
 import { usePage } from '@inertiajs/react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 
 function getCustomerType(order: Order): { label: string; color: string } {
   if (!order.customer_id) {
@@ -393,6 +394,7 @@ export default function AdminOrders() {
           </DialogContent>
         </Dialog>
       </div>
+      <SOPHelper context="orders" />
     </AdminLayout>
   );
 }

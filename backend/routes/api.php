@@ -88,8 +88,8 @@ Route::prefix('repair')->group(function () {
     Route::post('/status', [RepairTicketController::class, 'show']);
 });
 
-// Admin API
-Route::prefix('admin')->group(function () {
+// Admin API — protected: requires authenticated staff session
+Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/categories', [AdminCategoryController::class, 'index']);
     Route::post('/categories', [AdminCategoryController::class, 'store']);
     Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
@@ -123,6 +123,7 @@ Route::prefix('admin')->group(function () {
 
     Route::get('/customers', [AdminCustomerController::class, 'index']);
     Route::get('/customers/{customer}', [AdminCustomerController::class, 'show']);
+    Route::post('/customers/{id}/send-password-reset', [AdminCustomerController::class, 'sendPasswordReset']);
 
     Route::get('/gift-cards', [AdminGiftCardController::class, 'index']);
     Route::post('/gift-cards', [AdminGiftCardController::class, 'store']);

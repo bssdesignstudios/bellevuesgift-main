@@ -15,6 +15,7 @@ import { Plus, Pencil, Trash2, Search, Filter, ArrowUpDown, X, Tag, Package, Ale
 import { Badge } from '@/components/ui/badge';
 import { Product, Category, Vendor } from '@/types';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AdminProducts() {
@@ -348,6 +349,7 @@ export default function AdminProducts() {
           </Table>
         </div>
       </div>
+      <SOPHelper context="inventory" />
     </AdminLayout>
   );
 }

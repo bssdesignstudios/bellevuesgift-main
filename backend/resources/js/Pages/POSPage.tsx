@@ -39,9 +39,10 @@ export default function POSPage() {
 
   const onPOSDomain = isPOSDomain();
 
-  // Get staff UUID from Inertia page props for register session management
+  // Get staff UUID from Inertia page props for register session management.
+  // auth.staff.staff_uuid is the UUID from the staff table (not the integer users.id).
   const pageProps = usePage().props as any;
-  const staffUuid = pageProps?.auth?.staff?.staff_uuid || effectiveStaff?.id;
+  const staffUuid = pageProps?.auth?.staff?.staff_uuid || effectiveStaff?.staff_uuid;
 
   const {
     registers,
@@ -72,18 +73,22 @@ export default function POSPage() {
 
   // Server-side auth middleware already protects this route.
   // If this page rendered, the user IS authenticated.
-  // Read staff from Inertia page props as reliable source of truth.
+  // IMPORTANT: Always source staff_uuid from Inertia page props — it is the UUID from the
+  // staff table and is required for register sessions and Order creation. The AuthContext
+  // effectiveStaff.id is the integer users.id, NOT the staff UUID, so we must merge it in.
   const pageStaff = pageProps?.auth?.staff;
-  const resolvedStaff = effectiveStaff ?? (pageStaff ? {
-    id: String(pageStaff.id),
-    staff_uuid: pageStaff.staff_uuid,
-    name: pageStaff.name,
-    email: pageStaff.email,
-    role: pageStaff.role,
-    auth_user_id: null,
-    is_active: true,
-    created_at: new Date().toISOString(),
-  } as any : null);
+  const resolvedStaff = effectiveStaff
+    ? { ...effectiveStaff, staff_uuid: pageStaff?.staff_uuid ?? effectiveStaff.staff_uuid }
+    : (pageStaff ? {
+        id: String(pageStaff.id),
+        staff_uuid: pageStaff.staff_uuid,
+        name: pageStaff.name,
+        email: pageStaff.email,
+        role: pageStaff.role,
+        auth_user_id: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      } as any : null);
 
   if (!resolvedStaff) {
     // Truly unauthenticated — redirect to login
@@ -113,14 +118,14 @@ export default function POSPage() {
       setCloseShiftOpen(true);
       return;
     }
-    await signOut();
-    window.location.href = onPOSDomain ? '/pos/login' : '/staff/login';
+    // Pass domain-aware redirect so signOut() goes to the correct login page
+    await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
   };
 
   const handleCloseShiftConfirm = async (closingBalance: number, notes?: string) => {
     await closeSession.mutateAsync({ closingBalance, notes });
-    await signOut();
-    window.location.href = onPOSDomain ? '/pos/login' : '/staff/login';
+    // Pass domain-aware redirect — signOut handles navigation, no duplicate override needed
+    await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
   };
 
   const displayName = effectiveStaff?.name ?? 'Staff';

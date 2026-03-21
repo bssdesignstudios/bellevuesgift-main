@@ -19,7 +19,7 @@ interface AuthContextType {
   authError: string | null;
   impersonating: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; staff?: Staff | null }>;
-  signOut: () => Promise<void>;
+  signOut: (redirectTo?: string) => Promise<void>;
   impersonate: (targetId: string | null, password?: string) => Promise<void>;
   effectiveStaff: Staff | null;
   retryAuth: () => void;
@@ -29,10 +29,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/** Turn a server staff payload { id, name, email, role, impersonated_by_admin_id } into a full Staff object */
-function toStaff(data: { id: number | string; name: string; email: string; role: string, impersonated_by_admin_id?: number | null }): Staff {
+/** Turn a server staff payload { id, name, email, role, staff_uuid, impersonated_by_admin_id } into a full Staff object */
+function toStaff(data: { id: number | string; name: string; email: string; role: string; staff_uuid?: string; impersonated_by_admin_id?: number | null }): Staff {
   return {
     id: String(data.id),
+    staff_uuid: data.staff_uuid,
     auth_user_id: null,
     name: data.name,
     email: data.email,
@@ -99,7 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ── sign out ───────────────────────────────────────────────────────────────
-  const signOut = async () => {
+  // redirectTo defaults to /staff/login for admin/warehouse; POS callers pass /pos/login
+  const signOut = async (redirectTo: string = '/staff/login') => {
     try {
       await axios.post('/staff/logout');
     } catch {
@@ -108,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setStaff(null);
     setUser(null);
-    window.location.href = '/staff/login';
+    window.location.href = redirectTo;
   };
 
   // ── impersonation ──────────────────────────────────────────────────────────

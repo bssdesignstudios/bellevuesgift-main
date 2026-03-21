@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Search, Package, FolderOpen, X } from 'lucide-react';
 import { Category } from '@/types';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 
 interface CategoryWithCount extends Category {
   products_count?: number;
@@ -243,6 +244,7 @@ export default function AdminCategories() {
           </Table>
         </div>
       </div>
+      <SOPHelper context="inventory" />
     </AdminLayout>
   );
 }

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award } from 'lucide-react';
+import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award, KeyRound, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
@@ -80,6 +80,8 @@ export default function AdminCustomers() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [detailData, setDetailData] = useState<Customer | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [resetStatus, setResetStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
+  const [resetError, setResetError] = useState<string>('');
 
   const { data: customers, isLoading } = useQuery({
     queryKey: ['admin-customers', search, tierFilter],
@@ -95,6 +97,8 @@ export default function AdminCustomers() {
   const openDetail = async (customer: Customer) => {
     setSelectedCustomer(customer);
     setLoadingDetail(true);
+    setResetStatus('idle');
+    setResetError('');
     try {
       const { data } = await axios.get(`/api/admin/customers/${customer.id}`);
       setDetailData(data);
@@ -102,6 +106,18 @@ export default function AdminCustomers() {
       setDetailData(null);
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  const handleSendPasswordReset = async (customerId: string) => {
+    setResetStatus('loading');
+    setResetError('');
+    try {
+      await axios.post(`/api/admin/customers/${customerId}/send-password-reset`);
+      setResetStatus('sent');
+    } catch (err: any) {
+      setResetStatus('error');
+      setResetError(err.response?.data?.message || 'Failed to send reset email.');
     }
   };
 
@@ -350,6 +366,40 @@ export default function AdminCustomers() {
                     <ShoppingBag className="h-4 w-4 mr-1" />
                     View All Orders
                   </Button>
+
+                  {detail.email && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={resetStatus === 'loading' || resetStatus === 'sent'}
+                      onClick={() => {
+                        if (resetStatus === 'sent') return;
+                        if (confirm(`Send a password reset email to ${detail.email}?`)) {
+                          handleSendPasswordReset(detail.id);
+                        }
+                      }}
+                    >
+                      {resetStatus === 'loading' ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          Sending…
+                        </>
+                      ) : resetStatus === 'sent' ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-1 text-emerald-600" />
+                          Reset Email Sent
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="h-4 w-4 mr-1" />
+                          Send Password Reset
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {resetStatus === 'error' && (
+                    <p className="text-xs text-destructive w-full mt-1">{resetError}</p>
+                  )}
                 </div>
               </div>
             )}

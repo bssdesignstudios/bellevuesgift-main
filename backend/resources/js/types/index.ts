@@ -68,6 +68,7 @@ export interface Customer {
 
 export interface Staff {
   id: number | string;
+  staff_uuid?: string;
   name: string;
   email: string;
   role: 'cashier' | 'warehouse' | 'warehouse_manager' | 'admin' | 'finance';

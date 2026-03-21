@@ -230,6 +230,10 @@ Route::get('/account/wishlist', function () {
     return Inertia::render('account/AccountWishlistPage');
 })->name('account.wishlist');
 
+Route::get('/account/gift-cards', function () {
+    return Inertia::render('account/AccountGiftCardsPage');
+})->name('account.gift-cards');
+
 Route::get('/account/forgot-password', function () {
     return Inertia::render('account/AccountForgotPasswordPage');
 })->name('account.forgot-password');
@@ -258,6 +262,40 @@ Route::post('/forgot-password', function (Request $request) {
         ], 503);
     }
 })->name('forgot-password');
+
+// Password reset callback — email link lands here
+Route::get('/reset-password/{token}', function (string $token) {
+    return Inertia::render('account/AccountResetPasswordPage', [
+        'token' => $token,
+        'email' => request()->query('email', ''),
+    ]);
+})->name('password.reset');
+
+Route::post('/reset-password', function (Request $request) {
+    $request->validate([
+        'token'                 => 'required',
+        'email'                 => 'required|email',
+        'password'              => 'required|string|min:8|confirmed',
+        'password_confirmation' => 'required',
+    ]);
+
+    try {
+        $status = \Illuminate\Support\Facades\Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill(['password' => \Illuminate\Support\Facades\Hash::make($password)])->save();
+            }
+        );
+
+        if ($status === \Illuminate\Support\Facades\Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Password reset successfully.']);
+        }
+
+        return response()->json(['message' => 'This reset link is invalid or has expired.'], 422);
+    } catch (\Throwable $e) {
+        return response()->json(['message' => 'Password reset failed. Please try again.'], 500);
+    }
+})->name('password.update');
 
 Route::get('/account/profile', function () {
     return Inertia::render('account/AccountProfilePage');
