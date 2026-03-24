@@ -762,7 +762,7 @@ function POSContent({
         couponCode={appliedCoupon?.code}
         staffId={effectiveStaff?.staff_uuid || effectiveStaff?.id}
         staffName={effectiveStaff?.name || 'Staff'}
-        registerName={effectiveStaff ? 'Register' : ''}
+        registerId={activeRegisterId}
         onSuccess={clearCart}
         isOnline={isOnline}
         addToQueue={addToQueue}
@@ -771,7 +771,7 @@ function POSContent({
   );
 }
 
-function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmount, total, couponCode, staffId, staffName, registerName, onSuccess, isOnline, addToQueue }: any) {
+function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmount, total, couponCode, staffId, staffName, registerId, onSuccess, isOnline, addToQueue }: any) {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'split' | 'gift_card'>('cash');
   const [giftCardCode, setGiftCardCode] = useState('');
   const [giftCardBalance, setGiftCardBalance] = useState<number | null>(null);
@@ -800,6 +800,7 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
       payment_method: paymentMethod,
       fulfillment_method: 'in_store',
       staff_id: staffId,
+      register_id: registerId,
       subtotal,
       discount_amount: discount,
       vat_amount: vatAmount,
