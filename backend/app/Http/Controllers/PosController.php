@@ -383,7 +383,6 @@ class PosController extends Controller
             'order_id' => 'required|exists:orders,id',
             'admin_pin' => 'required|string',
             'session_id' => 'required|exists:register_sessions,id',
-            'cashier_id' => 'required|exists:users,id',
             'amount' => 'required|numeric',
             'reason' => 'nullable|string',
         ]);
