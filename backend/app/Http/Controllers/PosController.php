@@ -44,7 +44,9 @@ class PosController extends Controller
         $registers->each(function ($register) {
             $register->current_session = RegisterSession::where('register_id', $register->id)
                 ->where(function ($q) {
-                    $q->where('status', 'open')->orWhereNull('status');
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'status')) {
+                        $q->where('status', 'open')->orWhereNull('status');
+                    }
                 })
                 ->whereNull('closed_at')
                 ->with('staff')
@@ -62,9 +64,10 @@ class PosController extends Controller
 
         $session = RegisterSession::where('register_id', $validated['register_id'])
             ->where(function ($q) {
-                // Handle cases where status column might not exist yet if migration is lagging
-                // though it shouldn't in this new implementation.
-                $q->where('status', 'open')->orWhereNull('status');
+                // Defensive check for pending migrations
+                if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'status')) {
+                    $q->where('status', 'open')->orWhereNull('status');
+                }
             })
             ->whereNull('closed_at')
             ->orderBy('opened_at', 'desc')
