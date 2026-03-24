@@ -63,18 +63,18 @@ export function RegisterSelector({ open, registers, onSelect, onJoin, onClose }:
           </DialogTitle>
         </DialogHeader>
 
-        {step === 'select' ? (
-          <div className="grid gap-3">
+        {step === 'select' && (
+          <div className="grid gap-3 py-4">
             {registers.map((register) => (
               <Card
                 key={register.id}
-                className="cursor-pointer hover:border-primary transition-colors"
+                className={`cursor-pointer transition-all hover:border-primary ${selectedRegister === register.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''}`}
                 onClick={() => handleRegisterClick(register)}
               >
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Monitor className="h-6 w-6 text-primary" />
+                    <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${selectedRegister === register.id ? 'bg-primary text-white' : 'bg-primary/10 text-primary'}`}>
+                      <Monitor className="h-6 w-6" />
                     </div>
                     <div>
                       <div className="font-semibold">{register.name}</div>
@@ -83,31 +83,34 @@ export function RegisterSelector({ open, registers, onSelect, onJoin, onClose }:
                   </div>
                   {register.current_session ? (
                     <div className="text-right">
-                      <div className="text-xs font-semibold px-2 py-1 bg-green-100 text-green-700 rounded-full mb-1">
-                        Open Session
+                      <div className="text-[10px] font-bold px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full mb-1 inline-block uppercase">
+                        Active Session
                       </div>
                       <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                        Joined: {register.current_session.staff?.name}
+                        Cashier: {register.current_session.staff?.name}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs font-semibold px-2 py-1 bg-muted text-muted-foreground rounded-full">
-                      Ready to Open
+                    <div className="text-[10px] font-bold px-2 py-0.5 bg-muted text-muted-foreground rounded-full uppercase">
+                      Offline
                     </div>
                   )}
                 </CardContent>
               </Card>
             ))}
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="text-center text-muted-foreground font-medium">
-              Opening Register: {registers.find(r => r.id === selectedRegister)?.name}
+        )}
+
+        {step === 'balance' && (
+          <div className="space-y-4 py-4">
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Confirming Register</div>
+              <div className="text-lg font-bold">{registers.find(r => r.id === selectedRegister)?.name}</div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="opening-balance">Opening Cash Balance</Label>
+            <div className="space-y-3">
+              <Label htmlFor="opening-balance" className="text-xs font-bold uppercase text-muted-foreground">Opening Cash Float</Label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="opening-balance"
                   type="number"
@@ -115,30 +118,37 @@ export function RegisterSelector({ open, registers, onSelect, onJoin, onClose }:
                   min="0"
                   value={openingBalance}
                   onChange={(e) => setOpeningBalance(e.target.value)}
-                  className="pl-9 text-lg"
+                  className="pl-10 h-14 text-2xl font-bold bg-muted/50 border-0 focus-visible:ring-primary"
                   autoFocus
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Count the cash in the drawer and enter the total amount
-              </p>
+              <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  Open the cash drawer and count the physical cash today. Enter the total amount to start your session.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        <DialogFooter className="gap-2">
-          {step === 'balance' && (
-            <Button variant="outline" onClick={handleBack} className="flex-1">
-              Back
-            </Button>
-          )}
-          {step === 'balance' && (
-            <Button onClick={handleConfirm} className="flex-1">
-              Open Register
+        <DialogFooter className="flex sm:justify-between gap-2 mt-2">
+          {step === 'balance' ? (
+            <>
+              <Button variant="ghost" onClick={handleBack} className="flex-1">
+                Back
+              </Button>
+              <Button onClick={handleConfirm} className="flex-1 shadow-lg shadow-primary/20">
+                Open Register
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" className="w-full text-muted-foreground" onClick={onClose}>
+              Cancel
             </Button>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
   );
 }

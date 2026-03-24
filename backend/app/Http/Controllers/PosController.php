@@ -94,7 +94,9 @@ class PosController extends Controller
         // Prevention: do not allow multiple open sessions for same register
         $existing = RegisterSession::where('register_id', $validated['register_id'])
             ->where(function ($q) {
-                $q->where('status', 'open')->orWhereNull('status');
+                if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'status')) {
+                    $q->where('status', 'open')->orWhereNull('status');
+                }
             })
             ->whereNull('closed_at')
             ->exists();

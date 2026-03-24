@@ -235,24 +235,40 @@ export default function POSPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        <POSContent
-          cart={cart}
-          setCart={setCart}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          couponCode={couponCode}
-          setCouponCode={setCouponCode}
-          appliedCoupon={appliedCoupon}
-          setAppliedCoupon={setAppliedCoupon}
-          checkoutOpen={checkoutOpen}
-          setCheckoutOpen={setCheckoutOpen}
-          searchInputRef={searchInputRef}
-          effectiveStaff={resolvedStaff}
-          isOnline={isOnline}
-          addToQueue={addToQueue}
-        />
+        {hasActiveSession ? (
+          <POSContent
+            cart={cart}
+            setCart={setCart}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            couponCode={couponCode}
+            setCouponCode={setCouponCode}
+            appliedCoupon={appliedCoupon}
+            setAppliedCoupon={setAppliedCoupon}
+            checkoutOpen={checkoutOpen}
+            setCheckoutOpen={setCheckoutOpen}
+            searchInputRef={searchInputRef}
+            effectiveStaff={resolvedStaff}
+            user={user}
+            activeSessionId={activeSessionId}
+            isOnline={isOnline}
+            addToQueue={addToQueue}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-muted/20">
+            <div className="text-center p-8">
+              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Monitor className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold">Register Pending</h3>
+              <p className="text-muted-foreground text-sm max-w-[280px] mt-2">
+                Use the selector above or click a register to open your day.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -262,7 +278,7 @@ function POSContent({
   cart, setCart, searchQuery, setSearchQuery, selectedCategory, setSelectedCategory,
   couponCode, setCouponCode, appliedCoupon, setAppliedCoupon,
   checkoutOpen, setCheckoutOpen,
-  searchInputRef, effectiveStaff,
+  searchInputRef, effectiveStaff, user, activeSessionId,
   isOnline, addToQueue
 }: any) {
   const queryClient = useQueryClient();
