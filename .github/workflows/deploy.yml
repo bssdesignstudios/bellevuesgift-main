@@ -24,8 +24,14 @@ jobs:
           script: |
             git config --global --add safe.directory /var/www/bellevuesgift
             cd /var/www/bellevuesgift
+            echo "Current Remote:"
+            git remote -v
+            echo "Latest Commit Before Reset:"
+            git log -1 --oneline
             git fetch origin main
             git reset --hard origin/main
+            echo "Latest Commit After Reset:"
+            git log -1 --oneline
             cd backend
             composer install --no-dev --optimize-autoloader
             npm install
