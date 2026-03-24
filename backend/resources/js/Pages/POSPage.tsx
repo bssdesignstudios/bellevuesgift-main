@@ -141,10 +141,9 @@ export default function POSPage() {
     await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
   };
 
-  const displayName = effectiveStaff?.name ?? 'Staff';
-  const displayRole = effectiveStaff?.role?.replace('_', ' ') ?? 'staff';
+  const displayName = resolvedStaff?.name ?? staff?.name ?? 'Staff';
+  const displayRole = (resolvedStaff?.role ?? staff?.role)?.replace('_', ' ') ?? 'staff';
 
-  // Register selector already defined above
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -253,6 +252,9 @@ export default function POSPage() {
             effectiveStaff={resolvedStaff}
             user={user}
             activeSessionId={activeSessionId}
+            activeRegisterId={activeRegisterId}
+            currentSession={currentSession}
+            registers={registers}
             isOnline={isOnline}
             addToQueue={addToQueue}
           />
@@ -279,6 +281,7 @@ function POSContent({
   couponCode, setCouponCode, appliedCoupon, setAppliedCoupon,
   checkoutOpen, setCheckoutOpen,
   searchInputRef, effectiveStaff, user, activeSessionId,
+  activeRegisterId, currentSession, registers,
   isOnline, addToQueue
 }: any) {
   const queryClient = useQueryClient();
@@ -763,6 +766,7 @@ function POSContent({
         staffId={effectiveStaff?.staff_uuid || effectiveStaff?.id}
         staffName={effectiveStaff?.name || 'Staff'}
         registerId={currentSession?.register_id || activeRegisterId}
+        registerName={registers?.find(r => r.id === (currentSession?.register_id || activeRegisterId))?.name || 'POS'}
         onSuccess={clearCart}
         isOnline={isOnline}
         addToQueue={addToQueue}
@@ -771,7 +775,7 @@ function POSContent({
   );
 }
 
-function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmount, total, couponCode, staffId, staffName, registerId, onSuccess, isOnline, addToQueue }: any) {
+function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmount, total, couponCode, staffId, staffName, registerId, registerName, onSuccess, isOnline, addToQueue }: any) {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'split' | 'gift_card'>('cash');
   const [giftCardCode, setGiftCardCode] = useState('');
   const [giftCardBalance, setGiftCardBalance] = useState<number | null>(null);
@@ -821,8 +825,8 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
       setReceiptOrder({
         order_number: `OFFLINE-${txId.slice(0, 8).toUpperCase()}`,
         total,
-        offline: true,
-      });
+        notes: '[OFFLINE TRANSACTION]',
+      } as any);
       playBeep('success');
       toast.success('Transaction saved offline — will sync when connected');
       onSuccess();
@@ -846,8 +850,8 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
         setReceiptOrder({
           order_number: `OFFLINE-${txId.slice(0, 8).toUpperCase()}`,
           total,
-          offline: true,
-        });
+          notes: '[OFFLINE SYNC ERROR]',
+        } as any);
         playBeep('success');
         toast.warning('Connection lost — transaction saved offline');
         onSuccess();
@@ -881,41 +885,41 @@ function CheckoutDialog({ open, onOpenChange, cart, subtotal, discount, vatAmoun
         {receiptOrder ? (
           <div className="space-y-4">
             <div className="text-center">
-              <div className="text-xl font-bold">{receiptOrder.order_number}</div>
+              <div className="text-xl font-bold">{(receiptOrder as any).order_number}</div>
               <div className="text-muted-foreground">
-                {receiptOrder.offline ? 'Saved Offline — Will Sync' : 'Payment Complete'}
+                {(receiptOrder as any).notes?.includes('OFFLINE') ? 'Saved Offline — Will Sync' : 'Payment Complete'}
               </div>
             </div>
-            {receiptOrder.offline && (
+            {(receiptOrder as any).notes?.includes('OFFLINE') && (
               <div className="text-center text-sm text-amber-600 bg-amber-50 rounded-lg p-2">
                 This transaction will be synced when connection is restored
               </div>
             )}
-            <div className={`text-center text-3xl font-bold ${receiptOrder.offline ? 'text-amber-600' : 'text-success'}`}>
-              ${Number(receiptOrder.total).toFixed(2)}
+            <div className={`text-center text-3xl font-bold ${(receiptOrder as any).notes?.includes('OFFLINE') ? 'text-amber-600' : 'text-success'}`}>
+              ${Number((receiptOrder as any).total).toFixed(2)}
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 className="flex-1"
                 onClick={() => printReceipt({
-                  orderNumber: receiptOrder.order_number,
+                  orderNumber: (receiptOrder as any).order_number,
                   date: new Date().toLocaleString(),
                   cashier: staffName || 'Staff',
                   register: registerName || 'POS',
-                  items: (receiptOrder.items || cart).map((item: any) => ({
+                  items: ((receiptOrder as any).items || cart).map((item: any) => ({
                     name: item.name || item.product?.name || '',
                     sku: item.sku || item.product?.sku || '',
                     qty: item.qty,
                     unit_price: Number(item.unit_price || item.product?.price || 0),
                     line_total: Number(item.line_total || (item.product?.price || 0) * item.qty),
                   })),
-                  subtotal: Number(receiptOrder.subtotal || subtotal),
-                  discount: Number(receiptOrder.discount_amount || discount),
-                  vatAmount: Number(receiptOrder.vat_amount || vatAmount),
-                  total: Number(receiptOrder.total),
-                  paymentMethod: receiptOrder.payment_method || paymentMethod,
-                  offline: receiptOrder.offline,
+                  subtotal: Number((receiptOrder as any).subtotal || subtotal),
+                  discount: Number((receiptOrder as any).discount_amount || discount),
+                  vatAmount: Number((receiptOrder as any).vat_amount || vatAmount),
+                  total: Number((receiptOrder as any).total),
+                  paymentMethod: (receiptOrder as any).payment_method || paymentMethod,
+                  offline: (receiptOrder as any).offline,
                 })}
               >
                 <Printer className="h-4 w-4 mr-2" />
