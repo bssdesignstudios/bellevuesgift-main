@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Receipt, Package, RotateCcw, LogOut, Wrench, Monitor, WifiOff, X, ChevronUp } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Receipt, Package, RotateCcw, LogOut, Wrench, Monitor, WifiOff, X, ChevronUp, ShieldAlert } from 'lucide-react';
+import { format } from 'date-fns';
 import { playBeep } from '@/lib/beep';
 import { VAT_RATE } from '@/lib/constants';
 import { Product, Category, CartItem, Order } from '@/types';
@@ -49,7 +50,9 @@ export default function POSPage() {
     activeRegisterId,
     activeSessionId,
     openSession,
-    closeSession,
+    joinSession,
+    switchCashier,
+    closeRegister,
     hasActiveSession
   } = useRegister(staffUuid);
 
@@ -114,17 +117,27 @@ export default function POSPage() {
   const showRegisterSelector = !hasActiveSession && !!registers && registers.length > 0;
 
   const handleSignOut = async () => {
-    if (hasActiveSession) {
-      setCloseShiftOpen(true);
+    // Standard sign out for non-POS staff or if no session
+    if (!hasActiveSession) {
+      await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
       return;
     }
-    // Pass domain-aware redirect so signOut() goes to the correct login page
+    
+    // POS staff with active session: show option to switch or close
+    // For now, default to showing the close shift options (which include logout)
+    setCloseShiftOpen(true);
+  };
+
+  const handleSwitchCashier = async () => {
+    if (!activeSessionId) return;
+    await switchCashier.mutateAsync(activeSessionId);
     await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
   };
 
-  const handleCloseShiftConfirm = async (closingBalance: number, notes?: string) => {
-    await closeSession.mutateAsync({ closingBalance, notes });
-    // Pass domain-aware redirect — signOut handles navigation, no duplicate override needed
+  const handleCloseShiftConfirm = async (closingBalance: number, adminPin: string, notes?: string) => {
+    if (!activeSessionId) return;
+    await closeRegister.mutateAsync({ sessionId: activeSessionId, closingBalance, adminPin, notes });
+    // Pass domain-aware redirect — signOut handles navigation
     await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
   };
 
@@ -140,6 +153,7 @@ export default function POSPage() {
         open={showRegisterSelector}
         registers={registers || []}
         onSelect={(registerId, openingBalance) => openSession.mutate({ registerId, openingBalance })}
+        onJoin={(sessionId) => joinSession.mutate(sessionId)}
         onClose={() => { }}
       />
 
@@ -193,9 +207,29 @@ export default function POSPage() {
           {effectiveStaff?.role === 'cashier' && (
             <span className="text-xs opacity-70 hidden sm:inline">Cashier Mode</span>
           )}
-          <Button variant="ghost" size="icon" className="h-8 w-8 lg:h-9 lg:w-9 text-header-foreground hover:bg-white/10 hover:text-white" onClick={handleSignOut}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 lg:h-9 lg:w-9 text-header-foreground hover:bg-white/10 hover:text-white" title="Actions" onClick={handleSignOut}>
             <LogOut className="h-4 w-4" />
           </Button>
+          {hasActiveSession && (
+            <div className="flex gap-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="hidden xl:flex bg-white/10 text-white border-white/20 hover:bg-white/20 h-8"
+                onClick={handleSwitchCashier}
+              >
+                Switch Cashier
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="hidden xl:flex bg-white/10 text-white border-white/20 hover:bg-white/20 h-8"
+                onClick={() => setCloseShiftOpen(true)}
+              >
+                End Day
+              </Button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -494,7 +528,7 @@ function POSContent({
       </TabsContent>
 
       <TabsContent value="refund" className="m-0 flex-1 overflow-y-auto p-4">
-        <RefundTab staffId={effectiveStaff?.id} />
+        <RefundTab activeSessionId={activeSessionId} cashierId={user?.id} />
       </TabsContent>
     </Tabs>
   );
@@ -1130,9 +1164,11 @@ function PickupPaymentForm({ order, staffId, onSuccess }: { order: Order; staffI
   );
 }
 
-function RefundTab({ staffId }: { staffId?: string }) {
+function RefundTab({ activeSessionId, cashierId }: { activeSessionId: string | null; cashierId?: string }) {
   const [orderNumber, setOrderNumber] = useState('');
   const [order, setOrder] = useState<Order | null>(null);
+  const [adminPin, setAdminPin] = useState('');
+  const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
 
@@ -1157,20 +1193,29 @@ function RefundTab({ staffId }: { staffId?: string }) {
   };
 
   const processRefund = async () => {
-    if (!order) return;
+    if (!order || !activeSessionId || !adminPin) return;
     setLoading(true);
 
     try {
-      await axios.post(`/api/pos/orders/${order.id}/refund`);
+      await axios.post('/api/pos/session/refund-approval', {
+        order_id: order.id,
+        admin_pin: adminPin,
+        session_id: activeSessionId,
+        cashier_id: cashierId,
+        amount: Number(order.total),
+        reason: reason || 'POS Refund'
+      });
 
       playBeep('success');
-      toast.success('Refund processed!');
+      toast.success('Refund processed successfully!');
       setOrder(null);
       setOrderNumber('');
+      setAdminPin('');
+      setReason('');
       queryClient.invalidateQueries({ queryKey: ['pos-products'] });
 
     } catch (error: any) {
-      toast.error('Error: ' + (error.response?.data?.message || error.message));
+      toast.error('Authorization failed: ' + (error.response?.data?.message || 'Check Admin PIN'));
     }
 
     setLoading(false);
@@ -1189,36 +1234,83 @@ function RefundTab({ staffId }: { staffId?: string }) {
       </div>
 
       {order && (
-        <div className="space-y-4">
-          <div className="p-4 bg-muted rounded-lg">
-            <div className="font-bold text-lg">{order.order_number}</div>
-            <div className="text-sm text-muted-foreground">
-              Status: {order.status} • Channel: {order.channel.toUpperCase()}
+        <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+          <div className="p-4 bg-muted rounded-lg border">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="font-bold text-lg">{order.order_number}</div>
+                <div className="text-xs text-muted-foreground uppercase">
+                  {format(new Date(order.created_at!), 'MMM d, yyyy h:mm a')}
+                </div>
+              </div>
+              <div className="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">
+                {order.status}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5 px-1 max-h-[200px] overflow-y-auto">
             {order.items?.map((item) => (
               <div key={item.id} className="flex justify-between text-sm">
-                <span>{item.qty}x {item.name}</span>
-                <span>${Number(item.line_total).toFixed(2)}</span>
+                <span className="text-muted-foreground">{item.qty}x {item.name}</span>
+                <span className="font-medium">${Number(item.line_total).toFixed(2)}</span>
               </div>
             ))}
-            <div className="flex justify-between font-bold pt-2 border-t">
-              <span>Refund Amount</span>
-              <span className="text-destructive">${Number(order.total).toFixed(2)}</span>
+          </div>
+
+          <div className="flex justify-between font-black text-lg py-3 border-y border-dashed">
+            <span className="uppercase tracking-tighter">Refund Total</span>
+            <span className="text-destructive">${Number(order.total).toFixed(2)}</span>
+          </div>
+
+          {/* Admin Authorization Block */}
+          <div className="p-4 space-y-4 bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-xl">
+            <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+              <ShieldAlert className="h-4 w-4" />
+              <span className="text-xs font-bold uppercase tracking-wider">Manager Authorization Required</span>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="refund-reason" className="text-[10px] font-bold uppercase text-muted-foreground">Reason for Refund</Label>
+                <Input
+                  id="refund-reason"
+                  placeholder="e.g. Damaged item, Customer changed mind"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="bg-background"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="refund-admin-pin" className="text-[10px] font-bold uppercase text-muted-foreground">Manager/Admin PIN</Label>
+                <Input
+                  id="refund-admin-pin"
+                  type="password"
+                  placeholder="••••"
+                  maxLength={4}
+                  value={adminPin}
+                  onChange={(e) => setAdminPin(e.target.value)}
+                  className="text-center text-xl font-black bg-background"
+                />
+              </div>
             </div>
           </div>
 
           <Button
             variant="destructive"
-            className="w-full"
+            className="w-full h-12 font-bold uppercase"
             onClick={processRefund}
-            disabled={loading || order.status === 'refunded'}
+            disabled={loading || order.status === 'refunded' || !adminPin || !activeSessionId}
           >
             <RotateCcw className="h-4 w-4 mr-2" />
-            {order.status === 'refunded' ? 'Already Refunded' : 'Process Refund'}
+            {order.status === 'refunded' ? 'Already Refunded' : 'Authorize & Process Refund'}
           </Button>
+          
+          {!activeSessionId && (
+            <p className="text-[10px] text-center text-destructive font-medium uppercase tracking-tighter">
+              Cannot refund: No active register session found
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -38,16 +38,15 @@ export default function MaintenancePage() {
         <div className="text-center max-w-lg mb-10">
           <div className="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/30 rounded-full px-4 py-1.5 text-amber-300 text-xs font-semibold uppercase tracking-wider mb-6">
             <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
-            Scheduled Maintenance
+            COMING SOON
           </div>
 
           <h2 className="text-2xl md:text-3xl font-bold mb-4 leading-tight">
-            We're updating our online store.
+            We’re getting ready to launch.
           </h2>
 
           <p className="text-white/70 text-lg leading-relaxed">
-            We'll be back shortly. Our team is working to bring you an even better
-            shopping experience. Thank you for your patience.
+            Our online store is almost ready. We’re putting the final touches in place to bring you a seamless shopping experience. Stay tuned — we’ll be live soon.
           </p>
         </div>
 
@@ -76,18 +75,6 @@ export default function MaintenancePage() {
             sales@bellevuegifts.com
           </a>
         </div>
-
-        {/* Footer note */}
-        <p className="mt-10 text-white/30 text-xs text-center">
-          Are you staff?{' '}
-          <a href="/staff/login" className="underline hover:text-white/60 transition-colors">
-            Staff login
-          </a>
-          {' '}·{' '}
-          <a href="/pos/login" className="underline hover:text-white/60 transition-colors">
-            POS terminal
-          </a>
-        </p>
       </div>
     </>
   );

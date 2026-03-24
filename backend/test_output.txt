@@ -1,0 +1,7 @@
+
+   PASS  Tests\Feature\PosSessionSimpleTest
+  ✓ can open pos session minimal                                         3.22s  
+
+  Tests:    1 passed (5 assertions)
+  Duration: 3.26s
+

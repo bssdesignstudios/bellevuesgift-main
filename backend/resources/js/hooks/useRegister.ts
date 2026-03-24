@@ -20,6 +20,11 @@ interface RegisterSession {
   closed_at: string | null;
   opening_balance: number;
   closing_balance: number | null;
+  status: 'open' | 'closed';
+  staff?: {
+    id: string;
+    name: string;
+  };
 }
 
 export function useRegister(staffId: string | undefined) {
@@ -46,17 +51,17 @@ export function useRegister(staffId: string | undefined) {
     },
   });
 
-  // Fetch current session
-  const { data: currentSession } = useQuery({
-    queryKey: ['register-session', activeRegisterId, staffId],
+  // Fetch current session for this register (any staff)
+  const { data: currentSession, isLoading: isLoadingSession } = useQuery({
+    queryKey: ['register-session', activeRegisterId],
     queryFn: async () => {
-      if (!activeRegisterId || !staffId) return null;
+      if (!activeRegisterId) return null;
       const response = await axios.get('/api/pos/session', {
-        params: { register_id: activeRegisterId, staff_id: staffId }
+        params: { register_id: activeRegisterId }
       });
       return response.data as RegisterSession | null;
     },
-    enabled: !!activeRegisterId && !!staffId,
+    enabled: !!activeRegisterId,
   });
 
   // Open register session
@@ -86,12 +91,48 @@ export function useRegister(staffId: string | undefined) {
     },
   });
 
-  // Close register session
-  const closeSession = useMutation({
-    mutationFn: async ({ closingBalance, notes }: { closingBalance: number; notes?: string }) => {
-      if (!currentSession) throw new Error('No active session');
-      const response = await axios.put(`/api/pos/session/${currentSession.id}`, {
+  // Join existing register session
+  const joinSession = useMutation({
+    mutationFn: async (sessionId: string) => {
+      if (!staffId) throw new Error('No staff ID');
+      const response = await axios.post('/api/pos/session/join', {
+        session_id: sessionId,
+        staff_id: staffId,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setActiveSessionId(data.id);
+      queryClient.invalidateQueries({ queryKey: ['register-session'] });
+      toast.success('Joined register session');
+    },
+    onError: (error) => {
+      toast.error('Failed to join session: ' + ((error as any).response?.data?.message || (error as Error).message));
+    },
+  });
+
+  // Switch cashier (logout from session)
+  const switchCashier = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await axios.post('/api/pos/session/switch-cashier', {
+        session_id: sessionId,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      setActiveSessionId(null);
+      queryClient.invalidateQueries({ queryKey: ['register-session'] });
+      toast.success('Switched out successfully');
+    },
+  });
+
+  // End of Day: Close register session (Requires Admin PIN)
+  const closeRegister = useMutation({
+    mutationFn: async ({ sessionId, closingBalance, adminPin, notes }: { sessionId: string; closingBalance: number; adminPin: string; notes?: string }) => {
+      const response = await axios.post('/api/pos/session/close-register', {
+        session_id: sessionId,
         closing_balance: closingBalance,
+        admin_pin: adminPin,
         notes,
       });
       return response.data;
@@ -99,10 +140,10 @@ export function useRegister(staffId: string | undefined) {
     onSuccess: () => {
       setActiveSessionId(null);
       queryClient.invalidateQueries({ queryKey: ['register-session'] });
-      toast.success('Register session closed');
+      toast.success('Register closed successfully');
     },
     onError: (error) => {
-      toast.error('Failed to close register: ' + (error as any).response?.data?.message || (error as Error).message);
+      toast.error('Failed to close register: ' + ((error as any).response?.data?.message || (error as Error).message));
     },
   });
 
@@ -139,10 +180,13 @@ export function useRegister(staffId: string | undefined) {
     activeRegisterId,
     activeSessionId,
     currentSession,
+    isLoadingSession,
     selectRegister,
     openSession,
-    closeSession,
+    joinSession,
+    switchCashier,
+    closeRegister,
     logActivity,
-    hasActiveSession: !!currentSession && !currentSession.closed_at,
+    hasActiveSession: !!currentSession && (!currentSession.closed_at && currentSession.status !== 'closed'),
   };
 }

@@ -10,23 +10,34 @@ interface Register {
   id: string;
   name: string;
   location: string;
+  current_session?: {
+    id: string;
+    staff?: {
+      name: string;
+    };
+  } | null;
 }
 
 interface RegisterSelectorProps {
   open: boolean;
   registers: Register[];
   onSelect: (registerId: string, openingBalance: number) => void;
+  onJoin: (sessionId: string) => void;
   onClose: () => void;
 }
 
-export function RegisterSelector({ open, registers, onSelect, onClose }: RegisterSelectorProps) {
+export function RegisterSelector({ open, registers, onSelect, onJoin, onClose }: RegisterSelectorProps) {
   const [selectedRegister, setSelectedRegister] = useState<string | null>(null);
   const [openingBalance, setOpeningBalance] = useState('0');
   const [step, setStep] = useState<'select' | 'balance'>('select');
 
-  const handleRegisterClick = (registerId: string) => {
-    setSelectedRegister(registerId);
-    setStep('balance');
+  const handleRegisterClick = (register: Register) => {
+    if (register.current_session) {
+      onJoin(register.current_session.id);
+    } else {
+      setSelectedRegister(register.id);
+      setStep('balance');
+    }
   };
 
   const handleConfirm = () => {
@@ -58,24 +69,40 @@ export function RegisterSelector({ open, registers, onSelect, onClose }: Registe
               <Card
                 key={register.id}
                 className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => handleRegisterClick(register.id)}
+                onClick={() => handleRegisterClick(register)}
               >
-                <CardContent className="flex items-center gap-4 p-4">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Monitor className="h-6 w-6 text-primary" />
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Monitor className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-semibold">{register.name}</div>
+                      <div className="text-sm text-muted-foreground">{register.location}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-semibold">{register.name}</div>
-                    <div className="text-sm text-muted-foreground">{register.location}</div>
-                  </div>
+                  {register.current_session ? (
+                    <div className="text-right">
+                      <div className="text-xs font-semibold px-2 py-1 bg-green-100 text-green-700 rounded-full mb-1">
+                        Open Session
+                      </div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                        Joined: {register.current_session.staff?.name}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs font-semibold px-2 py-1 bg-muted text-muted-foreground rounded-full">
+                      Ready to Open
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="text-center text-muted-foreground">
-              Register: {registers.find(r => r.id === selectedRegister)?.name}
+            <div className="text-center text-muted-foreground font-medium">
+              Opening Register: {registers.find(r => r.id === selectedRegister)?.name}
             </div>
             <div className="space-y-2">
               <Label htmlFor="opening-balance">Opening Cash Balance</Label>
@@ -101,12 +128,12 @@ export function RegisterSelector({ open, registers, onSelect, onClose }: Registe
 
         <DialogFooter className="gap-2">
           {step === 'balance' && (
-            <Button variant="outline" onClick={handleBack}>
+            <Button variant="outline" onClick={handleBack} className="flex-1">
               Back
             </Button>
           )}
           {step === 'balance' && (
-            <Button onClick={handleConfirm}>
+            <Button onClick={handleConfirm} className="flex-1">
               Open Register
             </Button>
           )}
