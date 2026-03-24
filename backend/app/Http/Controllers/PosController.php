@@ -104,20 +104,29 @@ class PosController extends Controller
         }
 
         return DB::transaction(function () use ($validated, $request) {
-            $session = RegisterSession::create([
+            $data = [
                 'register_id' => $validated['register_id'],
                 'staff_id' => $validated['staff_id'],
                 'opening_balance' => $validated['opening_balance'],
                 'opened_at' => Carbon::now(),
-                'status' => 'open',
-            ]);
+            ];
 
-            PosCashierLog::create([
-                'register_session_id' => $session->id,
-                'user_id' => $request->user()->id,
-                'action' => 'login', // Initial login
-                'acted_at' => Carbon::now(),
-            ]);
+            // Defensive check for pending migrations
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'status')) {
+                $data['status'] = 'open';
+            }
+
+            $session = RegisterSession::create($data);
+
+            // Defensive logging for new tables
+            if (\Illuminate\Support\Facades\Schema::hasTable('pos_cashier_logs')) {
+                PosCashierLog::create([
+                    'register_session_id' => $session->id,
+                    'user_id' => $request->user()->id,
+                    'action' => 'login', // Initial login
+                    'acted_at' => Carbon::now(),
+                ]);
+            }
 
             PosActivityLog::create([
                 'register_id' => $validated['register_id'],
@@ -143,19 +152,25 @@ class PosController extends Controller
         return DB::transaction(function () use ($validated, $request) {
             $session = RegisterSession::findOrFail($validated['session_id']);
 
-            if ($session->closed_at || $session->status === 'closed') {
+            $isClosed = false;
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'status')) {
+                $isClosed = $session->status === 'closed';
+            }
+            if ($session->closed_at || $isClosed) {
                 return response()->json(['message' => 'This session is closed.'], 400);
             }
 
             // Update session current staff
             $session->update(['staff_id' => $validated['staff_id']]);
 
-            PosCashierLog::create([
-                'register_session_id' => $session->id,
-                'user_id' => $request->user()->id,
-                'action' => 'switch_in',
-                'acted_at' => Carbon::now(),
-            ]);
+            if (\Illuminate\Support\Facades\Schema::hasTable('pos_cashier_logs')) {
+                PosCashierLog::create([
+                    'register_session_id' => $session->id,
+                    'user_id' => $request->user()->id,
+                    'action' => 'switch_in',
+                    'acted_at' => Carbon::now(),
+                ]);
+            }
 
             return response()->json($session);
         });
