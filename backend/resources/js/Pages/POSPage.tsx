@@ -762,7 +762,7 @@ function POSContent({
         couponCode={appliedCoupon?.code}
         staffId={effectiveStaff?.staff_uuid || effectiveStaff?.id}
         staffName={effectiveStaff?.name || 'Staff'}
-        registerId={activeRegisterId}
+        registerId={currentSession?.register_id || activeRegisterId}
         onSuccess={clearCart}
         isOnline={isOnline}
         addToQueue={addToQueue}

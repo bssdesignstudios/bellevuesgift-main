@@ -103,6 +103,7 @@ export function useRegister(staffId: string | undefined) {
     },
     onSuccess: (data) => {
       setActiveSessionId(data.id);
+      setActiveRegisterId(data.register_id); // Sync register state after joining
       queryClient.invalidateQueries({ queryKey: ['register-session'] });
       toast.success('Joined register session');
     },

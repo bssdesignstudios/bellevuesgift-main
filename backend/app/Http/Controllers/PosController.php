@@ -227,7 +227,8 @@ class PosController extends Controller
             return response()->json(['message' => 'Invalid Admin PIN.'], 403);
         }
 
-        return DB::transaction(function () use ($validated, $admin) {
+        try {
+            return DB::transaction(function () use ($validated, $admin) {
             $session = RegisterSession::findOrFail($validated['session_id']);
 
             // Calculate expected balance
@@ -276,6 +277,14 @@ class PosController extends Controller
                 'breakdown' => $salesBreakdown
             ]);
         });
+        } catch (\Exception $e) {
+            Log::error('POS Closeout Error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to close register: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+                'line' => $e->getLine()
+            ], 500);
+        }
     }
 
     /**
