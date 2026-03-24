@@ -215,7 +215,7 @@ export default function POSPage() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="hidden xl:flex bg-white/10 text-white border-white/20 hover:bg-white/20 h-8"
+                className="hidden md:flex bg-cyan-600/20 text-white border-cyan-500/30 hover:bg-cyan-600/30 h-8"
                 onClick={handleSwitchCashier}
               >
                 Switch Cashier
@@ -223,10 +223,10 @@ export default function POSPage() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="hidden xl:flex bg-white/10 text-white border-white/20 hover:bg-white/20 h-8"
+                className="hidden md:flex bg-red-600/20 text-white border-red-500/30 hover:bg-red-600/30 h-8"
                 onClick={() => setCloseShiftOpen(true)}
               >
-                End Day
+                End Day (Close)
               </Button>
             </div>
           )}
@@ -1184,6 +1184,7 @@ function RefundTab({ activeSessionId, cashierId }: { activeSessionId: string | n
   const [orderNumber, setOrderNumber] = useState('');
   const [order, setOrder] = useState<Order | null>(null);
   const [adminPin, setAdminPin] = useState('');
+  const [refundAmount, setRefundAmount] = useState<string>('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
@@ -1199,6 +1200,7 @@ function RefundTab({ activeSessionId, cashierId }: { activeSessionId: string | n
         setOrder(null);
       } else {
         setOrder(data.order as Order);
+        setRefundAmount(String(data.order.total)); // Default to full refund
       }
     } catch {
       toast.error('Order not found');
@@ -1218,7 +1220,7 @@ function RefundTab({ activeSessionId, cashierId }: { activeSessionId: string | n
         admin_pin: adminPin,
         session_id: activeSessionId,
         cashier_id: cashierId,
-        amount: Number(order.total),
+        amount: Number(refundAmount),
         reason: reason || 'POS Refund'
       });
 
@@ -1275,8 +1277,8 @@ function RefundTab({ activeSessionId, cashierId }: { activeSessionId: string | n
           </div>
 
           <div className="flex justify-between font-black text-lg py-3 border-y border-dashed">
-            <span className="uppercase tracking-tighter">Refund Total</span>
-            <span className="text-destructive">${Number(order.total).toFixed(2)}</span>
+            <span className="uppercase tracking-tighter">Order Total</span>
+            <span className="text-muted-foreground">${Number(order.total).toFixed(2)}</span>
           </div>
 
           {/* Admin Authorization Block */}
@@ -1287,7 +1289,22 @@ function RefundTab({ activeSessionId, cashierId }: { activeSessionId: string | n
             </div>
             
             <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 px-1">
+                <Label htmlFor="refund-amount" className="text-[10px] font-bold uppercase text-muted-foreground underline decoration-orange-400">Refund Amount</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-orange-600">$</span>
+                  <Input
+                    id="refund-amount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={refundAmount}
+                    onChange={(e) => setRefundAmount(e.target.value)}
+                    className="pl-7 bg-background font-bold border-orange-200"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5 px-1">
                 <Label htmlFor="refund-reason" className="text-[10px] font-bold uppercase text-muted-foreground">Reason for Refund</Label>
                 <Input
                   id="refund-reason"

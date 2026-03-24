@@ -250,6 +250,14 @@ class PosController extends Controller
                 'notes' => $validated['notes'] ?? null,
             ]);
 
+            // Multi-payment breakdown for audit trail
+            $salesBreakdown = Order::where('register_id', $session->register_id)
+                ->where('payment_status', 'paid')
+                ->where('created_at', '>=', $session->opened_at)
+                ->get()
+                ->groupBy('payment_method')
+                ->map(fn($orders) => $orders->sum('total'));
+
             PosActivityLog::create([
                 'register_id' => $session->register_id,
                 'staff_id' => $session->staff_id,
@@ -259,10 +267,14 @@ class PosController extends Controller
                     'expected_balance' => $expectedBalance,
                     'variance' => $variance,
                     'admin_id' => $admin->id,
+                    'sales_breakdown' => $salesBreakdown,
                 ],
             ]);
 
-            return response()->json($session);
+            return response()->json([
+                'session' => $session,
+                'breakdown' => $salesBreakdown
+            ]);
         });
     }
 
@@ -377,25 +389,31 @@ class PosController extends Controller
         ]);
 
         $admin = User::where('pos_pin', $validated['admin_pin'])
-            ->whereIn('role', ['admin', 'manager', 'owner'])
+            ->whereIn('role', ['admin', 'manager', 'owner', 'super_admin'])
             ->first();
 
         if (!$admin) {
             return response()->json(['message' => 'Invalid or unauthorized Admin PIN'], 403);
         }
 
-        return DB::transaction(function () use ($validated, $admin) {
+        $currentUserId = auth()->id();
+
+        return DB::transaction(function () use ($validated, $admin, $currentUserId) {
             $order = \App\Models\Order::with('items')->findOrFail($validated['order_id']);
 
             if ($order->status === 'refunded') {
                 return response()->json(['message' => 'Order already refunded'], 422);
             }
 
+            if ($validated['amount'] > $order->total) {
+                return response()->json(['message' => 'Refund amount cannot exceed order total'], 422);
+            }
+
             // 1. Log the approval for audit
             PosRefundApproval::create([
                 'order_id' => $validated['order_id'],
                 'admin_user_id' => $admin->id,
-                'cashier_user_id' => $validated['cashier_id'],
+                'cashier_user_id' => $currentUserId, // Securely attribute to authenticated staff
                 'register_session_id' => $validated['session_id'],
                 'amount' => $validated['amount'],
                 'reason' => $validated['reason'] ?? 'POS Refund',
