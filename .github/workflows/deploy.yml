@@ -24,7 +24,8 @@ jobs:
           script: |
             git config --global --add safe.directory /var/www/bellevuesgift
             cd /var/www/bellevuesgift
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             cd backend
             composer install --no-dev --optimize-autoloader
             npm install
