@@ -149,7 +149,7 @@ function POSPageInner() {
 
   if (!resolvedStaff) {
     // Truly unauthenticated — redirect to login
-    window.location.href = onPOSDomain ? '/pos/login' : '/staff/login';
+    window.location.href = 'https://bellevuepos.cloud/pos/login';
     return null;
   }
 
@@ -173,7 +173,7 @@ function POSPageInner() {
   // LogOut button: if active session exists, open the Switch/SignOut dialog; otherwise sign out directly
   const handleSignOut = async () => {
     if (!hasActiveSession) {
-      await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
+      await signOut('https://bellevuepos.cloud/pos/login');
       return;
     }
     setSwitchCashierOpen(true);
@@ -183,18 +183,18 @@ function POSPageInner() {
   const handleSwitchCashier = async () => {
     if (!activeSessionId) return;
     await switchCashier.mutateAsync(activeSessionId);
-    await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
+    await signOut('https://bellevuepos.cloud/pos/login');
   };
 
   // Simple sign-out without closing the register session
   const handleSimpleSignOut = async () => {
-    await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
+    await signOut('https://bellevuepos.cloud/pos/login');
   };
 
   const handleCloseShiftConfirm = async (closingBalance: number, adminPin: string, notes?: string) => {
     if (!activeSessionId) return;
     await closeRegister.mutateAsync({ sessionId: activeSessionId, closingBalance, adminPin, notes });
-    await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
+    await signOut('https://bellevuepos.cloud/pos/login');
   };
 
   const displayName = resolvedStaff?.name ?? staff?.name ?? 'Staff';

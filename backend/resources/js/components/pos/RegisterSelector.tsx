@@ -77,22 +77,18 @@ export function RegisterSelector({ open, registers, onSelect, onJoin, onClose }:
                       <Monitor className="h-6 w-6" />
                     </div>
                     <div>
-                      <div className="font-semibold">{register.name}</div>
+                      <div className="font-semibold flex items-center gap-2">
+                        {register.name}
+                        <span className={`h-2 w-2 rounded-full ${register.current_session ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                      </div>
                       <div className="text-sm text-muted-foreground">{register.location}</div>
                     </div>
                   </div>
-                  {register.current_session ? (
+                  {register.current_session && (
                     <div className="text-right">
-                      <div className="text-[10px] font-bold px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full mb-1 inline-block uppercase">
-                        Active Session
-                      </div>
                       <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
                         Cashier: {register.current_session.staff?.name}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-[10px] font-bold px-2 py-0.5 bg-muted text-muted-foreground rounded-full uppercase">
-                      Offline
                     </div>
                   )}
                 </CardContent>

@@ -185,9 +185,7 @@ export default function PosLoginPage() {
                       <div className="text-left">
                         <div className="font-medium flex items-center gap-2">
                           {reg.name}
-                          {isActive && (
-                            <span className={`w-2 h-2 rounded-full bg-green-400 animate-pulse`} title="Session Active" />
-                          )}
+                          <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-400 animate-pulse' : 'bg-red-500'}`} title={isActive ? 'Session Active' : 'Session Closed'} />
                         </div>
                         <div className={`text-xs ${selectedRegister === reg.id ? 'text-[#00005D]/60' : 'text-white/50'}`}>
                           {reg.location} {isActive && '• Active'}

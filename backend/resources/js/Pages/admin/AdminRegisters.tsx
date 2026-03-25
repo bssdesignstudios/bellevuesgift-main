@@ -204,7 +204,10 @@ export default function AdminRegisters() {
                         )}
                       </div>
                     ) : (
-                      <span className="text-muted-foreground text-sm">Closed</span>
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <span className="h-2 w-2 rounded-full bg-red-500" />
+                        Closed
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>
@@ -402,8 +405,10 @@ function RegisterDetail({ register, onClose, onRefresh }: { register: RegisterDa
           <SheetTitle className="flex items-center gap-2">
             <Monitor className="h-5 w-5" />
             {register.name}
-            {register.active_session && (
+            {register.active_session ? (
               <Badge className="bg-green-500 text-white ml-2 animate-pulse">LIVE</Badge>
+            ) : (
+              <Badge variant="outline" className="border-red-500 text-red-500 ml-2 uppercase text-[10px]">Offline</Badge>
             )}
           </SheetTitle>
         </SheetHeader>
@@ -496,7 +501,10 @@ function RegisterDetail({ register, onClose, onRefresh }: { register: RegisterDa
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No active session</p>
+                <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-dashed text-sm text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  No Active Session
+                </div>
               )}
             </div>
           </div>
