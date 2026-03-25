@@ -148,6 +148,28 @@ export function useRegister(staffId: string | undefined) {
     },
   });
 
+  // Admin Force-Close: close any register without closing balance (emergency)
+  const forceCloseRegister = useMutation({
+    mutationFn: async ({ sessionId, adminPin }: { sessionId: string; adminPin: string }) => {
+      const response = await axios.post('/api/pos/session/force-close', {
+        session_id: sessionId,
+        admin_pin: adminPin,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      setActiveSessionId(null);
+      setActiveRegisterId(null);
+      localStorage.removeItem(REGISTER_STORAGE_KEY);
+      queryClient.invalidateQueries({ queryKey: ['register-session'] });
+      queryClient.invalidateQueries({ queryKey: ['registers'] });
+      toast.success('Register force-closed by admin');
+    },
+    onError: (error) => {
+      toast.error('Force close failed: ' + ((error as any).response?.data?.message || (error as Error).message));
+    },
+  });
+
   // Log POS activity
   const logActivity = async (action: string, details?: any) => {
     if (!activeRegisterId || !staffId) return;
@@ -187,6 +209,7 @@ export function useRegister(staffId: string | undefined) {
     joinSession,
     switchCashier,
     closeRegister,
+    forceCloseRegister,
     logActivity,
     hasActiveSession: !!currentSession && (!currentSession.closed_at && currentSession.status !== 'closed'),
   };

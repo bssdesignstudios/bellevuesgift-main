@@ -65,6 +65,7 @@ Route::prefix('pos')->group(function () {
     Route::post('/session/join', [PosController::class, 'joinSession']);
     Route::post('/session/switch-cashier', [PosController::class, 'switchCashier']);
     Route::post('/session/close-register', [PosController::class, 'closeRegister']);
+    Route::post('/session/force-close', [PosController::class, 'forceCloseRegister']);
     Route::post('/session/refund-approval', [PosController::class, 'approveRefund']);
     Route::get('/session/{session}/summary', [PosController::class, 'shiftSummary']);
 

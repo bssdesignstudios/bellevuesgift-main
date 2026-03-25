@@ -188,14 +188,71 @@ class PosController extends Controller
             'session_id' => 'required|uuid|exists:register_sessions,id',
         ]);
 
-        PosCashierLog::create([
-            'register_session_id' => $validated['session_id'],
-            'user_id' => $request->user()->id,
-            'action' => 'switch_out',
-            'acted_at' => Carbon::now(),
-        ]);
+        // Defensive: only log if the table exists (migration may be pending)
+        if (\Illuminate\Support\Facades\Schema::hasTable('pos_cashier_logs')) {
+            PosCashierLog::create([
+                'register_session_id' => $validated['session_id'],
+                'user_id' => $request->user()->id,
+                'action' => 'switch_out',
+                'acted_at' => Carbon::now(),
+            ]);
+        }
 
         return response()->json(['message' => 'Cashier successfully switched out. Session remains open.']);
+    }
+
+    /**
+     * Admin Force-Close: Immediately close a register regardless of cashier state.
+     */
+    public function forceCloseRegister(Request $request)
+    {
+        $validated = $request->validate([
+            'session_id' => 'required|uuid|exists:register_sessions,id',
+            'admin_pin'  => 'required|string',
+        ]);
+
+        // Verify Admin PIN
+        $admin = User::where('pos_pin', $validated['admin_pin'])
+            ->whereIn('role', ['admin', 'manager', 'super_admin'])
+            ->first();
+
+        if (!$admin) {
+            return response()->json(['message' => 'Invalid Admin PIN.'], 403);
+        }
+
+        return DB::transaction(function () use ($validated, $admin) {
+            $session = RegisterSession::findOrFail($validated['session_id']);
+
+            $updateData = ['closed_at' => Carbon::now()];
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'status')) {
+                $updateData['status'] = 'closed';
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'closed_by_user_id')) {
+                $updateData['closed_by_user_id'] = $admin->id;
+            }
+
+            $session->update($updateData);
+
+            if (\Illuminate\Support\Facades\Schema::hasTable('pos_cashier_logs')) {
+                PosCashierLog::create([
+                    'register_session_id' => $session->id,
+                    'user_id'             => $admin->id,
+                    'action'              => 'force_close',
+                    'acted_at'            => Carbon::now(),
+                    'notes'               => 'Force closed by admin.',
+                ]);
+            }
+
+            PosActivityLog::create([
+                'register_id' => $session->register_id,
+                'staff_id'    => $session->staff_id,
+                'action'      => 'session_force_close',
+                'details'     => ['admin_id' => $admin->id],
+            ]);
+
+            return response()->json(['message' => 'Register force-closed successfully.']);
+        });
     }
 
     /**
@@ -242,15 +299,28 @@ class PosController extends Controller
             $expectedBalance = (float) $session->opening_balance + $cashSales;
             $variance = $validated['closing_balance'] - $expectedBalance;
 
-            $session->update([
-                'closed_at' => Carbon::now(),
+            // Build update payload defensively based on what columns exist
+            $updateData = [
+                'closed_at'       => Carbon::now(),
                 'closing_balance' => $validated['closing_balance'],
-                'expected_balance' => $expectedBalance,
-                'variance' => $variance,
-                'status' => 'closed',
-                'closed_by_user_id' => $admin->id,
-                'notes' => $validated['notes'] ?? null,
-            ]);
+            ];
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'expected_balance')) {
+                $updateData['expected_balance'] = $expectedBalance;
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'variance')) {
+                $updateData['variance'] = $variance;
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'status')) {
+                $updateData['status'] = 'closed';
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'closed_by_user_id')) {
+                $updateData['closed_by_user_id'] = $admin->id;
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('register_sessions', 'notes')) {
+                $updateData['notes'] = $validated['notes'] ?? null;
+            }
+
+            $session->update($updateData);
 
             // Multi-payment breakdown for audit trail
             $salesBreakdown = Order::where('register_id', $session->register_id)
@@ -418,15 +488,17 @@ class PosController extends Controller
                 return response()->json(['message' => 'Refund amount cannot exceed order total'], 422);
             }
 
-            // 1. Log the approval for audit
-            PosRefundApproval::create([
-                'order_id' => $validated['order_id'],
-                'admin_user_id' => $admin->id,
-                'cashier_user_id' => $currentUserId, // Securely attribute to authenticated staff
-                'register_session_id' => $validated['session_id'],
-                'amount' => $validated['amount'],
-                'reason' => $validated['reason'] ?? 'POS Refund',
-            ]);
+            // 1. Log the approval for audit (defensive: table may still be pending migration)
+            if (\Illuminate\Support\Facades\Schema::hasTable('pos_refund_approvals')) {
+                PosRefundApproval::create([
+                    'order_id'            => $validated['order_id'],
+                    'admin_user_id'       => $admin->id,
+                    'cashier_user_id'     => $currentUserId,
+                    'register_session_id' => $validated['session_id'],
+                    'refund_amount'       => $validated['amount'], // column is refund_amount per migration
+                    'reason'              => $validated['reason'] ?? 'POS Refund',
+                ]);
+            }
 
             // 2. Process the refund on the order
             $order->update([

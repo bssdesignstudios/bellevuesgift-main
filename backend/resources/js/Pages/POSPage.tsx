@@ -25,6 +25,7 @@ import { CloseShiftDialog } from '@/components/pos/CloseShiftDialog';
 import { isPOSDomain } from '@/lib/domain';
 import { printReceipt } from '@/components/pos/ReceiptPrint';
 import { Printer } from 'lucide-react';
+import { SwitchCashierDialog } from '@/components/pos/SwitchCashierDialog';
 
 // ── Error Boundary to catch silent React crashes ────────────────────────────
 class POSErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
@@ -102,6 +103,7 @@ function POSPageInner() {
   } = useRegister(staffUuid);
 
   const [closeShiftOpen, setCloseShiftOpen] = useState(false);
+  const [switchCashierOpen, setSwitchCashierOpen] = useState(false);
 
   // Focus search on mount
   useEffect(() => {
@@ -161,28 +163,30 @@ function POSPageInner() {
 
   const showRegisterSelector = !hasActiveSession && !!registers && registers.length > 0;
 
+  // LogOut button: if active session exists, open the Switch/SignOut dialog; otherwise sign out directly
   const handleSignOut = async () => {
-    // Standard sign out for non-POS staff or if no session
     if (!hasActiveSession) {
       await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
       return;
     }
-    
-    // POS staff with active session: show option to switch or close
-    // For now, default to showing the close shift options (which include logout)
-    setCloseShiftOpen(true);
+    setSwitchCashierOpen(true);
   };
 
+  // Switch Cashier: log cashier out of session, redirect to login (session stays open)
   const handleSwitchCashier = async () => {
     if (!activeSessionId) return;
     await switchCashier.mutateAsync(activeSessionId);
     await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
   };
 
+  // Simple sign-out without closing the register session
+  const handleSimpleSignOut = async () => {
+    await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
+  };
+
   const handleCloseShiftConfirm = async (closingBalance: number, adminPin: string, notes?: string) => {
     if (!activeSessionId) return;
     await closeRegister.mutateAsync({ sessionId: activeSessionId, closingBalance, adminPin, notes });
-    // Pass domain-aware redirect — signOut handles navigation
     await signOut(onPOSDomain ? '/pos/login' : '/staff/login');
   };
 
@@ -207,6 +211,15 @@ function POSPageInner() {
         onOpenChange={setCloseShiftOpen}
         sessionId={activeSessionId}
         onConfirm={handleCloseShiftConfirm}
+      />
+
+      {/* Switch Cashier Dialog */}
+      <SwitchCashierDialog
+        open={switchCashierOpen}
+        onOpenChange={setSwitchCashierOpen}
+        currentCashierName={displayName}
+        onSwitchCashier={handleSwitchCashier}
+        onSignOut={handleSimpleSignOut}
       />
 
       {/* Header */}
@@ -260,7 +273,7 @@ function POSPageInner() {
                 variant="outline" 
                 size="sm" 
                 className="hidden md:flex bg-cyan-600/20 text-white border-cyan-500/30 hover:bg-cyan-600/30 h-8"
-                onClick={handleSwitchCashier}
+                onClick={() => setSwitchCashierOpen(true)}
               >
                 Switch Cashier
               </Button>
@@ -811,7 +824,7 @@ function POSContent({
         staffId={effectiveStaff?.staff_uuid || effectiveStaff?.id}
         staffName={effectiveStaff?.name || 'Staff'}
         registerId={currentSession?.register_id || activeRegisterId}
-        registerName={registers?.find(r => r.id === (currentSession?.register_id || activeRegisterId))?.name || 'POS'}
+        registerName={registers?.find((r: { id: string; name: string }) => r.id === (currentSession?.register_id || activeRegisterId))?.name || 'POS'}
         onSuccess={clearCart}
         isOnline={isOnline}
         addToQueue={addToQueue}
