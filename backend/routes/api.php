@@ -155,6 +155,8 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
     Route::post('/registers', [RegisterController::class, 'store']);
     Route::put('/registers/{id}', [RegisterController::class, 'update']);
     Route::post('/registers/{id}/assign', [RegisterController::class, 'assignStaff']);
+    Route::get('/registers/{id}/activity-logs', [RegisterController::class, 'activityLogs']);
+    Route::post('/registers/{id}/force-close', [RegisterController::class, 'forceClose']);
 
     Route::get('/vendors', [VendorController::class, 'index']);
     Route::post('/vendors', [VendorController::class, 'store']);

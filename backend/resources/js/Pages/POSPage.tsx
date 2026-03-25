@@ -85,6 +85,13 @@ function POSPageInner() {
 
   const onPOSDomain = isPOSDomain();
 
+  // Live clock — updates every second
+  const [liveTime, setLiveTime] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setLiveTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   // Get staff UUID from Inertia page props for register session management.
   // auth.staff.staff_uuid is the UUID from the staff table (not the integer users.id).
   const pageProps = usePage().props as any;
@@ -195,7 +202,7 @@ function POSPageInner() {
 
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
       {/* Register Selector Dialog */}
       <RegisterSelector
         open={showRegisterSelector}
@@ -223,16 +230,22 @@ function POSPageInner() {
       />
 
       {/* Header */}
-      <header className="bg-header text-header-foreground px-3 py-2 lg:px-4 lg:py-3 flex items-center justify-between gap-2">
+      <header className="bg-header text-header-foreground px-3 py-2 lg:px-4 lg:py-3 flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 lg:gap-4 min-w-0">
           <img
             src={bellevueLogo}
             alt="Bellevue"
             className="h-6 lg:h-8 brightness-0 invert shrink-0"
           />
-          <div className="text-xs lg:text-sm min-w-0">
-            <div className="font-medium truncate">{displayName}</div>
+          {/* Cashier info + live clock */}
+          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5 text-xs lg:text-sm min-w-0">
+            <div className="font-semibold truncate max-w-[120px] lg:max-w-[180px]">{displayName}</div>
+            <div className="h-3 w-px bg-white/30 hidden sm:block" />
             <div className="opacity-70 capitalize hidden sm:block">{displayRole}</div>
+            <div className="h-3 w-px bg-white/30" />
+            <div className="font-mono tabular-nums opacity-90 shrink-0">
+              {liveTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </div>
           </div>
           {activeRegisterId && registers && (
             <div className="hidden sm:flex items-center gap-1 text-xs lg:text-sm bg-white/10 px-2 py-1 rounded">
@@ -805,8 +818,8 @@ function POSContent({
           </div>
         </div>
 
-        {/* Cart Panel */}
-        <div className="w-80 bg-card border-l flex flex-col">
+        {/* Cart Panel — sticky to viewport height */}
+        <div className="w-80 bg-card border-l flex flex-col h-full overflow-hidden">
           {cartPanel}
         </div>
       </div>
