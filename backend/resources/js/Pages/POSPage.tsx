@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Component, type ReactNode, type ErrorInfo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,51 @@ import { isPOSDomain } from '@/lib/domain';
 import { printReceipt } from '@/components/pos/ReceiptPrint';
 import { Printer } from 'lucide-react';
 
-export default function POSPage() {
+// ── Error Boundary to catch silent React crashes ────────────────────────────
+class POSErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    this.setState({ errorInfo });
+    console.error('[POS Error Boundary]', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', fontFamily: 'monospace', background: '#1a1a2e', color: '#e94560', minHeight: '100vh' }}>
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>⚠️ POS Render Error</h1>
+          <pre style={{ background: '#16213e', padding: '1rem', borderRadius: '8px', overflow: 'auto', color: '#eee', whiteSpace: 'pre-wrap' }}>
+            {this.state.error?.toString()}
+            {'\n\n'}
+            {this.state.errorInfo?.componentStack}
+          </pre>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{ marginTop: '1rem', padding: '0.5rem 1.5rem', background: '#e94560', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem' }}
+          >
+            Reload POS
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function POSPageWrapper() {
+  return (
+    <POSErrorBoundary>
+      <POSPageInner />
+    </POSErrorBoundary>
+  );
+}
+
+function POSPageInner() {
   const { user, staff, loading, effectiveStaff, signOut, impersonating, impersonate } = useAuth();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,6 +93,7 @@ export default function POSPage() {
     registers,
     activeRegisterId,
     activeSessionId,
+    currentSession,
     openSession,
     joinSession,
     switchCashier,
