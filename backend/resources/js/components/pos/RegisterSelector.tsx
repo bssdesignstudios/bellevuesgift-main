@@ -80,6 +80,7 @@ export function RegisterSelector({ open, registers, onSelect, onJoin, onClose }:
                       <div className="font-semibold flex items-center gap-2">
                         {register.name}
                         <span className={`h-2 w-2 rounded-full ${register.current_session ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                        {!register.current_session && <span className="text-[10px] text-red-500/70 font-bold uppercase ml-1">Offline</span>}
                       </div>
                       <div className="text-sm text-muted-foreground">{register.location}</div>
                     </div>
