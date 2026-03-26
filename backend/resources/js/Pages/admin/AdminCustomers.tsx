@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,35 @@ interface Customer {
     total: string | number;
     created_at: string;
   }>;
+}
+
+interface QuoteRecord {
+  id: string;
+  quote_number: string;
+  customer_id: string | null;
+  status: string;
+  total: number;
+  issued_at: string | null;
+}
+
+interface InvoiceRecord {
+  id: string;
+  invoice_number: string;
+  customer_id: string | null;
+  status: string;
+  total: number;
+  balance_due: number;
+  issued_at: string | null;
+}
+
+interface LedgerEntry {
+  id: string;
+  entry_type: string;
+  amount: number;
+  balance_after: number | null;
+  running_balance: number | null;
+  invoice_number: string | null;
+  entry_date: string;
 }
 
 const TIER_CONFIG: Record<string, { label: string; color: string; icon: typeof Star }> = {
@@ -122,6 +151,49 @@ export default function AdminCustomers() {
   };
 
   const detail = detailData || selectedCustomer;
+
+  const customerId = detail?.id || '';
+
+  const { data: quotes, isLoading: quotesLoading } = useQuery({
+    queryKey: ['admin-quotes', customerId],
+    queryFn: async () => {
+      const { data } = await axios.get('/api/admin/quotes', { params: { customer_id: customerId } });
+      return data as QuoteRecord[];
+    },
+    enabled: !!customerId,
+  });
+
+  const { data: invoices, isLoading: invoicesLoading } = useQuery({
+    queryKey: ['admin-invoices', customerId],
+    queryFn: async () => {
+      const { data } = await axios.get('/api/admin/invoices', { params: { customer_id: customerId } });
+      return data as InvoiceRecord[];
+    },
+    enabled: !!customerId,
+  });
+
+  const { data: ledgerResponse, isLoading: ledgerLoading } = useQuery({
+    queryKey: ['admin-ledger', customerId],
+    queryFn: async () => {
+      const { data } = await axios.get('/api/admin/ledger-entries', { params: { customer_id: customerId } });
+      return data as { entries: LedgerEntry[] };
+    },
+    enabled: !!customerId,
+  });
+
+  const recentQuotes = useMemo(() => {
+    return (quotes || []).filter((quote) => quote.customer_id === customerId).slice(0, 5);
+  }, [quotes, customerId]);
+
+  const recentInvoices = useMemo(() => {
+    return (invoices || []).filter((invoice) => invoice.customer_id === customerId).slice(0, 5);
+  }, [invoices, customerId]);
+
+  const ledgerEntries = ledgerResponse?.entries || [];
+  const recentLedger = ledgerEntries.slice(-5).reverse();
+  const currentBalance = ledgerEntries.length
+    ? (ledgerEntries[ledgerEntries.length - 1].balance_after ?? ledgerEntries[ledgerEntries.length - 1].running_balance)
+    : null;
 
   return (
     <AdminLayout>
@@ -352,6 +424,97 @@ export default function AdminCustomers() {
                       No orders yet
                     </div>
                   )}
+                </div>
+
+                {/* CUSTOMER FINANCIAL HUB */}
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Customer Financial Hub
+                  </h3>
+                  {(quotesLoading || invoicesLoading || ledgerLoading) && (
+                    <div className="text-sm text-muted-foreground mb-3">
+                      Loading financial activity...
+                    </div>
+                  )}
+                  <div className="grid gap-4">
+                    <Card>
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs text-muted-foreground">Current Balance</div>
+                          <div className="text-2xl font-bold">
+                            {currentBalance !== null ? `$${Number(currentBalance).toFixed(2)}` : '—'}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => { window.location.href = `/admin/quotes?customer_id=${encodeURIComponent(detail.id)}`; }}>
+                            Create Quote
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { window.location.href = `/admin/invoices?customer_id=${encodeURIComponent(detail.id)}`; }}>
+                            Create Invoice
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { window.location.href = `/admin/statements/share?customer_id=${encodeURIComponent(detail.id)}`; }}>
+                            View Statement
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-xs text-muted-foreground mb-2">Recent Quotes</div>
+                          {recentQuotes.length ? (
+                            <div className="space-y-2">
+                              {recentQuotes.map((quote) => (
+                                <div key={quote.id} className="flex items-center justify-between text-sm">
+                                  <span className="font-mono">{quote.quote_number}</span>
+                                  <span>${Number(quote.total).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">No quotes yet</div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-xs text-muted-foreground mb-2">Recent Invoices</div>
+                          {recentInvoices.length ? (
+                            <div className="space-y-2">
+                              {recentInvoices.map((invoice) => (
+                                <div key={invoice.id} className="flex items-center justify-between text-sm">
+                                  <span className="font-mono">{invoice.invoice_number}</span>
+                                  <span>${Number(invoice.balance_due).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">No invoices yet</div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-xs text-muted-foreground mb-2">Recent Ledger</div>
+                          {recentLedger.length ? (
+                            <div className="space-y-2">
+                              {recentLedger.map((entry) => (
+                                <div key={entry.id} className="flex items-center justify-between text-sm">
+                                  <span className="capitalize">{entry.entry_type}</span>
+                                  <span>${Number(entry.amount).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">No ledger entries</div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
                 </div>
 
                 {/* QUICK ACTIONS */}
