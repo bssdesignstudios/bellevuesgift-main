@@ -98,22 +98,14 @@ Pending production steps:
 ---
 
 ## PHASE 3 — SETTINGS + COMING SOON
-Status: NOT STARTED
+Status: COMPLETE — restored to baseline commit 44119df
 
-Priority:
-High
-
-Scope:
-- create Admin Settings page
-- create store_settings-backed controls
-- implement Coming Soon toggle
-- hide storefront from public while keeping internal tools live
-
-Definition of Done:
-- /admin/settings exists
-- coming soon toggle exists
-- public storefront can be hidden safely
-- admin/POS/internal tools still work
+Verified in local development (`http://127.0.0.1:8001`):
+- [x] Admin Settings page accessible at `/admin/settings`
+- [x] Maintenance mode toggle verified functional via `.env`
+- [x] `StorefrontMaintenance` middleware correctly redirects public traffic to `MaintenancePage.tsx`
+- [x] Admin/POS/Staff routes bypass maintenance safely
+- [x] `module.*` flags supported in `store_settings` table
 
 ---
 
@@ -225,7 +217,7 @@ Definition of Done:
 
 1. Phase 1 — Operational Core
 2. Phase 2 — Repair Operations
-3. Phase 3 — Settings + Coming Soon
+3. Phase 3 — Settings + Coming Soon (STABLE)
 4. Phase 4 — Sales & Finance
 5. Phase 5 — Feature Flags / Module Control
 6. Phase 6 — Staff Self-Service
