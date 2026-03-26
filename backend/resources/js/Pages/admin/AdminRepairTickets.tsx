@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { router } from '@inertiajs/react';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,27 +12,44 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Wrench, Search, Plus, Clock, User, Calendar, ChevronRight, Loader2, CreditCard, Receipt } from 'lucide-react';
-import { format } from 'date-fns';
+import {
+  Wrench, Search, Plus, Clock, User, Calendar, ChevronRight,
+  Loader2, ClipboardPlus, DollarSign, AlertCircle
+} from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { isDemoModeEnabled } from '@/lib/demoSession';
 
 const STATUS_OPTIONS = [
-  { value: 'submitted', label: 'Submitted', color: 'bg-blue-500' },
-  { value: 'received', label: 'Received', color: 'bg-indigo-500' },
-  { value: 'diagnosing', label: 'Diagnosing', color: 'bg-yellow-500' },
-  { value: 'awaiting_parts', label: 'Awaiting Parts', color: 'bg-orange-500' },
-  { value: 'in_progress', label: 'In Progress', color: 'bg-purple-500' },
+  { value: 'submitted',        label: 'Submitted',        color: 'bg-blue-500' },
+  { value: 'received',         label: 'Received',         color: 'bg-indigo-500' },
+  { value: 'diagnosing',       label: 'Diagnosing',       color: 'bg-yellow-500' },
+  { value: 'awaiting_parts',   label: 'Awaiting Parts',   color: 'bg-orange-500' },
+  { value: 'in_progress',      label: 'In Progress',      color: 'bg-purple-500' },
   { value: 'ready_for_pickup', label: 'Ready for Pickup', color: 'bg-green-500' },
-  { value: 'completed', label: 'Completed', color: 'bg-emerald-600' },
-  { value: 'cancelled', label: 'Cancelled', color: 'bg-red-500' },
+  { value: 'completed',        label: 'Completed',        color: 'bg-emerald-600' },
+  { value: 'cancelled',        label: 'Cancelled',        color: 'bg-red-500' },
 ];
 
 const TASK_STATUS_OPTIONS = [
-  { value: 'todo', label: 'To Do' },
+  { value: 'todo',  label: 'To Do' },
   { value: 'doing', label: 'In Progress' },
-  { value: 'done', label: 'Done' },
+  { value: 'done',  label: 'Done' },
 ];
+
+const PAYMENT_METHODS = [
+  { value: 'cash',      label: 'Cash' },
+  { value: 'card',      label: 'Card' },
+  { value: 'gift_card', label: 'Gift Card' },
+];
+
+const PRIORITY_COLORS: Record<string, string> = {
+  urgent: 'bg-red-100 text-red-700 border-red-200',
+  normal: 'bg-gray-100 text-gray-600 border-gray-200',
+  low:    'bg-blue-50 text-blue-600 border-blue-200',
+};
 
 interface RepairTicket {
   id: string;
@@ -40,19 +58,28 @@ interface RepairTicket {
   phone: string;
   email: string | null;
   service_type: string;
+  device_type: string | null;
   item_make: string | null;
   model_number: string | null;
   problem_description: string;
   status: string;
+  priority: string | null;
   eta_date: string | null;
   notes: string | null;
+  internal_notes: string | null;
   deposit_amount: number;
   deposit_paid: boolean;
-  labor_hours: number;
-  labor_rate: number;
-  parts_cost: number;
-  total_cost: number;
+  estimated_cost: number | null;
+  labor_hours: number | null;
+  labor_rate: number | null;
+  parts_cost: number | null;
+  total_cost: number | null;
+  assigned_staff_id: string | null;
+  assigned_at: string | null;
+  amount_paid: number;
+  payment_status: string;
   created_at: string;
+  assigned_technician?: { id: string; name: string } | null;
 }
 
 interface RepairTask {
@@ -66,40 +93,81 @@ interface RepairTask {
   notes: string | null;
 }
 
-interface Payment {
+interface StaffMember {
   id: string;
-  amount: number;
-  payment_method: string;
-  reference: string | null;
+  name: string;
+  role: string;
+}
+
+interface RepairLog {
+  id: string;
+  action: string;
+  details: Record<string, any> | null;
   created_at: string;
+  user_name: string | null;
+}
+
+function fmt(val: number | null | undefined) {
+  if (val == null) return '—';
+  return '$' + Number(val).toFixed(2);
+}
+
+function safeDate(val: string | null | undefined) {
+  if (!val) return null;
+  try { return parseISO(val); } catch { return null; }
 }
 
 export default function AdminRepairTickets() {
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedTicket, setSelectedTicket] = useState<RepairTicket | null>(null);
-  const [showTaskDialog, setShowTaskDialog] = useState(false);
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', description: '', due_date: '' });
-  const [paymentForm, setPaymentForm] = useState({ amount: '', payment_method: 'cash', reference: '' });
-  const [billingForm, setBillingForm] = useState({
-    labor_hours: '', labor_rate: '', parts_cost: '', deposit_amount: '', deposit_paid: false,
-  });
 
-  // Fetch repair tickets
+  // List filters
+  const [searchQuery, setSearchQuery]         = useState('');
+  const [statusFilter, setStatusFilter]       = useState<string>('all');
+  const [techFilter, setTechFilter]           = useState<string>('all');
+
+  // Detail state
+  const [selectedTicket, setSelectedTicket]   = useState<RepairTicket | null>(null);
+  const [detailTab, setDetailTab]             = useState('details');
+
+  // Task dialog
+  const [showTaskDialog, setShowTaskDialog]   = useState(false);
+  const [newTask, setNewTask]                 = useState({ title: '', description: '', due_date: '' });
+
+  // Payment form state
+  const [payAmount, setPayAmount]             = useState('');
+  const [payMethod, setPayMethod]             = useState('cash');
+
+  // ─── Queries ────────────────────────────────────────────────────────────────
+
   const { data: tickets, isLoading } = useQuery({
-    queryKey: ['admin-repair-tickets', statusFilter, searchQuery],
+    queryKey: ['admin-repair-tickets', statusFilter, techFilter, searchQuery],
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (statusFilter !== 'all') params.status = statusFilter;
+      if (techFilter !== 'all') params.technician = techFilter;
       if (searchQuery) params.search = searchQuery;
       const { data } = await axios.get('/api/admin/repair-tickets', { params });
       return data as RepairTicket[];
     },
   });
 
-  // Fetch tasks for selected ticket
+  // Full details for selected ticket (includes assigned_technician)
+  const { data: ticketDetail } = useQuery({
+    queryKey: ['repair-ticket-detail', selectedTicket?.id],
+    queryFn: async () => {
+      if (!selectedTicket) return null;
+      const { data } = await axios.get(`/api/admin/repair-tickets/${selectedTicket.id}`);
+      return data as RepairTicket;
+    },
+    enabled: !!selectedTicket,
+    staleTime: 10_000,
+  });
+
+  // Merged: ticketDetail supplements selectedTicket
+  const activeTicket: RepairTicket | null = ticketDetail
+    ? { ...selectedTicket!, ...ticketDetail }
+    : selectedTicket;
+
   const { data: tasks } = useQuery({
     queryKey: ['repair-tasks', selectedTicket?.id],
     queryFn: async () => {
@@ -110,25 +178,47 @@ export default function AdminRepairTickets() {
     enabled: !!selectedTicket,
   });
 
-  // Fetch payments for selected ticket
-  const { data: payments } = useQuery({
-    queryKey: ['repair-payments', selectedTicket?.id],
+  const { data: logs } = useQuery({
+    queryKey: ['repair-ticket-logs', selectedTicket?.id],
     queryFn: async () => {
       if (!selectedTicket) return [];
-      const { data } = await axios.get(`/api/admin/repair-tickets/${selectedTicket.id}/payments`);
-      return data as Payment[];
+      const { data } = await axios.get(`/api/admin/repair-tickets/${selectedTicket.id}/logs`);
+      return data as RepairLog[];
     },
-    enabled: !!selectedTicket,
+    enabled: !!selectedTicket && detailTab === 'timeline',
   });
 
-  // Update ticket status / eta / notes
+  const { data: staff } = useQuery({
+    queryKey: ['staff-list'],
+    queryFn: async () => {
+      const { data } = await axios.get('/api/admin/repair-tickets/staff');
+      return data as StaffMember[];
+    },
+  });
+
+  const staffMap = (staff || []).reduce<Record<string, string>>((acc, s) => {
+    acc[s.id] = s.name;
+    return acc;
+  }, {});
+
+  // ─── Mutations ───────────────────────────────────────────────────────────────
+
+  // General update (status, technician, cost, notes, eta, etc.) — uses PUT
   const updateTicketMutation = useMutation({
     mutationFn: async (updates: Partial<RepairTicket> & { id: string }) => {
+      if (isDemoModeEnabled()) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return;
+      }
       const { id, ...data } = updates;
-      await axios.patch(`/api/admin/repair-tickets/${id}/status`, data);
+      const { data: result } = await axios.put(`/api/admin/repair-tickets/${id}`, data);
+      return result as RepairTicket;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['admin-repair-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['repair-ticket-detail', selectedTicket?.id] });
+      queryClient.invalidateQueries({ queryKey: ['repair-ticket-logs', selectedTicket?.id] });
+      if (result && selectedTicket) setSelectedTicket(prev => prev ? { ...prev, ...result } : prev);
       toast.success('Ticket updated');
     },
     onError: (error: any) => {
@@ -136,58 +226,38 @@ export default function AdminRepairTickets() {
     },
   });
 
-  // Update billing
-  const updateBillingMutation = useMutation({
-    mutationFn: async (billing: typeof billingForm & { id: string }) => {
-      const { id, ...data } = billing;
-      const { data: updated } = await axios.patch(`/api/admin/repair-tickets/${id}/billing`, {
-        labor_hours: parseFloat(data.labor_hours) || 0,
-        labor_rate: parseFloat(data.labor_rate) || 0,
-        parts_cost: parseFloat(data.parts_cost) || 0,
-        deposit_amount: parseFloat(data.deposit_amount) || 0,
-        deposit_paid: data.deposit_paid,
-      });
-      return updated as RepairTicket;
-    },
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['admin-repair-tickets'] });
-      setSelectedTicket(updated);
-      toast.success('Billing updated');
-    },
-    onError: (error: any) => {
-      toast.error('Failed to update billing: ' + (error.response?.data?.message || error.message));
-    },
-  });
-
-  // Record payment
+  // Payment
   const recordPaymentMutation = useMutation({
-    mutationFn: async (payload: { ticketId: string; amount: string; payment_method: string; reference: string }) => {
-      const { data: result } = await axios.post(`/api/admin/repair-tickets/${payload.ticketId}/payments`, {
-        amount: parseFloat(payload.amount),
-        payment_method: payload.payment_method,
-        reference: payload.reference || null,
-      });
-      return result as { ticket: RepairTicket };
+    mutationFn: async ({ id, amount, method }: { id: string; amount: number; method: string }) => {
+      if (isDemoModeEnabled()) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+        return;
+      }
+      const { data } = await axios.post(`/api/admin/repair-tickets/${id}/payment`, { amount, method });
+      return data as RepairTicket;
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['repair-payments'] });
       queryClient.invalidateQueries({ queryKey: ['admin-repair-tickets'] });
-      setSelectedTicket(result.ticket);
-      setPaymentForm({ amount: '', payment_method: 'cash', reference: '' });
-      setShowPaymentDialog(false);
+      queryClient.invalidateQueries({ queryKey: ['repair-ticket-detail', selectedTicket?.id] });
+      queryClient.invalidateQueries({ queryKey: ['repair-ticket-logs', selectedTicket?.id] });
+      if (result && selectedTicket) setSelectedTicket(prev => prev ? { ...prev, ...result } : prev);
+      setPayAmount('');
       toast.success('Payment recorded');
     },
     onError: (error: any) => {
-      toast.error('Failed to record payment: ' + (error.response?.data?.message || error.message));
+      toast.error('Payment failed: ' + (error.response?.data?.message || error.message));
     },
   });
 
   // Add task
   const addTaskMutation = useMutation({
     mutationFn: async (task: { ticket_id: string; title: string; description: string; due_date: string | null }) => {
+      if (isDemoModeEnabled()) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+        return;
+      }
       await axios.post(`/api/admin/repair-tickets/${task.ticket_id}/tasks`, {
-        title: task.title,
-        description: task.description || null,
+        description: task.title + (task.description ? ': ' + task.description : ''),
       });
     },
     onSuccess: () => {
@@ -204,21 +274,32 @@ export default function AdminRepairTickets() {
   // Update task
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<RepairTask> & { id: string }) => {
+      if (isDemoModeEnabled()) {
+        await new Promise(resolve => setTimeout(resolve, 400));
+        return;
+      }
       await axios.patch(`/api/admin/repair-tickets/${selectedTicket?.id}/tasks/${id}`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repair-tasks'] });
-      toast.success('Task updated');
     },
   });
 
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+
   const getStatusBadge = (status: string) => {
-    const statusInfo = STATUS_OPTIONS.find(s => s.value === status);
+    const s = STATUS_OPTIONS.find(o => o.value === status);
     return (
-      <Badge className={`${statusInfo?.color || 'bg-gray-500'} text-white`}>
-        {statusInfo?.label || status}
+      <Badge className={`${s?.color || 'bg-gray-500'} text-white text-xs`}>
+        {s?.label || status}
       </Badge>
     );
+  };
+
+  const handleSelectTicket = (ticket: RepairTicket) => {
+    setSelectedTicket(ticket);
+    setDetailTab('details');
+    setPayAmount('');
   };
 
   const statusCounts = tickets?.reduce((acc, t) => {
@@ -226,10 +307,15 @@ export default function AdminRepairTickets() {
     return acc;
   }, {} as Record<string, number>) || {};
 
-  const totalPaid = payments?.reduce((sum, p) => sum + Number(p.amount), 0) ?? 0;
+  const balanceDue = activeTicket
+    ? Math.max(0, (Number(activeTicket.total_cost ?? activeTicket.estimated_cost ?? 0)) - Number(activeTicket.amount_paid ?? 0))
+    : 0;
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   const content = (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -238,6 +324,10 @@ export default function AdminRepairTickets() {
           </h1>
           <p className="text-muted-foreground">Manage repair and installation requests</p>
         </div>
+        <Button onClick={() => router.visit('/admin/repairs/intake')} className="gap-2">
+          <ClipboardPlus className="h-4 w-4" />
+          New Intake
+        </Button>
       </div>
 
       {/* Status summary cards */}
@@ -257,8 +347,9 @@ export default function AdminRepairTickets() {
         ))}
       </div>
 
-      <div className="flex gap-4 items-center">
-        <div className="relative flex-1 max-w-md">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by ticket #, name, or phone..."
@@ -267,7 +358,21 @@ export default function AdminRepairTickets() {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" onClick={() => { setStatusFilter('all'); setSearchQuery(''); }}>
+        <Select value={techFilter} onValueChange={setTechFilter}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="All technicians" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All technicians</SelectItem>
+            {staff?.map(s => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          onClick={() => { setStatusFilter('all'); setTechFilter('all'); setSearchQuery(''); }}
+        >
           Clear Filters
         </Button>
       </div>
@@ -292,8 +397,10 @@ export default function AdminRepairTickets() {
                     <TableRow>
                       <TableHead>Ticket #</TableHead>
                       <TableHead>Customer</TableHead>
-                      <TableHead>Service</TableHead>
+                      <TableHead>Device</TableHead>
+                      <TableHead>Technician</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Est. Cost</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
@@ -303,28 +410,30 @@ export default function AdminRepairTickets() {
                       <TableRow
                         key={ticket.id}
                         className={`cursor-pointer hover:bg-muted/50 ${selectedTicket?.id === ticket.id ? 'bg-muted' : ''}`}
-                        onClick={() => {
-                          setSelectedTicket(ticket);
-                          setBillingForm({
-                            labor_hours: String(ticket.labor_hours || ''),
-                            labor_rate: String(ticket.labor_rate || ''),
-                            parts_cost: String(ticket.parts_cost || ''),
-                            deposit_amount: String(ticket.deposit_amount || ''),
-                            deposit_paid: ticket.deposit_paid,
-                          });
-                        }}
+                        onClick={() => handleSelectTicket(ticket)}
                       >
-                        <TableCell className="font-mono font-medium">{ticket.ticket_number}</TableCell>
+                        <TableCell className="font-mono font-medium text-sm">{ticket.ticket_number}</TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{ticket.customer_name}</p>
+                            <p className="font-medium text-sm">{ticket.customer_name}</p>
                             <p className="text-xs text-muted-foreground">{ticket.phone}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="capitalize">{ticket.service_type}</TableCell>
-                        <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {format(new Date(ticket.created_at), 'MMM d, yyyy')}
+                          {ticket.device_type || <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {ticket.assigned_staff_id
+                            ? (staffMap[ticket.assigned_staff_id] || <span className="text-muted-foreground/50">—</span>)
+                            : <span className="text-muted-foreground/50">Unassigned</span>
+                          }
+                        </TableCell>
+                        <TableCell>{getStatusBadge(ticket.status)}</TableCell>
+                        <TableCell className="text-sm">
+                          {ticket.estimated_cost != null ? `$${Number(ticket.estimated_cost).toFixed(2)}` : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {(() => { const d = safeDate(ticket.created_at); return d ? format(d, 'MMM d, yyyy') : '—'; })()}
                         </TableCell>
                         <TableCell>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -340,97 +449,294 @@ export default function AdminRepairTickets() {
 
         {/* Ticket Detail Panel */}
         <div className="lg:col-span-1">
-          {selectedTicket ? (
-            <Card className="sticky top-4">
+          {activeTicket ? (
+            <Card className="sticky top-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center justify-between">
-                  <span className="font-mono">{selectedTicket.ticket_number}</span>
-                  {getStatusBadge(selectedTicket.status)}
+                  <span className="font-mono text-sm">{activeTicket.ticket_number}</span>
+                  {getStatusBadge(activeTicket.status)}
                 </CardTitle>
+                {activeTicket.priority && activeTicket.priority !== 'normal' && (
+                  <span className={`self-start text-xs px-2 py-0.5 rounded-full border font-medium capitalize ${PRIORITY_COLORS[activeTicket.priority] || ''}`}>
+                    {activeTicket.priority}
+                  </span>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
-                <Tabs defaultValue="details">
+                <Tabs value={detailTab} onValueChange={setDetailTab}>
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="tasks">Tasks ({tasks?.length || 0})</TabsTrigger>
-                    <TabsTrigger value="billing">Billing</TabsTrigger>
+                    <TabsTrigger value="timeline">Timeline</TabsTrigger>
                   </TabsList>
 
-                  {/* Details Tab */}
+                  {/* ── Details Tab ─────────────────────────────────────── */}
                   <TabsContent value="details" className="space-y-4 mt-4">
-                    <div className="space-y-2">
+
+                    {/* Customer Info */}
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2 text-sm">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{selectedTicket.customer_name}</span>
+                        <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="font-medium">{activeTicket.customer_name}</span>
                       </div>
-                      <p className="text-sm text-muted-foreground pl-6">{selectedTicket.phone}</p>
-                      {selectedTicket.email && (
-                        <p className="text-sm text-muted-foreground pl-6">{selectedTicket.email}</p>
+                      <p className="text-sm text-muted-foreground pl-6">{activeTicket.phone}</p>
+                      {activeTicket.email && (
+                        <p className="text-sm text-muted-foreground pl-6">{activeTicket.email}</p>
                       )}
                     </div>
 
-                    <div className="space-y-1 text-sm">
-                      <p><strong>Service:</strong> {selectedTicket.service_type === 'repair' ? 'Repair' : 'Installation'}</p>
-                      {selectedTicket.item_make && <p><strong>Make:</strong> {selectedTicket.item_make}</p>}
-                      {selectedTicket.model_number && <p><strong>Model:</strong> {selectedTicket.model_number}</p>}
+                    {/* Device Info */}
+                    <div className="space-y-0.5 text-sm">
+                      {activeTicket.device_type && (
+                        <p><span className="text-muted-foreground">Device:</span> {activeTicket.device_type}</p>
+                      )}
+                      {activeTicket.item_make && (
+                        <p><span className="text-muted-foreground">Make:</span> {activeTicket.item_make}</p>
+                      )}
+                      {activeTicket.model_number && (
+                        <p><span className="text-muted-foreground">Model:</span> {activeTicket.model_number}</p>
+                      )}
+                      <p>
+                        <span className="text-muted-foreground">Service:</span>{' '}
+                        {activeTicket.service_type === 'repair' ? 'Repair' : 'Installation'}
+                      </p>
                     </div>
 
+                    {/* Problem */}
                     <div>
-                      <Label className="text-xs text-muted-foreground">Problem Description</Label>
-                      <p className="text-sm mt-1">{selectedTicket.problem_description}</p>
+                      <Label className="text-xs text-muted-foreground">Issue Description</Label>
+                      <p className="text-sm mt-1">{activeTicket.problem_description}</p>
                     </div>
 
+                    <Separator />
+
+                    {/* Status */}
                     <div>
-                      <Label>Update Status</Label>
+                      <Label className="text-xs">Status</Label>
                       <Select
-                        value={selectedTicket.status}
+                        value={activeTicket.status}
                         onValueChange={(value) => {
-                          updateTicketMutation.mutate({ id: selectedTicket.id, status: value });
-                          setSelectedTicket({ ...selectedTicket, status: value });
+                          updateTicketMutation.mutate({ id: activeTicket.id, status: value });
+                          setSelectedTicket(prev => prev ? { ...prev, status: value } : prev);
                         }}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {STATUS_OPTIONS.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
-                              {status.label}
-                            </SelectItem>
+                          {STATUS_OPTIONS.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
+                    {/* Technician Assignment */}
                     <div>
-                      <Label>Estimated Completion</Label>
+                      <Label className="text-xs">Assigned Technician</Label>
+                      <Select
+                        value={activeTicket.assigned_staff_id || 'none'}
+                        onValueChange={(value) => {
+                          const staffId = value === 'none' ? null : value;
+                          updateTicketMutation.mutate({ id: activeTicket.id, assigned_staff_id: staffId } as any);
+                          setSelectedTicket(prev => prev ? { ...prev, assigned_staff_id: staffId } : prev);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Unassigned" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Unassigned</SelectItem>
+                          {staff?.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {activeTicket.assigned_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Assigned{' '}
+                          {(() => { const d = safeDate(activeTicket.assigned_at); return d ? format(d, 'MMM d, yyyy h:mm a') : ''; })()}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* ETA */}
+                    <div>
+                      <Label className="text-xs">Estimated Completion</Label>
                       <Input
                         type="date"
-                        value={selectedTicket.eta_date || ''}
+                        value={activeTicket.eta_date || ''}
                         onChange={(e) => {
-                          updateTicketMutation.mutate({ id: selectedTicket.id, eta_date: e.target.value || null });
-                          setSelectedTicket({ ...selectedTicket, eta_date: e.target.value });
+                          updateTicketMutation.mutate({ id: activeTicket.id, eta_date: e.target.value || null } as any);
+                          setSelectedTicket(prev => prev ? { ...prev, eta_date: e.target.value } : prev);
                         }}
                       />
                     </div>
 
+                    <Separator />
+
+                    {/* Costs */}
+                    <div className="space-y-3">
+                      <Label className="text-xs font-medium">Costs</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Estimated ($)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={activeTicket.estimated_cost ?? ''}
+                            onChange={(e) =>
+                              setSelectedTicket(prev => prev ? { ...prev, estimated_cost: e.target.value ? Number(e.target.value) : null } : prev)
+                            }
+                            onBlur={() => {
+                              updateTicketMutation.mutate({ id: activeTicket.id, estimated_cost: activeTicket.estimated_cost } as any);
+                            }}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Final / Total ($)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={activeTicket.total_cost ?? ''}
+                            onChange={(e) =>
+                              setSelectedTicket(prev => prev ? { ...prev, total_cost: e.target.value ? Number(e.target.value) : null } : prev)
+                            }
+                            onBlur={() => {
+                              updateTicketMutation.mutate({ id: activeTicket.id, total_cost: activeTicket.total_cost } as any);
+                            }}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Customer Notes */}
                     <div>
-                      <Label>Staff Notes</Label>
+                      <Label className="text-xs">Customer Notes</Label>
                       <Textarea
-                        value={selectedTicket.notes || ''}
-                        onChange={(e) => setSelectedTicket({ ...selectedTicket, notes: e.target.value })}
+                        value={activeTicket.notes || ''}
+                        onChange={(e) => setSelectedTicket(prev => prev ? { ...prev, notes: e.target.value } : prev)}
                         onBlur={() => {
-                          if (selectedTicket.notes !== undefined) {
-                            updateTicketMutation.mutate({ id: selectedTicket.id, notes: selectedTicket.notes });
-                          }
+                          updateTicketMutation.mutate({ id: activeTicket.id, notes: activeTicket.notes } as any);
                         }}
-                        rows={3}
-                        placeholder="Add notes for customer or internal use..."
+                        rows={2}
+                        placeholder="Notes visible to customer..."
                       />
+                    </div>
+
+                    {/* Internal Notes */}
+                    <div>
+                      <Label className="text-xs">
+                        Internal Notes{' '}
+                        <span className="text-muted-foreground font-normal">(staff only)</span>
+                      </Label>
+                      <Textarea
+                        value={activeTicket.internal_notes || ''}
+                        onChange={(e) => setSelectedTicket(prev => prev ? { ...prev, internal_notes: e.target.value } : prev)}
+                        onBlur={() => {
+                          updateTicketMutation.mutate({ id: activeTicket.id, internal_notes: activeTicket.internal_notes } as any);
+                        }}
+                        rows={2}
+                        placeholder="Internal notes, sourcing, handling..."
+                      />
+                    </div>
+
+                    <Separator />
+
+                    {/* Payment Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <Label className="text-xs font-medium">Payment</Label>
+                        {activeTicket.payment_status && (
+                          <Badge
+                            className={
+                              activeTicket.payment_status === 'paid'
+                                ? 'bg-emerald-600 text-white text-xs ml-auto'
+                                : activeTicket.payment_status === 'partial'
+                                ? 'bg-yellow-500 text-white text-xs ml-auto'
+                                : 'bg-gray-200 text-gray-700 text-xs ml-auto'
+                            }
+                          >
+                            {activeTicket.payment_status === 'paid'
+                              ? 'Paid'
+                              : activeTicket.payment_status === 'partial'
+                              ? 'Partial'
+                              : 'Unpaid'}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="text-sm space-y-1 bg-muted/50 rounded-md p-3">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total</span>
+                          <span>{fmt(activeTicket.total_cost ?? activeTicket.estimated_cost)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Paid</span>
+                          <span className="text-emerald-600">{fmt(activeTicket.amount_paid)}</span>
+                        </div>
+                        {balanceDue > 0 && (
+                          <div className="flex justify-between font-medium border-t pt-1 mt-1">
+                            <span>Balance Due</span>
+                            <span className="text-destructive">${balanceDue.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {activeTicket.payment_status !== 'paid' && (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Amount ($)</Label>
+                              <Input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={payAmount}
+                                onChange={e => setPayAmount(e.target.value)}
+                                placeholder={balanceDue > 0 ? balanceDue.toFixed(2) : '0.00'}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Method</Label>
+                              <Select value={payMethod} onValueChange={setPayMethod}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PAYMENT_METHODS.map(m => (
+                                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            disabled={!payAmount || Number(payAmount) <= 0 || recordPaymentMutation.isPending}
+                            onClick={() => {
+                              if (!payAmount || Number(payAmount) <= 0) return;
+                              recordPaymentMutation.mutate({
+                                id: activeTicket.id,
+                                amount: Number(payAmount),
+                                method: payMethod,
+                              });
+                            }}
+                          >
+                            {recordPaymentMutation.isPending ? 'Recording...' : 'Pay Now'}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
 
-                  {/* Tasks Tab */}
+                  {/* ── Tasks Tab ────────────────────────────────────────── */}
                   <TabsContent value="tasks" className="space-y-4 mt-4">
                     <Button
                       variant="outline"
@@ -492,7 +798,8 @@ export default function AdminRepairTickets() {
                             <Input
                               value={newTask.title}
                               onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                              placeholder="e.g., Diagnose issue"
+                              placeholder="e.g. Diagnose issue"
+                              autoFocus
                             />
                           </div>
                           <div>
@@ -531,200 +838,55 @@ export default function AdminRepairTickets() {
                     </Dialog>
                   </TabsContent>
 
-                  {/* Billing Tab */}
-                  <TabsContent value="billing" className="space-y-4 mt-4">
-                    {/* Cost Breakdown Editor */}
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold flex items-center gap-2">
-                        <Receipt className="h-4 w-4" /> Cost Breakdown
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Labor Hours</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.25"
-                            value={billingForm.labor_hours}
-                            placeholder={String(selectedTicket.labor_hours || '0')}
-                            onChange={(e) => setBillingForm(prev => ({ ...prev, labor_hours: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Rate / hr ($)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={billingForm.labor_rate}
-                            placeholder={String(selectedTicket.labor_rate || '0')}
-                            onChange={(e) => setBillingForm(prev => ({ ...prev, labor_rate: e.target.value }))}
-                          />
-                        </div>
+                  {/* ── Timeline Tab ─────────────────────────────────────── */}
+                  <TabsContent value="timeline" className="space-y-3 mt-4">
+                    {!logs ? (
+                      <div className="flex justify-center py-6">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                       </div>
-                      <div>
-                        <Label className="text-xs">Parts Cost ($)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={billingForm.parts_cost}
-                          placeholder={String(selectedTicket.parts_cost || '0')}
-                          onChange={(e) => setBillingForm(prev => ({ ...prev, parts_cost: e.target.value }))}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Deposit ($)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={billingForm.deposit_amount}
-                            placeholder={String(selectedTicket.deposit_amount || '0')}
-                            onChange={(e) => setBillingForm(prev => ({ ...prev, deposit_amount: e.target.value }))}
-                          />
-                        </div>
-                        <div className="flex flex-col justify-end pb-1">
-                          <label className="flex items-center gap-2 text-sm cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={billingForm.deposit_paid}
-                              onChange={(e) => setBillingForm(prev => ({ ...prev, deposit_paid: e.target.checked }))}
-                              className="w-4 h-4"
-                            />
-                            Deposit Paid
-                          </label>
-                        </div>
-                      </div>
-
-                      {/* Live total preview */}
-                      <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Labor</span>
-                          <span>${((parseFloat(billingForm.labor_hours) || selectedTicket.labor_hours || 0) * (parseFloat(billingForm.labor_rate) || selectedTicket.labor_rate || 0)).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Parts</span>
-                          <span>${(parseFloat(billingForm.parts_cost) || selectedTicket.parts_cost || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between font-semibold border-t pt-1 mt-1">
-                          <span>Est. Total</span>
-                          <span>${selectedTicket.total_cost?.toFixed(2) || '0.00'}</span>
-                        </div>
-                        {(parseFloat(billingForm.deposit_amount) || selectedTicket.deposit_amount) > 0 && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Deposit</span>
-                            <span className={(billingForm.deposit_paid || selectedTicket.deposit_paid) ? 'text-emerald-600 font-medium' : 'text-orange-500'}>
-                              ${(parseFloat(billingForm.deposit_amount) || selectedTicket.deposit_amount || 0).toFixed(2)}{' '}
-                              {(billingForm.deposit_paid || selectedTicket.deposit_paid) ? '✓ Paid' : '(unpaid)'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        disabled={updateBillingMutation.isPending}
-                        onClick={() => updateBillingMutation.mutate({ ...billingForm, id: selectedTicket.id })}
-                      >
-                        {updateBillingMutation.isPending ? 'Saving...' : 'Save Billing'}
-                      </Button>
-                    </div>
-
-                    {/* Payment History */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold flex items-center gap-2">
-                          <CreditCard className="h-4 w-4" /> Payments
-                        </h4>
-                        <Button size="sm" variant="outline" onClick={() => setShowPaymentDialog(true)}>
-                          <Plus className="h-3 w-3 mr-1" /> Record
-                        </Button>
-                      </div>
-
-                      {!payments?.length ? (
-                        <p className="text-xs text-muted-foreground text-center py-4">No payments recorded yet</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {payments.map((p) => (
-                            <div key={p.id} className="flex justify-between items-center text-sm border rounded p-2">
-                              <div>
-                                <span className="font-medium capitalize">{p.payment_method.replace('_', ' ')}</span>
-                                {p.reference && <p className="text-xs text-muted-foreground">{p.reference}</p>}
-                                <p className="text-xs text-muted-foreground">{format(new Date(p.created_at), 'MMM d, h:mm a')}</p>
+                    ) : logs.length === 0 ? (
+                      <p className="text-center text-sm text-muted-foreground py-6">
+                        No events recorded yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {logs.map((log) => {
+                          const d = safeDate(log.created_at);
+                          return (
+                            <div key={log.id} className="flex gap-3 text-sm">
+                              <div className="mt-1 shrink-0">
+                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                               </div>
-                              <span className="font-semibold text-emerald-600">${Number(p.amount).toFixed(2)}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium capitalize">
+                                  {log.action.replace(/_/g, ' ')}
+                                </p>
+                                {log.action === 'status_changed' && log.details && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {log.details.from} → {log.details.to}
+                                  </p>
+                                )}
+                                {log.action === 'payment_recorded' && log.details && (
+                                  <p className="text-xs text-muted-foreground">
+                                    ${Number(log.details.amount).toFixed(2)} via {log.details.method}
+                                    {log.details.payment_status === 'paid' ? ' — Fully paid' : ''}
+                                  </p>
+                                )}
+                                {log.action === 'technician_assigned' && log.details && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {staffMap[log.details.assigned_staff_id] || log.details.assigned_staff_id}
+                                  </p>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {log.user_name && <>{log.user_name} · </>}
+                                  {d ? format(d, 'MMM d, yyyy h:mm a') : '—'}
+                                </p>
+                              </div>
                             </div>
-                          ))}
-                          <div className="flex justify-between text-sm font-semibold pt-1 border-t">
-                            <span>Total Paid</span>
-                            <span className="text-emerald-600">${totalPaid.toFixed(2)}</span>
-                          </div>
-                          {selectedTicket.total_cost > 0 && (
-                            <div className="flex justify-between text-sm pt-1">
-                              <span className="text-muted-foreground">Balance Due</span>
-                              <span className={selectedTicket.total_cost - totalPaid <= 0 ? 'text-emerald-600 font-semibold' : 'text-orange-500 font-semibold'}>
-                                ${Math.max(0, selectedTicket.total_cost - totalPaid).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Record Payment Dialog */}
-                    <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Record Payment</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Amount ($) *</Label>
-                            <Input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
-                              value={paymentForm.amount}
-                              onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <div>
-                            <Label>Payment Method *</Label>
-                            <Select
-                              value={paymentForm.payment_method}
-                              onValueChange={(v) => setPaymentForm({ ...paymentForm, payment_method: v })}
-                            >
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="cash">Cash</SelectItem>
-                                <SelectItem value="card">Card</SelectItem>
-                                <SelectItem value="gift_card">Gift Card</SelectItem>
-                                <SelectItem value="check">Check</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>Reference (optional)</Label>
-                            <Input
-                              value={paymentForm.reference}
-                              onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
-                              placeholder="e.g., Receipt #, deposit reference"
-                            />
-                          </div>
-                          <Button
-                            className="w-full"
-                            disabled={!paymentForm.amount || recordPaymentMutation.isPending}
-                            onClick={() => recordPaymentMutation.mutate({
-                              ticketId: selectedTicket.id,
-                              ...paymentForm,
-                            })}
-                          >
-                            {recordPaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                          );
+                        })}
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </CardContent>
@@ -734,6 +896,14 @@ export default function AdminRepairTickets() {
               <CardContent className="py-12 text-center">
                 <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">Select a ticket to view details</p>
+                <Button
+                  variant="outline"
+                  className="mt-4 gap-2"
+                  onClick={() => router.visit('/admin/repairs/intake')}
+                >
+                  <ClipboardPlus className="h-4 w-4" />
+                  New Walk-in Intake
+                </Button>
               </CardContent>
             </Card>
           )}

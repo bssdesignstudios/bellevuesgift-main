@@ -44,9 +44,9 @@ return new class extends Migration {
                 $table->foreign('register_session_id')->references('id')->on('register_sessions')->nullOnDelete();
                 $table->foreignId('cashier_user_id')->constrained('users')->cascadeOnDelete();
                 $table->foreignId('admin_user_id')->constrained('users')->cascadeOnDelete();
-                $table->foreignId('order_id')->nullable()->constrained('orders')->nullOnDelete();
                 $table->decimal('refund_amount', 10, 2);
-                $table->string('reason', 500)->nullable();
+                $table->uuid('order_id')->nullable();
+                $table->foreign('order_id')->references('id')->on('orders')->nullOnDelete();
                 $table->timestamp('approved_at')->useCurrent();
                 $table->timestamps();
             });

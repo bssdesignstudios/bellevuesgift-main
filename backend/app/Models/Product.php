@@ -46,8 +46,9 @@ class Product extends Model
         parent::boot();
 
         static::saving(function ($product) {
-            // Auto-calculate price if cost and markup are present
-            if ($product->cost !== null && $product->markup_percentage !== null) {
+            // Auto-calculate price if cost > 0 and markup are present.
+            // Guard against cost=0 to prevent zeroing out a manually-set price.
+            if ($product->cost !== null && $product->cost > 0 && $product->markup_percentage !== null) {
                 // Calculation: Cost + (Cost * Markup / 100)
                 $markupAmount = $product->cost * ($product->markup_percentage / 100);
                 $product->price = round($product->cost + $markupAmount, 2);
