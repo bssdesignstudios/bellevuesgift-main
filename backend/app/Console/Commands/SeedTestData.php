@@ -272,32 +272,41 @@ class SeedTestData extends Command
                 }
             } else {
                 // Postgres schema: type, invoice_id, running_balance
-                $existing = CustomerLedgerEntry::where('customer_id', $cust->id)
+                // Use DB::table because model fillable doesn't match Postgres columns
+                $existing = DB::table('customer_ledger_entries')
+                    ->where('customer_id', $cust->id)
                     ->where('invoice_id', $invoice->id)->count();
 
                 if ($existing === 0) {
-                    $runBal = CustomerLedgerEntry::where('customer_id', $cust->id)
-                        ->latest()->value('running_balance') ?? 0;
+                    $runBal = DB::table('customer_ledger_entries')
+                        ->where('customer_id', $cust->id)
+                        ->latest('created_at')->value('running_balance') ?? 0;
 
                     $runBal += $total;
-                    CustomerLedgerEntry::create([
+                    DB::table('customer_ledger_entries')->insert([
+                        'id'              => (string) \Illuminate\Support\Str::uuid(),
                         'customer_id'     => $cust->id,
                         'type'            => 'charge',
                         'invoice_id'      => $invoice->id,
                         'amount'          => $total,
                         'running_balance' => $runBal,
                         'notes'           => "Invoice {$iNum} issued",
+                        'created_at'      => now(),
+                        'updated_at'      => now(),
                     ]);
 
                     if ($amtPaid > 0) {
                         $runBal -= $amtPaid;
-                        CustomerLedgerEntry::create([
+                        DB::table('customer_ledger_entries')->insert([
+                            'id'              => (string) \Illuminate\Support\Str::uuid(),
                             'customer_id'     => $cust->id,
                             'type'            => 'payment',
                             'invoice_id'      => $invoice->id,
                             'amount'          => -$amtPaid,
                             'running_balance' => $runBal,
                             'notes'           => $invStatus === 'paid' ? 'Payment in full' : 'Partial payment received',
+                            'created_at'      => now(),
+                            'updated_at'      => now(),
                         ]);
                     }
                 }
