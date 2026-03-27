@@ -369,7 +369,7 @@ function POSContent({
 
   // Map current POS cart items to the document format
   const cartItemsForDoc: PosCartItemDoc[] = cart.map((item: CartItem) => {
-    const price = item.product.sale_price ?? item.product.price;
+    const price = Number(item.product.sale_price ?? item.product.price ?? 0);
     const lineTotal = price * item.qty;
     return {
       product_id: item.product.id,
