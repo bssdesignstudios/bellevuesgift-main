@@ -127,6 +127,7 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
     Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
 
     Route::get('/customers', [AdminCustomerController::class, 'index']);
+    Route::post('/customers', [AdminCustomerController::class, 'store']);
     Route::get('/customers/{customer}', [AdminCustomerController::class, 'show']);
     Route::post('/customers/{id}/send-password-reset', [AdminCustomerController::class, 'sendPasswordReset']);
 

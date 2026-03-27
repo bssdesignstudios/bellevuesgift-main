@@ -55,7 +55,12 @@ class AdminQuoteController extends Controller
             'items.*.discount'    => 'nullable|numeric|min:0',
         ]);
 
-        $quoteNumber = 'Q-' . date('Y') . '-' . strtoupper(Str::random(5));
+        $year = date('Y');
+        $last = Quote::where('quote_number', 'like', "Q-{$year}-%")
+            ->orderByRaw("LENGTH(quote_number) DESC, quote_number DESC")
+            ->value('quote_number');
+        $seq = $last ? ((int) substr(strrchr($last, '-'), 1)) + 1 : 1;
+        $quoteNumber = "Q-{$year}-" . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
         $totals = $this->calcTotals($validated['items']);
 
@@ -148,7 +153,12 @@ class AdminQuoteController extends Controller
     {
         $quote = Quote::with('items')->findOrFail($id);
 
-        $invoiceNumber = 'INV-' . date('Y') . '-' . strtoupper(Str::random(5));
+        $year = date('Y');
+        $lastInv = Invoice::where('invoice_number', 'like', "INV-{$year}-%")
+            ->orderByRaw("LENGTH(invoice_number) DESC, invoice_number DESC")
+            ->value('invoice_number');
+        $seq = $lastInv ? ((int) substr(strrchr($lastInv, '-'), 1)) + 1 : 1;
+        $invoiceNumber = "INV-{$year}-" . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
         $invoice = Invoice::create([
             'invoice_number' => $invoiceNumber,
