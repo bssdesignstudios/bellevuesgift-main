@@ -21,6 +21,7 @@ use App\Http\Controllers\AdminRepairTicketController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\AdminTimesheetController;
+use App\Http\Controllers\AdminSettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -185,6 +186,12 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
 
     Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
     Route::post('/impersonate/stop', [App\Http\Controllers\AuthController::class, 'stopImpersonation']);
+
+    // Settings
+    Route::get('/settings', [AdminSettingsController::class, 'index']);
+    Route::put('/settings', [AdminSettingsController::class, 'update']);
+    Route::get('/settings/modules', [AdminSettingsController::class, 'modules']);
+    Route::patch('/settings/modules/{module}', [AdminSettingsController::class, 'toggleModule']);
 
     // Timesheets
     Route::get('/timesheets', [AdminTimesheetController::class, 'index']);

@@ -22,7 +22,8 @@ import {
   LogIn,
   Menu,
   X,
-  BookOpen
+  BookOpen,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,6 +49,7 @@ const ADMIN_NAV = [
   { label: 'Payroll', href: '/admin/payroll', icon: Wallet, roles: ['admin', 'finance'] },
   { label: 'Recurring Bills', href: '/admin/recurring-invoices', icon: RefreshCw, roles: ['admin', 'finance'] },
   { label: 'Help / SOP', href: '/admin/sop', icon: BookOpen, roles: ['admin', 'finance', 'warehouse', 'warehouse_manager'] },
+  { label: 'Settings', href: '/admin/settings', icon: Settings, roles: ['admin'] },
 ];
 
 function SidebarContent({ filteredNav, currentStaff, url, impersonating, impersonate, signOut, onNavClick }: {

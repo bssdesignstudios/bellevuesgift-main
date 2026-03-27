@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class StoreSetting extends Model
 {
@@ -15,6 +16,16 @@ class StoreSetting extends Model
         'key',
         'value',
     ];
+
+    protected static function booted(): void
+    {
+        // Auto-generate UUID for the `id` column (DB primary key is `id` but Eloquent PK is `key`)
+        static::creating(function (self $model) {
+            if (empty($model->id)) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
 
     private const MODULE_DEFAULTS = [
         'module.dashboard'         => '1',

@@ -402,6 +402,18 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
             return Inertia::render('admin/AdminTimesheets');
         })->name('admin.timesheets');
 
+        Route::get('/quotes', function () {
+            return Inertia::render('admin/AdminQuotes');
+        })->name('admin.quotes');
+
+        Route::get('/invoices', function () {
+            return Inertia::render('admin/AdminInvoices');
+        })->name('admin.invoices');
+
+        Route::get('/statements', function () {
+            return Inertia::render('admin/AdminStatements');
+        })->name('admin.statements');
+
         Route::get('/petty-cash', function () {
             return Inertia::render('admin/AdminPettyCash');
         })->name('admin.petty-cash');
@@ -437,7 +449,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         })->name('admin.categories');
     });
 
-    // 4. Staff Management & Registers (Strictly Admin)
+    // 4. Staff Management, Registers & Settings (Strictly Admin)
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/staff', function () {
             return Inertia::render('admin/AdminStaff');
@@ -446,6 +458,14 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::get('/registers', function () {
             return Inertia::render('admin/AdminRegisters');
         })->name('admin.registers');
+
+        Route::get('/settings', function () {
+            return Inertia::render('admin/AdminSettings');
+        })->name('admin.settings');
+
+        Route::get('/email-logs', function () {
+            return Inertia::render('admin/AdminEmailLogs');
+        })->name('admin.email-logs');
     });
 
     // 5. SOP (All authenticated admin-panel roles)
