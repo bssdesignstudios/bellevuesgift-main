@@ -22,7 +22,7 @@ const MODULE_LIST = [
   { key: 'discounts',   label: 'Discounts' },
   { key: 'reports',     label: 'Reports' },
   { key: 'expenses',    label: 'Expenses' },
-  { key: 'settings',    label: 'Settings' },
+  // NOTE: "Settings" intentionally excluded — disabling it would lock you out
   { key: 'help',        label: 'Help' },
   { key: 'gift_cards',  label: 'Gift Cards' },
   { key: 'timesheets',  label: 'Timesheets' },

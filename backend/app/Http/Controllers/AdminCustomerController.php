@@ -16,9 +16,9 @@ class AdminCustomerController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('email', 'ilike', "%{$search}%")
+                  ->orWhere('phone', 'ilike', "%{$search}%");
             });
         }
 
@@ -26,7 +26,8 @@ class AdminCustomerController extends Controller
             $query->where('customer_tier', $request->tier);
         }
 
-        $customers = $query->limit(500)->get();
+        $limit = $request->filled('limit') ? min((int) $request->limit, 500) : 500;
+        $customers = $query->limit($limit)->get();
 
         return response()->json($customers);
     }

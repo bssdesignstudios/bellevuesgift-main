@@ -40,11 +40,12 @@ export function CustomerCombobox({ value, label, onChange, placeholder = 'Search
   const { data: results = [], isFetching } = useQuery({
     queryKey: ['customer-search', search],
     queryFn: async () => {
-      if (!search.trim()) return [];
-      const { data } = await axios.get('/api/admin/customers', { params: { search, limit: 10 } });
+      const params: Record<string, string | number> = { limit: 20 };
+      if (search.trim()) params.search = search;
+      const { data } = await axios.get('/api/admin/customers', { params });
       return data as Customer[];
     },
-    enabled: open && search.length >= 1,
+    enabled: open,
     staleTime: 10_000,
   });
 
@@ -123,8 +124,8 @@ export function CustomerCombobox({ value, label, onChange, placeholder = 'Search
             {!isFetching && search && results.length === 0 && (
               <p className="text-center text-sm text-muted-foreground py-4">No customers found.</p>
             )}
-            {!search && (
-              <p className="text-center text-sm text-muted-foreground py-4">Type to search customers.</p>
+            {!isFetching && !search && results.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground py-4">No customers found.</p>
             )}
             {results.map(c => (
               <button

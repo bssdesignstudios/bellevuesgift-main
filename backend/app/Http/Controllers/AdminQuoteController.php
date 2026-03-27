@@ -6,8 +6,11 @@ use App\Models\Quote;
 use App\Models\QuoteItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdminQuoteController extends Controller
 {
@@ -33,8 +36,8 @@ class AdminQuoteController extends Controller
             'status'       => $q->status,
             'customer'     => $q->customer ? ['id' => $q->customer->id, 'name' => $q->customer->name] : null,
             'total'        => $q->total,
-            'issued_date'  => $q->issued_date,
-            'valid_until'  => $q->valid_until,
+            'issued_date'  => $q->issued_date ?? null,
+            'valid_until'  => $q->valid_until ?? null,
         ]));
     }
 
@@ -63,41 +66,81 @@ class AdminQuoteController extends Controller
         $quoteNumber = "Q-{$year}-" . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
         $totals = $this->calcTotals($validated['items']);
+        $usePriceCol = Schema::hasColumn('quote_items', 'price');
 
-        $quote = Quote::create([
-            'quote_number'   => $quoteNumber,
-            'customer_id'    => $validated['customer_id'] ?? null,
-            'status'         => $validated['status'] ?? 'draft',
-            'issued_date'    => $validated['issued_date'] ?? now()->toDateString(),
-            'valid_until'    => $validated['valid_until'] ?? null,
-            'notes'          => $validated['notes'] ?? null,
-            'subtotal'       => $totals['subtotal'],
-            'tax_total'      => $totals['tax_total'],
-            'discount_total' => $totals['discount_total'],
-            'total'          => $totals['total'],
-            'created_by'     => $request->user()?->id,
-        ]);
+        $quoteData = [
+            'quote_number' => $quoteNumber,
+            'customer_id'  => $validated['customer_id'] ?? null,
+            'status'       => $validated['status'] ?? 'draft',
+            'notes'        => $validated['notes'] ?? null,
+            'subtotal'     => $totals['subtotal'],
+            'total'        => $totals['total'],
+            'created_by'   => $request->user()?->id,
+        ];
+
+        if (Schema::hasColumn('quotes', 'issued_date')) {
+            $quoteData['issued_date']    = $validated['issued_date'] ?? now()->toDateString();
+            $quoteData['valid_until']    = $validated['valid_until'] ?? null;
+            $quoteData['tax_total']      = $totals['tax_total'];
+            $quoteData['discount_total'] = $totals['discount_total'];
+        } else {
+            $quoteData['tax'] = $totals['tax_total'];
+            if ($validated['customer_id'] ?? null) {
+                $cust = Customer::find($validated['customer_id']);
+                $quoteData['customer_name']  = $cust?->name;
+                $quoteData['customer_email'] = $cust?->email;
+            }
+        }
+
+        $quote = Quote::create($quoteData);
 
         foreach ($validated['items'] as $item) {
             $lineTotal = $this->lineTotal($item);
-            QuoteItem::create([
+            $itemData = [
                 'quote_id'    => $quote->id,
                 'product_id'  => $item['product_id'] ?? null,
                 'description' => $item['description'],
                 'qty'         => $item['qty'],
-                'unit_price'  => $item['unit_price'],
-                'tax_rate'    => $item['tax_rate'] ?? 0,
-                'discount'    => $item['discount'] ?? 0,
-                'line_total'  => $lineTotal,
-            ]);
+            ];
+
+            if ($usePriceCol) {
+                $itemData['price'] = $item['unit_price'];
+                $itemData['total'] = $lineTotal;
+            } else {
+                $itemData['unit_price']  = $item['unit_price'];
+                $itemData['tax_rate']    = $item['tax_rate'] ?? 0;
+                $itemData['discount']    = $item['discount'] ?? 0;
+                $itemData['line_total']  = $lineTotal;
+            }
+
+            DB::table('quote_items')->insert(array_merge($itemData, [
+                'id'         => (string) Str::uuid(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]));
         }
 
-        return response()->json($quote->load(['items.product', 'customer']), 201);
+        return response()->json($quote->load(['items', 'customer']), 201);
     }
 
     public function show($id)
     {
-        return response()->json(Quote::with(['items.product', 'customer'])->findOrFail($id));
+        $quote = Quote::with(['items', 'customer'])->findOrFail($id);
+        $usePriceCol = Schema::hasColumn('quote_items', 'price');
+
+        // Normalize items for frontend
+        $quoteArray = $quote->toArray();
+        if ($usePriceCol && !empty($quoteArray['items'])) {
+            $quoteArray['items'] = array_map(function ($item) {
+                $item['unit_price'] = $item['price'] ?? 0;
+                $item['line_total'] = $item['total'] ?? 0;
+                $item['tax_rate']   = $item['tax_rate'] ?? 0;
+                $item['discount']   = $item['discount'] ?? 0;
+                return $item;
+            }, $quoteArray['items']);
+        }
+
+        return response()->json($quoteArray);
     }
 
     public function update(Request $request, $id)
@@ -119,28 +162,65 @@ class AdminQuoteController extends Controller
             'items.*.discount'    => 'nullable|numeric|min:0',
         ]);
 
+        $usePriceCol = Schema::hasColumn('quote_items', 'price');
+
         if (!empty($validated['items'])) {
             $totals = $this->calcTotals($validated['items']);
             $quote->items()->delete();
+
             foreach ($validated['items'] as $item) {
-                QuoteItem::create([
+                $lineTotal = $this->lineTotal($item);
+                $itemData = [
                     'quote_id'    => $quote->id,
                     'product_id'  => $item['product_id'] ?? null,
                     'description' => $item['description'],
                     'qty'         => $item['qty'],
-                    'unit_price'  => $item['unit_price'],
-                    'tax_rate'    => $item['tax_rate'] ?? 0,
-                    'discount'    => $item['discount'] ?? 0,
-                    'line_total'  => $this->lineTotal($item),
-                ]);
+                ];
+
+                if ($usePriceCol) {
+                    $itemData['price'] = $item['unit_price'];
+                    $itemData['total'] = $lineTotal;
+                } else {
+                    $itemData['unit_price']  = $item['unit_price'];
+                    $itemData['tax_rate']    = $item['tax_rate'] ?? 0;
+                    $itemData['discount']    = $item['discount'] ?? 0;
+                    $itemData['line_total']  = $lineTotal;
+                }
+
+                DB::table('quote_items')->insert(array_merge($itemData, [
+                    'id'         => (string) Str::uuid(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]));
             }
+
             $validated = array_merge($validated, $totals);
+
+            // Update quote totals based on schema
+            $updateData = ['subtotal' => $totals['subtotal'], 'total' => $totals['total']];
+            if (Schema::hasColumn('quotes', 'tax_total')) {
+                $updateData['tax_total']      = $totals['tax_total'];
+                $updateData['discount_total'] = $totals['discount_total'];
+            } else {
+                $updateData['tax'] = $totals['tax_total'];
+            }
+            $quote->update($updateData);
         }
 
-        unset($validated['items']);
-        $quote->update(array_filter($validated, fn($v) => $v !== null));
+        // Update non-item fields
+        $updateFields = [];
+        if (array_key_exists('customer_id', $validated)) $updateFields['customer_id'] = $validated['customer_id'];
+        if (array_key_exists('status', $validated) && $validated['status']) $updateFields['status'] = $validated['status'];
+        if (array_key_exists('notes', $validated)) $updateFields['notes'] = $validated['notes'];
+        if (Schema::hasColumn('quotes', 'issued_date')) {
+            if (array_key_exists('issued_date', $validated)) $updateFields['issued_date'] = $validated['issued_date'];
+            if (array_key_exists('valid_until', $validated)) $updateFields['valid_until'] = $validated['valid_until'];
+        }
+        if (!empty($updateFields)) {
+            $quote->update($updateFields);
+        }
 
-        return response()->json($quote->fresh()->load(['items.product', 'customer']));
+        return response()->json($quote->fresh()->load(['items', 'customer']));
     }
 
     public function destroy($id)
@@ -160,38 +240,66 @@ class AdminQuoteController extends Controller
         $seq = $lastInv ? ((int) substr(strrchr($lastInv, '-'), 1)) + 1 : 1;
         $invoiceNumber = "INV-{$year}-" . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
-        $invoice = Invoice::create([
+        $usePriceCol = Schema::hasColumn('invoice_items', 'price');
+
+        // Build invoice data adapting to schema
+        $invoiceData = [
             'invoice_number' => $invoiceNumber,
             'customer_id'    => $quote->customer_id,
             'quote_id'       => $quote->id,
             'status'         => 'draft',
-            'issued_date'    => now()->toDateString(),
-            'due_date'       => now()->addDays(30)->toDateString(),
             'notes'          => $quote->notes,
             'subtotal'       => $quote->subtotal,
-            'tax_total'      => $quote->tax_total,
-            'discount_total' => $quote->discount_total,
             'total'          => $quote->total,
             'amount_paid'    => 0,
             'created_by'     => $request->user()?->id,
-        ]);
+        ];
+
+        if (Schema::hasColumn('invoices', 'issued_date')) {
+            $invoiceData['issued_date']    = now()->toDateString();
+            $invoiceData['due_date']       = now()->addDays(30)->toDateString();
+            $invoiceData['tax_total']      = $quote->tax_total ?? $quote->tax ?? 0;
+            $invoiceData['discount_total'] = $quote->discount_total ?? 0;
+        } else {
+            $invoiceData['tax']         = $quote->tax ?? $quote->tax_total ?? 0;
+            $invoiceData['balance_due'] = $quote->total;
+            if ($quote->customer_id) {
+                $cust = Customer::find($quote->customer_id);
+                $invoiceData['customer_name']  = $cust?->name;
+                $invoiceData['customer_email'] = $cust?->email;
+            }
+        }
+
+        $invoice = Invoice::create($invoiceData);
 
         foreach ($quote->items as $item) {
-            InvoiceItem::create([
+            $itemData = [
                 'invoice_id'  => $invoice->id,
                 'product_id'  => $item->product_id,
                 'description' => $item->description,
                 'qty'         => $item->qty,
-                'unit_price'  => $item->unit_price,
-                'tax_rate'    => $item->tax_rate,
-                'discount'    => $item->discount,
-                'line_total'  => $item->line_total,
-            ]);
+            ];
+
+            if ($usePriceCol) {
+                $itemData['price'] = $item->price ?? $item->unit_price ?? 0;
+                $itemData['total'] = $item->total ?? $item->line_total ?? 0;
+            } else {
+                $itemData['unit_price']  = $item->unit_price ?? $item->price ?? 0;
+                $itemData['tax_rate']    = $item->tax_rate ?? 0;
+                $itemData['discount']    = $item->discount ?? 0;
+                $itemData['line_total']  = $item->line_total ?? $item->total ?? 0;
+            }
+
+            DB::table('invoice_items')->insert(array_merge($itemData, [
+                'id'         => (string) Str::uuid(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]));
         }
 
         $quote->update(['status' => 'accepted']);
 
-        return response()->json($invoice->load(['items.product', 'customer']), 201);
+        return response()->json($invoice->load(['items', 'customer']), 201);
     }
 
     private function lineTotal(array $item): float

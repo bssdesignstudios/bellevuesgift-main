@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdminInvoiceController extends Controller
 {
@@ -31,10 +34,10 @@ class AdminInvoiceController extends Controller
             'status'         => $inv->status,
             'customer'       => $inv->customer ? ['id' => $inv->customer->id, 'name' => $inv->customer->name] : null,
             'total'          => $inv->total,
-            'amount_paid'    => $inv->amount_paid,
-            'balance'        => $inv->balance,
-            'issued_date'    => $inv->issued_date,
-            'due_date'       => $inv->due_date,
+            'amount_paid'    => $inv->amount_paid ?? 0,
+            'balance'        => $inv->balance ?? $inv->balance_due ?? 0,
+            'issued_date'    => $inv->issued_date ?? null,
+            'due_date'       => $inv->due_date ?? null,
         ]));
     }
 
@@ -63,42 +66,86 @@ class AdminInvoiceController extends Controller
         $seq = $lastInv ? ((int) substr(strrchr($lastInv, '-'), 1)) + 1 : 1;
         $invoiceNumber = "INV-{$year}-" . str_pad($seq, 4, '0', STR_PAD_LEFT);
         $totals = $this->calcTotals($validated['items']);
+        $usePriceCol = Schema::hasColumn('invoice_items', 'price');
 
-        $invoice = Invoice::create([
+        $invoiceData = [
             'invoice_number' => $invoiceNumber,
             'customer_id'    => $validated['customer_id'] ?? null,
             'quote_id'       => $validated['quote_id'] ?? null,
             'status'         => $validated['status'] ?? 'draft',
-            'issued_date'    => $validated['issued_date'] ?? now()->toDateString(),
-            'due_date'       => $validated['due_date'] ?? null,
             'notes'          => $validated['notes'] ?? null,
             'subtotal'       => $totals['subtotal'],
-            'tax_total'      => $totals['tax_total'],
-            'discount_total' => $totals['discount_total'],
             'total'          => $totals['total'],
             'amount_paid'    => 0,
             'created_by'     => $request->user()?->id,
-        ]);
+        ];
+
+        if (Schema::hasColumn('invoices', 'issued_date')) {
+            $invoiceData['issued_date']    = $validated['issued_date'] ?? now()->toDateString();
+            $invoiceData['due_date']       = $validated['due_date'] ?? null;
+            $invoiceData['tax_total']      = $totals['tax_total'];
+            $invoiceData['discount_total'] = $totals['discount_total'];
+        } else {
+            $invoiceData['tax']         = $totals['tax_total'];
+            $invoiceData['balance_due'] = $totals['total'];
+            if ($validated['customer_id'] ?? null) {
+                $cust = Customer::find($validated['customer_id']);
+                $invoiceData['customer_name']  = $cust?->name;
+                $invoiceData['customer_email'] = $cust?->email;
+            }
+        }
+
+        $invoice = Invoice::create($invoiceData);
 
         foreach ($validated['items'] as $item) {
-            InvoiceItem::create([
+            $lineTotal = $this->lineTotal($item);
+            $itemData = [
                 'invoice_id'  => $invoice->id,
                 'product_id'  => $item['product_id'] ?? null,
                 'description' => $item['description'],
                 'qty'         => $item['qty'],
-                'unit_price'  => $item['unit_price'],
-                'tax_rate'    => $item['tax_rate'] ?? 0,
-                'discount'    => $item['discount'] ?? 0,
-                'line_total'  => $this->lineTotal($item),
-            ]);
+            ];
+
+            if ($usePriceCol) {
+                $itemData['price'] = $item['unit_price'];
+                $itemData['total'] = $lineTotal;
+            } else {
+                $itemData['unit_price']  = $item['unit_price'];
+                $itemData['tax_rate']    = $item['tax_rate'] ?? 0;
+                $itemData['discount']    = $item['discount'] ?? 0;
+                $itemData['line_total']  = $lineTotal;
+            }
+
+            DB::table('invoice_items')->insert(array_merge($itemData, [
+                'id'         => (string) Str::uuid(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]));
         }
 
-        return response()->json($invoice->load(['items.product', 'customer']), 201);
+        return response()->json($invoice->load(['items', 'customer']), 201);
     }
 
     public function show($id)
     {
-        return response()->json(Invoice::with(['items.product', 'customer', 'quote'])->findOrFail($id));
+        $invoice = Invoice::with(['items', 'customer', 'quote'])->findOrFail($id);
+        $usePriceCol = Schema::hasColumn('invoice_items', 'price');
+
+        $invoiceArray = $invoice->toArray();
+        if ($usePriceCol && !empty($invoiceArray['items'])) {
+            $invoiceArray['items'] = array_map(function ($item) {
+                $item['unit_price'] = $item['price'] ?? 0;
+                $item['line_total'] = $item['total'] ?? 0;
+                $item['tax_rate']   = $item['tax_rate'] ?? 0;
+                $item['discount']   = $item['discount'] ?? 0;
+                return $item;
+            }, $invoiceArray['items']);
+        }
+
+        // Normalize balance field
+        $invoiceArray['balance'] = $invoice->balance ?? $invoice->balance_due ?? 0;
+
+        return response()->json($invoiceArray);
     }
 
     public function update(Request $request, $id)
@@ -121,33 +168,74 @@ class AdminInvoiceController extends Controller
             'items.*.discount'    => 'nullable|numeric|min:0',
         ]);
 
+        $usePriceCol = Schema::hasColumn('invoice_items', 'price');
+
         if (!empty($validated['items'])) {
             $totals = $this->calcTotals($validated['items']);
             $invoice->items()->delete();
+
             foreach ($validated['items'] as $item) {
-                InvoiceItem::create([
+                $lineTotal = $this->lineTotal($item);
+                $itemData = [
                     'invoice_id'  => $invoice->id,
                     'product_id'  => $item['product_id'] ?? null,
                     'description' => $item['description'],
                     'qty'         => $item['qty'],
-                    'unit_price'  => $item['unit_price'],
-                    'tax_rate'    => $item['tax_rate'] ?? 0,
-                    'discount'    => $item['discount'] ?? 0,
-                    'line_total'  => $this->lineTotal($item),
-                ]);
+                ];
+
+                if ($usePriceCol) {
+                    $itemData['price'] = $item['unit_price'];
+                    $itemData['total'] = $lineTotal;
+                } else {
+                    $itemData['unit_price']  = $item['unit_price'];
+                    $itemData['tax_rate']    = $item['tax_rate'] ?? 0;
+                    $itemData['discount']    = $item['discount'] ?? 0;
+                    $itemData['line_total']  = $lineTotal;
+                }
+
+                DB::table('invoice_items')->insert(array_merge($itemData, [
+                    'id'         => (string) Str::uuid(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]));
             }
-            $validated = array_merge($validated, $totals);
+
+            $updateData = ['subtotal' => $totals['subtotal'], 'total' => $totals['total']];
+            if (Schema::hasColumn('invoices', 'tax_total')) {
+                $updateData['tax_total']      = $totals['tax_total'];
+                $updateData['discount_total'] = $totals['discount_total'];
+            } else {
+                $updateData['tax'] = $totals['tax_total'];
+            }
+            $invoice->update($updateData);
         }
 
-        unset($validated['items']);
-        $invoice->update(array_filter($validated, fn($v) => $v !== null));
+        // Update non-item fields
+        $updateFields = [];
+        if (array_key_exists('customer_id', $validated)) $updateFields['customer_id'] = $validated['customer_id'];
+        if (array_key_exists('status', $validated) && $validated['status']) $updateFields['status'] = $validated['status'];
+        if (array_key_exists('notes', $validated)) $updateFields['notes'] = $validated['notes'];
+        if (array_key_exists('amount_paid', $validated) && $validated['amount_paid'] !== null) {
+            $updateFields['amount_paid'] = $validated['amount_paid'];
+            if (Schema::hasColumn('invoices', 'balance_due')) {
+                $updateFields['balance_due'] = $invoice->total - $validated['amount_paid'];
+            }
+        }
+        if (Schema::hasColumn('invoices', 'issued_date')) {
+            if (array_key_exists('issued_date', $validated)) $updateFields['issued_date'] = $validated['issued_date'];
+            if (array_key_exists('due_date', $validated)) $updateFields['due_date'] = $validated['due_date'];
+        }
+        if (!empty($updateFields)) {
+            $invoice->update($updateFields);
+        }
 
         // Auto-mark paid if amount_paid >= total
-        if ($invoice->fresh()->amount_paid >= $invoice->fresh()->total && $invoice->fresh()->total > 0) {
-            $invoice->update(['status' => 'paid']);
+        $fresh = $invoice->fresh();
+        if ($fresh->amount_paid >= $fresh->total && $fresh->total > 0) {
+            $fresh->update(['status' => 'paid']);
         }
 
-        return response()->json($invoice->fresh()->load(['items.product', 'customer']));
+        return response()->json($fresh->load(['items', 'customer']));
     }
 
     public function destroy($id)

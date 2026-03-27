@@ -220,6 +220,7 @@ Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix(
 
     // Settings
     Route::get('/settings', [App\Http\Controllers\AdminSettingsController::class, 'show']);
+    Route::put('/settings', [App\Http\Controllers\AdminSettingsController::class, 'update']);
     Route::post('/settings/maintenance', [App\Http\Controllers\AdminSettingsController::class, 'toggleMaintenance']);
 
     // Quotes
