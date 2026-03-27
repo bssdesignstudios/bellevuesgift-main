@@ -424,9 +424,7 @@ export default function AdminStatements() {
                           <TypeBadge type={entry.entry_type} />
                         </TableCell>
                         <TableCell className="text-sm font-mono">
-                          {entry.invoice_number
-                            ? `INV-${entry.invoice_number}`
-                            : entry.reference_type || '—'}
+                          {entry.invoice_number || entry.reference_type || '—'}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
                           {entry.notes || '—'}

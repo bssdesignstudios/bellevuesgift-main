@@ -21,12 +21,9 @@ use App\Http\Controllers\AdminRepairTicketController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\AdminTimesheetController;
-use App\Http\Controllers\AdminSettingsController;
-use App\Http\Controllers\QuoteController;
-use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\AdminLedgerController;
 use App\Http\Controllers\AdminDocumentEmailController;
-use App\Http\Controllers\AdminEmailLogController;
+use App\Http\Controllers\PosDocumentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -222,9 +219,39 @@ Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix(
     Route::delete('/timesheets/{timeLog}', [AdminTimesheetController::class, 'destroy']);
 
     // Settings
-    Route::get('/settings', [AdminSettingsController::class, 'show']);
-    Route::put('/settings', [AdminSettingsController::class, 'update']);
-    Route::post('/settings/maintenance', [AdminSettingsController::class, 'toggleMaintenance']);
+    Route::get('/settings', [App\Http\Controllers\AdminSettingsController::class, 'show']);
+    Route::post('/settings/maintenance', [App\Http\Controllers\AdminSettingsController::class, 'toggleMaintenance']);
+
+    // Quotes
+    Route::get('/quotes', [App\Http\Controllers\AdminQuoteController::class, 'index']);
+    Route::post('/quotes', [App\Http\Controllers\AdminQuoteController::class, 'store']);
+    Route::get('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'show']);
+    Route::put('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'update']);
+    Route::delete('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'destroy']);
+    Route::post('/quotes/{id}/convert-to-invoice', [App\Http\Controllers\AdminQuoteController::class, 'convertToInvoice']);
+
+    // Invoices
+    Route::get('/invoices', [App\Http\Controllers\AdminInvoiceController::class, 'index']);
+    Route::post('/invoices', [App\Http\Controllers\AdminInvoiceController::class, 'store']);
+    Route::get('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'show']);
+    Route::put('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'update']);
+    Route::delete('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'destroy']);
+
+    // Ledger & Statements
+    Route::get('/ledger-entries', [AdminLedgerController::class, 'index']);
+    Route::post('/statements/email', [AdminDocumentEmailController::class, 'sendStatement']);
+
+    // POS Document Workflow (quotes, invoices, customers — cashier-safe)
+    Route::prefix('pos-docs')->group(function () {
+        Route::get('/customers/search', [PosDocumentController::class, 'searchCustomers']);
+        Route::post('/customers', [PosDocumentController::class, 'createCustomer']);
+        Route::get('/quotes/search', [PosDocumentController::class, 'searchQuotes']);
+        Route::get('/invoices/search', [PosDocumentController::class, 'searchInvoices']);
+        Route::post('/quotes', [PosDocumentController::class, 'createQuote']);
+        Route::post('/invoices', [PosDocumentController::class, 'createInvoice']);
+        Route::get('/quotes/{id}/items', [PosDocumentController::class, 'getQuoteItems']);
+        Route::get('/invoices/{id}/items', [PosDocumentController::class, 'getInvoiceItems']);
+    });
 });
 
 // Staff Profile API — any authenticated staff user

@@ -34,30 +34,23 @@ class AdminCustomerController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'           => 'required|string|max:255',
-            'email'          => 'nullable|email|max:255',
-            'phone'          => 'nullable|string|max:50',
-            'address'        => 'nullable|string|max:500',
-            'island'         => 'nullable|string|max:100',
-            'account_type'   => 'nullable|in:personal,business',
-            'business_name'  => 'nullable|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'vat_number'     => 'nullable|string|max:100',
+            'name'         => 'required|string|max:255',
+            'email'        => 'nullable|email|max:255|unique:customers,email',
+            'phone'        => 'nullable|string|max:50',
+            'account_type' => 'nullable|in:personal,business',
+            'address'      => 'nullable|string|max:500',
+            'island'       => 'nullable|string|max:100',
         ]);
 
         $customer = Customer::create([
-            'name'           => $validated['name'],
-            'email'          => $validated['email'] ?? null,
-            'phone'          => $validated['phone'] ?? null,
-            'address'        => $validated['address'] ?? null,
-            'island'         => $validated['island'] ?? null,
-            'account_type'   => $validated['account_type'] ?? 'personal',
-            'business_name'  => $validated['business_name'] ?? null,
-            'contact_person' => $validated['contact_person'] ?? null,
-            'vat_number'     => $validated['vat_number'] ?? null,
+            'name'         => $validated['name'],
+            'email'        => $validated['email'] ?? null,
+            'phone'        => $validated['phone'] ?? null,
+            'account_type' => $validated['account_type'] ?? 'personal',
+            'customer_tier'=> 'retail',
+            'address'      => $validated['address'] ?? null,
+            'island'       => $validated['island'] ?? null,
         ]);
-
-        $customer->loadCount('orders');
 
         return response()->json($customer, 201);
     }
