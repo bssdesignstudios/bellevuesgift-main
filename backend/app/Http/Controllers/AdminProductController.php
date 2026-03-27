@@ -22,9 +22,9 @@ class AdminProductController extends Controller
         if ($request->has('search')) {
             $search = $request->query('search');
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%")
-                    ->orWhere('barcode', 'like', "%{$search}%");
+                $q->where('name', 'ilike', "%{$search}%")
+                    ->orWhere('sku', 'ilike', "%{$search}%")
+                    ->orWhere('barcode', 'ilike', "%{$search}%");
             });
         }
 
