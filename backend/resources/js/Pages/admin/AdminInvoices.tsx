@@ -13,6 +13,7 @@ import { Receipt, Plus, Trash2 } from 'lucide-react';
 import { CustomerCombobox } from '@/components/admin/CustomerCombobox';
 import { ProductCombobox } from '@/components/admin/ProductCombobox';
 import { cn } from '@/lib/utils';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -473,6 +474,7 @@ export default function AdminInvoices() {
           </CardContent>
         </Card>
       </div>
+      <SOPHelper context="invoices" />
     </AdminLayout>
   );
 }

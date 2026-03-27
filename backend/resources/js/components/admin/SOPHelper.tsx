@@ -97,6 +97,24 @@ const CONTEXT_MAP: Record<string, { sectionId: string; procedures: string[] }[]>
       procedures: ['Staff Check'],
     },
   ],
+  customers: [
+    {
+      sectionId: 'customers',
+      procedures: ['Create a Customer', 'Find a Customer', 'Send Password Reset'],
+    },
+  ],
+  quotes: [
+    {
+      sectionId: 'quotes',
+      procedures: ['Create a Quote', 'Convert Quote to Invoice', 'Edit or Update a Quote'],
+    },
+  ],
+  invoices: [
+    {
+      sectionId: 'invoices',
+      procedures: ['Create an Invoice', 'Record a Payment', 'Email Invoice to Customer', 'Print or Download Invoice'],
+    },
+  ],
 };
 
 export function SOPHelper({ context }: SOPHelperProps) {

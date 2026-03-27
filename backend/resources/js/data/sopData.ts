@@ -394,4 +394,162 @@ export const SOP_DATA: SOPSection[] = [
       },
     ],
   },
+
+  // ── CUSTOMERS ─────────────────────────────────────────────
+  {
+    id: 'customers',
+    role: 'admin',
+    title: 'Customer Management',
+    icon: 'Users',
+    procedures: [
+      {
+        title: 'Create a Customer',
+        steps: [
+          'What: Add a new customer record to the system.',
+          'When: First time a customer makes a purchase or signs up.',
+          'Go to Customers in the sidebar.',
+          'Click the "New Customer" button at the top right.',
+          'Fill in the customer\'s name (required), email, and phone number.',
+          'Add their address and island if known.',
+          'Select account type — Personal or Business.',
+          'If Business: fill in Business Name, Contact Person, and VAT Number.',
+          'Click "Create Customer" to save.',
+          'The customer will appear in the list and can now be linked to quotes and invoices.',
+        ],
+      },
+      {
+        title: 'Find a Customer',
+        steps: [
+          'What: Search for an existing customer record.',
+          'When: Before creating an invoice or quote, or to check order history.',
+          'Go to Customers in the sidebar.',
+          'Use the search bar to type the customer\'s name, email, or phone.',
+          'Click the customer row to view their full profile and history.',
+        ],
+      },
+      {
+        title: 'Send Password Reset',
+        steps: [
+          'What: Help a customer regain access to their online account.',
+          'When: Customer contacts support saying they cannot log in.',
+          'Go to Customers in the sidebar.',
+          'Find the customer using the search bar.',
+          'Click the customer row to open their profile.',
+          'Click "Send Password Reset" — an email will be dispatched automatically.',
+          'Ask the customer to check their email and follow the reset link.',
+        ],
+      },
+    ],
+  },
+
+  // ── QUOTES ────────────────────────────────────────────────
+  {
+    id: 'quotes',
+    role: 'finance',
+    title: 'Quotes',
+    icon: 'FileText',
+    procedures: [
+      {
+        title: 'Create a Quote',
+        steps: [
+          'What: Generate a formal price estimate to send to a customer.',
+          'When: Customer requests pricing before committing to a purchase.',
+          'Go to Quotes in the sidebar.',
+          'The system auto-generates a quote number — change it if needed.',
+          'Use the Customer search to select an existing customer, or leave blank.',
+          'Set the status to Draft while building the quote.',
+          'Set the Issued Date and Valid Until date.',
+          'Under Quote Items, click "Add Item" and search for a product.',
+          'Selecting a product auto-fills the description and price.',
+          'Adjust quantity, apply tax % or discount $ as needed.',
+          'Click "Create Quote" to save.',
+          'Change status to Sent when ready to share with the customer.',
+        ],
+      },
+      {
+        title: 'Convert Quote to Invoice',
+        steps: [
+          'What: Turn an accepted quote into a payable invoice.',
+          'When: Customer approves the quote and is ready to be billed.',
+          'Go to Quotes in the sidebar.',
+          'Find the quote and click the "→ Invoice" button.',
+          'The system creates a new invoice with all line items copied over.',
+          'The quote status is automatically set to Accepted.',
+          'Go to Invoices to find the newly created invoice and set the Due Date.',
+        ],
+      },
+      {
+        title: 'Edit or Update a Quote',
+        steps: [
+          'What: Modify an existing quote before it is accepted.',
+          'When: Customer requests changes to items, pricing, or dates.',
+          'Go to Quotes in the sidebar.',
+          'Find the quote and click the edit (pencil) icon.',
+          'Make the required changes — add/remove items, adjust prices.',
+          'Save the changes and notify the customer of the updated version.',
+        ],
+      },
+    ],
+  },
+
+  // ── INVOICES ──────────────────────────────────────────────
+  {
+    id: 'invoices',
+    role: 'finance',
+    title: 'Invoices',
+    icon: 'Receipt',
+    procedures: [
+      {
+        title: 'Create an Invoice',
+        steps: [
+          'What: Issue a formal billing document to a customer.',
+          'When: After services are rendered or goods are delivered.',
+          'Go to Invoices in the sidebar.',
+          'The system auto-generates an invoice number.',
+          'Use the Customer search to select the customer being billed.',
+          'Set the Issued Date and Due Date.',
+          'Under Invoice Items, click "Add Item" and search for a product or service.',
+          'Selecting a product auto-fills description and price — adjust as needed.',
+          'Set quantity, tax %, and any discounts.',
+          'Click "Create Invoice" to save.',
+          'Set status to Sent when you share it with the customer.',
+        ],
+      },
+      {
+        title: 'Record a Payment',
+        steps: [
+          'What: Log that a customer has paid all or part of an invoice.',
+          'When: Customer makes a payment via bank transfer, cash, or card.',
+          'Go to Invoices in the sidebar.',
+          'Find the invoice and open it.',
+          'Enter the amount paid in the "Amount Paid" field.',
+          'Save — the Balance Due updates automatically.',
+          'If Amount Paid equals the total, status changes to Paid.',
+          'If partial, the status changes to Partial.',
+        ],
+      },
+      {
+        title: 'Email Invoice to Customer',
+        steps: [
+          'What: Email a copy of the invoice directly to the customer.',
+          'When: After creating an invoice or when a customer requests a copy.',
+          'Go to Invoices in the sidebar.',
+          'Find the invoice and click the Email button.',
+          'Enter the recipient\'s email address and an optional message.',
+          'Click Send — the email log records this send for your records.',
+        ],
+      },
+      {
+        title: 'Print or Download Invoice',
+        steps: [
+          'What: Get a printable or PDF copy of the invoice.',
+          'When: Customer needs a physical copy, or for internal records.',
+          'Go to Invoices in the sidebar.',
+          'Find the invoice and click Print or Download.',
+          'A formatted print view opens in a new tab.',
+          'Use the browser\'s print dialog to print or save as PDF.',
+        ],
+      },
+    ],
+  },
 ];

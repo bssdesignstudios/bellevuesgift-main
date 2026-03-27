@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award, KeyRound, CheckCircle2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 
 interface Customer {
   id: string;
@@ -767,6 +768,7 @@ export default function AdminCustomers() {
           </DialogContent>
         </Dialog>
       </div>
+      <SOPHelper context="customers" />
     </AdminLayout>
   );
 }

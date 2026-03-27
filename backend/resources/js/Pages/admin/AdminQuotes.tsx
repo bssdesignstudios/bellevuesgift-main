@@ -14,6 +14,7 @@ import { FileText, Plus, Trash2, RefreshCw, ChevronRight } from 'lucide-react';
 import { CustomerCombobox } from '@/components/admin/CustomerCombobox';
 import { ProductCombobox } from '@/components/admin/ProductCombobox';
 import { cn } from '@/lib/utils';
+import { SOPHelper } from '@/components/admin/SOPHelper';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -461,6 +462,7 @@ export default function AdminQuotes() {
           </CardContent>
         </Card>
       </div>
+      <SOPHelper context="quotes" />
     </AdminLayout>
   );
 }
