@@ -22,6 +22,10 @@ class Customer extends Model
         'customer_tier',
         'tier_discount',
         'is_favorite',
+        'account_type',
+        'business_name',
+        'contact_person',
+        'vat_number',
     ];
 
     protected $casts = [

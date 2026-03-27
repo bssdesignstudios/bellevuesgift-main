@@ -31,6 +31,37 @@ class AdminCustomerController extends Controller
         return response()->json($customers);
     }
 
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name'           => 'required|string|max:255',
+            'email'          => 'nullable|email|max:255',
+            'phone'          => 'nullable|string|max:50',
+            'address'        => 'nullable|string|max:500',
+            'island'         => 'nullable|string|max:100',
+            'account_type'   => 'nullable|in:personal,business',
+            'business_name'  => 'nullable|string|max:255',
+            'contact_person' => 'nullable|string|max:255',
+            'vat_number'     => 'nullable|string|max:100',
+        ]);
+
+        $customer = Customer::create([
+            'name'           => $validated['name'],
+            'email'          => $validated['email'] ?? null,
+            'phone'          => $validated['phone'] ?? null,
+            'address'        => $validated['address'] ?? null,
+            'island'         => $validated['island'] ?? null,
+            'account_type'   => $validated['account_type'] ?? 'personal',
+            'business_name'  => $validated['business_name'] ?? null,
+            'contact_person' => $validated['contact_person'] ?? null,
+            'vat_number'     => $validated['vat_number'] ?? null,
+        ]);
+
+        $customer->loadCount('orders');
+
+        return response()->json($customer, 201);
+    }
+
     public function show(Customer $customer)
     {
         $customer->loadCount('orders');

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,7 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award, KeyRound, CheckCircle2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
@@ -25,6 +27,10 @@ interface Customer {
   is_favorite: boolean;
   orders_count: number;
   created_at: string;
+  account_type?: string | null;
+  business_name?: string | null;
+  contact_person?: string | null;
+  vat_number?: string | null;
   orders?: Array<{
     id: string;
     order_number: string;
@@ -35,6 +41,30 @@ interface Customer {
     created_at: string;
   }>;
 }
+
+interface NewCustomerForm {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  island: string;
+  account_type: 'personal' | 'business';
+  business_name: string;
+  contact_person: string;
+  vat_number: string;
+}
+
+const EMPTY_NEW_CUSTOMER: NewCustomerForm = {
+  name: '',
+  email: '',
+  phone: '',
+  address: '',
+  island: '',
+  account_type: 'personal',
+  business_name: '',
+  contact_person: '',
+  vat_number: '',
+};
 
 interface QuoteRecord {
   id: string;
@@ -104,6 +134,7 @@ function getStatusBadge(status: string) {
 }
 
 export default function AdminCustomers() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -111,6 +142,55 @@ export default function AdminCustomers() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [resetStatus, setResetStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [resetError, setResetError] = useState<string>('');
+  const [newOpen, setNewOpen] = useState(false);
+  const [newForm, setNewForm] = useState<NewCustomerForm>(EMPTY_NEW_CUSTOMER);
+  const [newErrors, setNewErrors] = useState<Partial<NewCustomerForm>>({});
+
+  const createCustomerMutation = useMutation({
+    mutationFn: async (payload: NewCustomerForm) => {
+      const body: Record<string, string> = {
+        name: payload.name,
+        account_type: payload.account_type,
+      };
+      if (payload.email.trim()) body.email = payload.email.trim();
+      if (payload.phone.trim()) body.phone = payload.phone.trim();
+      if (payload.address.trim()) body.address = payload.address.trim();
+      if (payload.island.trim()) body.island = payload.island.trim();
+      if (payload.account_type === 'business') {
+        if (payload.business_name.trim()) body.business_name = payload.business_name.trim();
+        if (payload.contact_person.trim()) body.contact_person = payload.contact_person.trim();
+        if (payload.vat_number.trim()) body.vat_number = payload.vat_number.trim();
+      }
+      const { data } = await axios.post('/api/admin/customers', body);
+      return data as Customer;
+    },
+    onSuccess: () => {
+      toast.success('Customer created');
+      queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+      setNewOpen(false);
+      setNewForm(EMPTY_NEW_CUSTOMER);
+      setNewErrors({});
+    },
+    onError: (e: any) => {
+      const msg = e.response?.data?.message || 'Failed to create customer';
+      toast.error(msg);
+    },
+  });
+
+  const handleNewSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs: Partial<NewCustomerForm> = {};
+    if (!newForm.name.trim()) errs.name = 'Name is required';
+    if (newForm.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newForm.email.trim())) {
+      errs.email = 'Enter a valid email address';
+    }
+    if (Object.keys(errs).length) {
+      setNewErrors(errs);
+      return;
+    }
+    setNewErrors({});
+    createCustomerMutation.mutate(newForm);
+  };
 
   const { data: customers, isLoading } = useQuery({
     queryKey: ['admin-customers', search, tierFilter],
@@ -200,9 +280,15 @@ export default function AdminCustomers() {
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Customers</h1>
-          <span className="text-sm text-muted-foreground">
-            {customers?.length ?? 0} customer{customers?.length !== 1 ? 's' : ''}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              {customers?.length ?? 0} customer{customers?.length !== 1 ? 's' : ''}
+            </span>
+            <Button size="sm" onClick={() => { setNewForm(EMPTY_NEW_CUSTOMER); setNewErrors({}); setNewOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" />
+              New Customer
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4 flex-wrap">
@@ -306,6 +392,118 @@ export default function AdminCustomers() {
             </TableBody>
           </Table>
         </div>
+
+        {/* NEW CUSTOMER MODAL */}
+        <Dialog open={newOpen} onOpenChange={(open) => { if (!open) { setNewOpen(false); setNewErrors({}); } }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>New Customer</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleNewSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="nc-name">Name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="nc-name"
+                  value={newForm.name}
+                  onChange={(e) => setNewForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Full name"
+                />
+                {newErrors.name && <p className="text-xs text-destructive">{newErrors.name}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nc-account-type">Account Type</Label>
+                <Select value={newForm.account_type} onValueChange={(v) => setNewForm((p) => ({ ...p, account_type: v as 'personal' | 'business' }))}>
+                  <SelectTrigger id="nc-account-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">Personal</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newForm.account_type === 'business' && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nc-business-name">Business Name</Label>
+                    <Input
+                      id="nc-business-name"
+                      value={newForm.business_name}
+                      onChange={(e) => setNewForm((p) => ({ ...p, business_name: e.target.value }))}
+                      placeholder="Company / organization name"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nc-contact-person">Contact Person</Label>
+                    <Input
+                      id="nc-contact-person"
+                      value={newForm.contact_person}
+                      onChange={(e) => setNewForm((p) => ({ ...p, contact_person: e.target.value }))}
+                      placeholder="Primary contact"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nc-vat">VAT Number</Label>
+                    <Input
+                      id="nc-vat"
+                      value={newForm.vat_number}
+                      onChange={(e) => setNewForm((p) => ({ ...p, vat_number: e.target.value }))}
+                      placeholder="Tax / VAT registration number"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="nc-email">Email</Label>
+                  <Input
+                    id="nc-email"
+                    type="email"
+                    value={newForm.email}
+                    onChange={(e) => setNewForm((p) => ({ ...p, email: e.target.value }))}
+                    placeholder="optional"
+                  />
+                  {newErrors.email && <p className="text-xs text-destructive">{newErrors.email}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="nc-phone">Phone</Label>
+                  <Input
+                    id="nc-phone"
+                    value={newForm.phone}
+                    onChange={(e) => setNewForm((p) => ({ ...p, phone: e.target.value }))}
+                    placeholder="optional"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nc-island">Island</Label>
+                <Input
+                  id="nc-island"
+                  value={newForm.island}
+                  onChange={(e) => setNewForm((p) => ({ ...p, island: e.target.value }))}
+                  placeholder="e.g. Nassau, Freeport"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nc-address">Address</Label>
+                <Input
+                  id="nc-address"
+                  value={newForm.address}
+                  onChange={(e) => setNewForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="Street address"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button type="submit" disabled={createCustomerMutation.isPending}>
+                  {createCustomerMutation.isPending ? 'Creating...' : 'Create Customer'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setNewOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* CUSTOMER DETAIL MODAL */}
         <Dialog open={!!selectedCustomer} onOpenChange={() => { setSelectedCustomer(null); setDetailData(null); }}>

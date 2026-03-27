@@ -181,10 +181,6 @@ Route::get('/orders/{id}', function ($id) {
     ]);
 })->name('orders.show');
 
-Route::middleware(['auth'])->get('/staff/profile', function () {
-    return Inertia::render('StaffProfilePage');
-})->name('staff.profile');
-
 Route::get('/staff/login', function () {
     return Inertia::render('StaffLoginPage');
 })->name('staff.login');
@@ -195,12 +191,8 @@ Route::post('/staff/logout', [AuthController::class, 'logout'])->name('staff.log
 
 Route::middleware(['auth', 'role:admin,cashier,warehouse,warehouse_manager,finance'])->group(function () {
     Route::get('/staff/profile', function () {
-        return Inertia::render('staff/StaffProfilePage');
+        return Inertia::render('StaffProfilePage');
     })->name('staff.profile');
-
-    Route::get('/api/staff/profile', [StaffProfileController::class, 'show']);
-    Route::put('/api/staff/profile', [StaffProfileController::class, 'updateProfile']);
-    Route::post('/api/staff/password', [StaffProfileController::class, 'updatePassword']);
 });
 
 // POS login page (PIN-based)
