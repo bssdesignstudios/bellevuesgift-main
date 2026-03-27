@@ -95,6 +95,9 @@ export default function StaffLoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
+          <div className="text-center text-sm text-muted-foreground">
+            Already signed in? <a href="/staff/profile" className="text-primary hover:underline">Open profile settings</a>
+          </div>
         </CardContent>
       </Card>
     </div>

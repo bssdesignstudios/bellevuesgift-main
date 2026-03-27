@@ -10,6 +10,7 @@ use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\VendorController;
+use App\Http\Controllers\StaffProfileController;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
@@ -192,10 +193,20 @@ Route::post('/staff/login', [AuthController::class, 'login'])->name('staff.login
 Route::post('/pos/pin-login', [AuthController::class, 'pinLogin'])->name('pos.pin-login');
 Route::post('/staff/logout', [AuthController::class, 'logout'])->name('staff.logout');
 
+Route::middleware(['auth', 'role:admin,cashier,warehouse,warehouse_manager,finance'])->group(function () {
+    Route::get('/staff/profile', function () {
+        return Inertia::render('staff/StaffProfilePage');
+    })->name('staff.profile');
+
+    Route::get('/api/staff/profile', [StaffProfileController::class, 'show']);
+    Route::put('/api/staff/profile', [StaffProfileController::class, 'updateProfile']);
+    Route::post('/api/staff/password', [StaffProfileController::class, 'updatePassword']);
+});
+
 // POS login page (PIN-based)
 Route::get('/pos/login', function () {
     return Inertia::render('PosLoginPage');
-})->name('pos.login');
+})->middleware([\App\Http\Middleware\ModuleGate::class])->name('pos.login');
 
 Route::get('/not-authorized', function () {
     return Inertia::render('NotAuthorizedPage');
@@ -307,7 +318,7 @@ Route::get('/account/profile', function () {
 })->name('account.profile');
 
 // POS (Admin, Cashier, Warehouse)
-Route::middleware(['auth', 'role:admin,cashier,warehouse,warehouse_manager'])->group(function () {
+Route::middleware(['auth', 'role:admin,cashier,warehouse,warehouse_manager', \App\Http\Middleware\ModuleGate::class])->group(function () {
     Route::get('/pos', function () {
         return Inertia::render('POSPage');
     })->name('pos');
@@ -358,7 +369,7 @@ Route::middleware(['auth'])->group(function () {
 
 // Admin (Admin only)
 // Admin Routing Group
-Route::middleware(['auth'])->prefix('admin')->group(function () {
+Route::middleware(['auth', \App\Http\Middleware\ModuleGate::class])->prefix('admin')->group(function () {
 
     // 1. Common / Overview (Admin + Finance)
     Route::middleware(['role:admin,finance'])->group(function () {
@@ -376,6 +387,58 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::get('/orders', function () {
             return Inertia::render('admin/AdminOrders');
         })->name('admin.orders');
+
+        Route::get('/quotes', function () {
+            return Inertia::render('admin/AdminQuotes');
+        })->name('admin.quotes');
+
+        Route::get('/quotes/{id}/print', function (string $id) {
+            return Inertia::render('admin/AdminQuotePrint', ['id' => $id]);
+        })->name('admin.quotes.print');
+
+        Route::get('/quotes/{id}/share', function (string $id) {
+            return Inertia::render('admin/AdminQuotePrint', ['id' => $id, 'autoPrint' => false]);
+        })->name('admin.quotes.share');
+
+        Route::get('/quotes/{id}/download', function (string $id) {
+            return Inertia::render('admin/AdminQuotePrint', ['id' => $id, 'autoPrint' => true, 'documentTitle' => 'Quote']);
+        })->name('admin.quotes.download');
+
+        Route::get('/invoices', function () {
+            return Inertia::render('admin/AdminInvoices');
+        })->name('admin.invoices');
+
+        Route::get('/invoices/{id}/print', function (string $id) {
+            return Inertia::render('admin/AdminInvoicePrint', ['id' => $id]);
+        })->name('admin.invoices.print');
+
+        Route::get('/invoices/{id}/share', function (string $id) {
+            return Inertia::render('admin/AdminInvoicePrint', ['id' => $id, 'autoPrint' => false]);
+        })->name('admin.invoices.share');
+
+        Route::get('/invoices/{id}/download', function (string $id) {
+            return Inertia::render('admin/AdminInvoicePrint', ['id' => $id, 'autoPrint' => true, 'documentTitle' => 'Invoice']);
+        })->name('admin.invoices.download');
+
+        Route::get('/statements', function () {
+            return Inertia::render('admin/AdminStatements');
+        })->name('admin.statements');
+
+        Route::get('/email-logs', function () {
+            return Inertia::render('admin/AdminEmailLogs');
+        })->name('admin.email-logs');
+
+        Route::get('/statements/print', function () {
+            return Inertia::render('admin/AdminStatementPrint');
+        })->name('admin.statements.print');
+
+        Route::get('/statements/share', function () {
+            return Inertia::render('admin/AdminStatementPrint', ['autoPrint' => false]);
+        })->name('admin.statements.share');
+
+        Route::get('/statements/download', function () {
+            return Inertia::render('admin/AdminStatementPrint', ['autoPrint' => true, 'documentTitle' => 'Statement']);
+        })->name('admin.statements.download');
 
         Route::get('/repairs', function () {
             return Inertia::render('admin/AdminRepairTickets');

@@ -21,6 +21,12 @@ use App\Http\Controllers\AdminRepairTicketController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\AdminTimesheetController;
+use App\Http\Controllers\AdminSettingsController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\AdminLedgerController;
+use App\Http\Controllers\AdminDocumentEmailController;
+use App\Http\Controllers\AdminEmailLogController;
 
 /*
 |--------------------------------------------------------------------------
@@ -94,7 +100,7 @@ Route::prefix('repair')->group(function () {
 });
 
 // Admin API — protected: requires authenticated staff session
-Route::middleware('auth:web')->prefix('admin')->group(function () {
+Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix('admin')->group(function () {
     Route::get('/categories', [AdminCategoryController::class, 'index']);
     Route::post('/categories', [AdminCategoryController::class, 'store']);
     Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
@@ -180,8 +186,32 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
     Route::delete('/recurring-bills/{recurringBill}', [App\Http\Controllers\AdminRecurringBillController::class, 'destroy']);
     Route::post('/recurring-bills/{recurringBill}/mark-paid', [App\Http\Controllers\AdminRecurringBillController::class, 'markPaid']);
 
+    Route::get('/settings', [AdminSettingsController::class, 'index']);
+    Route::post('/settings', [AdminSettingsController::class, 'upsert']);
+
     Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
     Route::post('/impersonate/stop', [App\Http\Controllers\AuthController::class, 'stopImpersonation']);
+
+    Route::get('/quotes', [QuoteController::class, 'index']);
+    Route::post('/quotes', [QuoteController::class, 'store']);
+    Route::get('/quotes/{id}', [QuoteController::class, 'show']);
+    Route::put('/quotes/{id}', [QuoteController::class, 'update']);
+    Route::delete('/quotes/{id}', [QuoteController::class, 'destroy']);
+
+    Route::get('/invoices', [InvoiceController::class, 'index']);
+    Route::post('/invoices', [InvoiceController::class, 'store']);
+    Route::get('/invoices/{id}', [InvoiceController::class, 'show']);
+    Route::put('/invoices/{id}', [InvoiceController::class, 'update']);
+    Route::post('/invoices/{id}/payments', [InvoiceController::class, 'recordPayment']);
+    Route::post('/quotes/{id}/convert', [InvoiceController::class, 'convertFromQuote']);
+
+    Route::get('/ledger-entries', [AdminLedgerController::class, 'index']);
+
+    Route::post('/quotes/{id}/email', [AdminDocumentEmailController::class, 'sendQuote']);
+    Route::post('/invoices/{id}/email', [AdminDocumentEmailController::class, 'sendInvoice']);
+    Route::post('/statements/email', [AdminDocumentEmailController::class, 'sendStatement']);
+
+    Route::get('/email-logs', [AdminEmailLogController::class, 'index']);
 
     // Timesheets
     Route::get('/timesheets', [AdminTimesheetController::class, 'index']);
