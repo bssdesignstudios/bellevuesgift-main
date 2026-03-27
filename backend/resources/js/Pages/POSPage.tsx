@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Receipt, Package, RotateCcw, LogOut, Wrench, Monitor, WifiOff, X, ChevronUp, ShieldAlert } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Receipt, Package, RotateCcw, LogOut, Wrench, Monitor, WifiOff, X, ChevronUp, ShieldAlert, Printer, FileText, FilePlus, FileSearch } from 'lucide-react';
 import { format } from 'date-fns';
 import { playBeep } from '@/lib/beep';
 import { VAT_RATE } from '@/lib/constants';
@@ -24,8 +24,12 @@ import { RegisterSelector } from '@/components/pos/RegisterSelector';
 import { CloseShiftDialog } from '@/components/pos/CloseShiftDialog';
 import { isPOSDomain } from '@/lib/domain';
 import { printReceipt } from '@/components/pos/ReceiptPrint';
-import { Printer } from 'lucide-react';
 import { SwitchCashierDialog } from '@/components/pos/SwitchCashierDialog';
+import { PosCustomerModal, PosCustomer } from '@/components/pos/PosCustomerModal';
+import { PosQuoteModal, PosCartItemDoc } from '@/components/pos/PosQuoteModal';
+import { PosInvoiceModal } from '@/components/pos/PosInvoiceModal';
+import { PosFindQuoteModal } from '@/components/pos/PosFindQuoteModal';
+import { PosFindInvoiceModal } from '@/components/pos/PosFindInvoiceModal';
 
 // ── Error Boundary to catch silent React crashes ────────────────────────────
 class POSErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
@@ -358,6 +362,57 @@ function POSContent({
   const queryClient = useQueryClient();
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
 
+  // ── POS Document workflow state ──────────────────────────────────────────
+  type PosDocModal = null | 'customer' | 'quote' | 'invoice' | 'findQuote' | 'findInvoice';
+  const [posDocModal, setPosDocModal] = useState<PosDocModal>(null);
+  const [posSelectedCustomer, setPosSelectedCustomer] = useState<PosCustomer | null>(null);
+
+  // Map current POS cart items to the document format
+  const cartItemsForDoc: PosCartItemDoc[] = cart.map((item: CartItem) => {
+    const price = item.product.sale_price ?? item.product.price;
+    const lineTotal = price * item.qty;
+    return {
+      product_id: item.product.id,
+      name: item.product.name,
+      quantity: item.qty,
+      unit_price: price,
+      tax_percent: 10, // matches VAT_RATE = 0.10
+      discount: 0,
+      line_total: lineTotal,
+    };
+  });
+
+  // Load items from a saved document back into the POS cart
+  const handleLoadCartFromDoc = (docItems: PosCartItemDoc[]) => {
+    const newCartItems: CartItem[] = docItems.map((item) => ({
+      product: {
+        id: item.product_id || `doc-${Math.random().toString(36).slice(2)}`,
+        name: item.name,
+        price: item.unit_price,
+        sale_price: null,
+        sku: '',
+        slug: '',
+        barcode: null,
+        description: null,
+        tax_class: 'standard',
+        image_url: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        category_id: null,
+        vendor_id: null,
+        cost: null,
+        markup_percentage: null,
+        vendor: null,
+        card_color: null,
+        hex_code: null,
+      } as any,
+      qty: item.quantity,
+    }));
+    setCart(newCartItems);
+    toast.success(`${docItems.length} item(s) loaded into cart`);
+  };
+
   const { data: categories } = useQuery({
     queryKey: ['pos-categories'],
     queryFn: async () => {
@@ -494,6 +549,69 @@ function POSContent({
 
   const cartTabContent = (
     <>
+      {/* Documents toolbar */}
+      <div className="p-2 border-b bg-muted/30 shrink-0">
+        {posSelectedCustomer && (
+          <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1 truncate px-1">
+            <FileText className="h-3 w-3 shrink-0" />
+            <span className="truncate">{posSelectedCustomer.name}</span>
+            <button
+              className="ml-auto shrink-0 hover:text-foreground"
+              onClick={() => setPosSelectedCustomer(null)}
+            >×</button>
+          </div>
+        )}
+        <div className="flex gap-1 flex-wrap">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-7 px-2"
+            onClick={() => setPosDocModal('customer')}
+          >
+            <FileText className="h-3 w-3 mr-1" />
+            {posSelectedCustomer ? posSelectedCustomer.name.split(' ')[0] : 'Customer'}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-7 px-2"
+            onClick={() => setPosDocModal('quote')}
+            disabled={cart.length === 0}
+          >
+            <FilePlus className="h-3 w-3 mr-1" />
+            Quote
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-7 px-2"
+            onClick={() => setPosDocModal('invoice')}
+            disabled={cart.length === 0}
+          >
+            <FilePlus className="h-3 w-3 mr-1" />
+            Invoice
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-7 px-2"
+            onClick={() => setPosDocModal('findQuote')}
+          >
+            <FileSearch className="h-3 w-3 mr-1" />
+            Find Q
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-7 px-2"
+            onClick={() => setPosDocModal('findInvoice')}
+          >
+            <FileSearch className="h-3 w-3 mr-1" />
+            Find Inv
+          </Button>
+        </div>
+      </div>
+
       {/* Cart Items */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {cart.map((item: CartItem) => {
@@ -841,6 +959,35 @@ function POSContent({
         onSuccess={clearCart}
         isOnline={isOnline}
         addToQueue={addToQueue}
+      />
+
+      {/* POS Document Modals */}
+      <PosCustomerModal
+        open={posDocModal === 'customer'}
+        onClose={() => setPosDocModal(null)}
+        onSelect={(c) => { setPosSelectedCustomer(c); setPosDocModal(null); }}
+      />
+      <PosQuoteModal
+        open={posDocModal === 'quote'}
+        onClose={() => setPosDocModal(null)}
+        cartItems={cartItemsForDoc}
+        cartTotal={total}
+      />
+      <PosInvoiceModal
+        open={posDocModal === 'invoice'}
+        onClose={() => setPosDocModal(null)}
+        cartItems={cartItemsForDoc}
+        cartTotal={total}
+      />
+      <PosFindQuoteModal
+        open={posDocModal === 'findQuote'}
+        onClose={() => setPosDocModal(null)}
+        onLoadCart={handleLoadCartFromDoc}
+      />
+      <PosFindInvoiceModal
+        open={posDocModal === 'findInvoice'}
+        onClose={() => setPosDocModal(null)}
+        onLoadCart={handleLoadCartFromDoc}
       />
     </>
   );

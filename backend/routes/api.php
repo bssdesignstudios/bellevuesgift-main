@@ -23,6 +23,7 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\AdminTimesheetController;
 use App\Http\Controllers\AdminLedgerController;
 use App\Http\Controllers\AdminDocumentEmailController;
+use App\Http\Controllers\PosDocumentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -216,6 +217,18 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
     // Ledger & Statements
     Route::get('/ledger-entries', [AdminLedgerController::class, 'index']);
     Route::post('/statements/email', [AdminDocumentEmailController::class, 'sendStatement']);
+
+    // POS Document Workflow (quotes, invoices, customers — cashier-safe)
+    Route::prefix('pos-docs')->group(function () {
+        Route::get('/customers/search', [PosDocumentController::class, 'searchCustomers']);
+        Route::post('/customers', [PosDocumentController::class, 'createCustomer']);
+        Route::get('/quotes/search', [PosDocumentController::class, 'searchQuotes']);
+        Route::get('/invoices/search', [PosDocumentController::class, 'searchInvoices']);
+        Route::post('/quotes', [PosDocumentController::class, 'createQuote']);
+        Route::post('/invoices', [PosDocumentController::class, 'createInvoice']);
+        Route::get('/quotes/{id}/items', [PosDocumentController::class, 'getQuoteItems']);
+        Route::get('/invoices/{id}/items', [PosDocumentController::class, 'getInvoiceItems']);
+    });
 });
 
 // Staff Profile API — any authenticated staff user
