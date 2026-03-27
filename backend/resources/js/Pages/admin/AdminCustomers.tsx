@@ -651,7 +651,7 @@ export default function AdminCustomers() {
                           <Button size="sm" variant="outline" onClick={() => { window.location.href = `/admin/invoices?customer_id=${encodeURIComponent(detail.id)}`; }}>
                             Create Invoice
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => { window.location.href = `/admin/statements/share?customer_id=${encodeURIComponent(detail.id)}`; }}>
+                          <Button size="sm" variant="outline" onClick={() => { window.location.href = `/admin/statements?customer_id=${encodeURIComponent(detail.id)}`; }}>
                             View Statement
                           </Button>
                         </div>

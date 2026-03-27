@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { AdminLayout } from '@/components/admin/AdminLayout';
@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { Printer, Link2, Mail, User, TrendingDown, TrendingUp } from 'lucide-react';
 
 interface LedgerEntry {
   id: string;
@@ -34,12 +36,27 @@ interface CustomerOption {
 }
 
 export default function AdminStatements() {
-  const [customerId, setCustomerId] = useState('');
+  // Pre-select customer from URL query param (?customer_id=...)
+  const [customerId, setCustomerId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('customer_id') || '';
+  });
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailForm, setEmailForm] = useState({ email: '', message: '' });
 
+  // Update URL when customer changes (no page reload)
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (customerId) {
+      url.searchParams.set('customer_id', customerId);
+    } else {
+      url.searchParams.delete('customer_id');
+    }
+    window.history.replaceState({}, '', url.toString());
+  }, [customerId]);
+
   const { data: customers = [] } = useQuery({
-    queryKey: ['admin-customers'],
+    queryKey: ['admin-customers-list'],
     queryFn: async () => {
       const { data } = await axios.get('/api/admin/customers');
       return data as CustomerOption[];
@@ -58,22 +75,44 @@ export default function AdminStatements() {
 
   const entries = ledgerResponse?.entries || [];
 
+  const selectedCustomer = useMemo(
+    () => customers.find((c) => c.id === customerId) || null,
+    [customers, customerId],
+  );
+
   const currentBalance = useMemo(() => {
-    if (!entries.length) return null;
+    if (!entries.length || !customerId) return null;
     const last = entries[entries.length - 1];
     return last.balance_after ?? last.running_balance ?? null;
-  }, [entries]);
+  }, [entries, customerId]);
+
+  const totalDebits = useMemo(
+    () => entries.filter((e) => e.amount > 0).reduce((s, e) => s + e.amount, 0),
+    [entries],
+  );
+  const totalCredits = useMemo(
+    () => entries.filter((e) => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0),
+    [entries],
+  );
+
+  const shareUrl = customerId
+    ? `${window.location.origin}/admin/statements?customer_id=${encodeURIComponent(customerId)}`
+    : `${window.location.origin}/admin/statements`;
 
   const copyShareLink = async () => {
-    const url = customerId
-      ? `${window.location.origin}/admin/statements/share?customer_id=${encodeURIComponent(customerId)}`
-      : `${window.location.origin}/admin/statements/share`;
     try {
-      await navigator.clipboard.writeText(url);
-      toast.success('Share link copied');
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Share link copied to clipboard');
     } catch {
-      toast.error('Failed to copy share link');
+      toast.error('Failed to copy link');
     }
+  };
+
+  const openPrint = () => {
+    const url = customerId
+      ? `/admin/statements/print?customer_id=${encodeURIComponent(customerId)}`
+      : '/admin/statements/print';
+    window.open(url, '_blank');
   };
 
   const sendEmail = async () => {
@@ -87,139 +126,170 @@ export default function AdminStatements() {
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Statements & Ledger</h1>
-          <p className="text-muted-foreground">Review customer ledger activity and balances.</p>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-bold">Statements & Ledger</h1>
+            <p className="text-muted-foreground mt-1">
+              {selectedCustomer
+                ? `Viewing statement for ${selectedCustomer.name || 'customer'}`
+                : 'Select a customer to view their statement, or browse all ledger entries.'}
+            </p>
+          </div>
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={openPrint}>
+              <Printer className="h-4 w-4 mr-1.5" /> Print
+            </Button>
+            <Button variant="outline" size="sm" onClick={copyShareLink}>
+              <Link2 className="h-4 w-4 mr-1.5" /> Copy Link
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)}>
+              <Mail className="h-4 w-4 mr-1.5" /> Email
+            </Button>
+          </div>
         </div>
 
+        {/* Customer filter */}
         <Card>
-          <CardHeader>
-            <CardTitle>Customer Filter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="max-w-md">
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All customers</SelectItem>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name || 'Unnamed'}{customer.email ? ` (${customer.email})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground w-28 shrink-0">
+                <User className="h-4 w-4" /> Customer
+              </div>
+              <div className="flex-1 min-w-[220px] max-w-md">
+                <Select value={customerId} onValueChange={setCustomerId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All customers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All customers</SelectItem>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name || 'Unnamed'}
+                        {c.email ? ` — ${c.email}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {customerId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => setCustomerId('')}
+                >
+                  Clear
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
 
+        {/* Summary cards — shown when a customer is selected */}
+        {customerId && (
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-5 pb-4">
+                <div className="text-xs text-muted-foreground mb-1">Current Balance</div>
+                <div className={`text-2xl font-bold ${currentBalance !== null && currentBalance < 0 ? 'text-emerald-600' : ''}`}>
+                  {currentBalance !== null ? `$${Number(currentBalance).toFixed(2)}` : '—'}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-5 pb-4">
+                <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" /> Total Charges
+                </div>
+                <div className="text-2xl font-bold">${totalDebits.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-5 pb-4">
+                <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <TrendingDown className="h-3 w-3 text-emerald-600" /> Total Payments
+                </div>
+                <div className="text-2xl font-bold text-emerald-600">${totalCredits.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Ledger table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Ledger Entries</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between">
+              <span>
+                {selectedCustomer
+                  ? `${selectedCustomer.name}'s Ledger`
+                  : 'All Ledger Entries'}
+              </span>
+              {entries.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-sm text-muted-foreground">
-                {customerId ? 'Customer statement' : 'All customers'}
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="text-sm font-medium text-primary hover:underline"
-                  onClick={() => {
-                    const url = customerId
-                      ? `/admin/statements/print?customer_id=${encodeURIComponent(customerId)}`
-                      : '/admin/statements/print';
-                    window.open(url, '_blank');
-                  }}
-                >
-                  Print
-                </button>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-primary hover:underline"
-                  onClick={() => {
-                    const url = customerId
-                      ? `/admin/statements/download?customer_id=${encodeURIComponent(customerId)}`
-                      : '/admin/statements/download';
-                    window.open(url, '_blank');
-                  }}
-                >
-                  Download
-                </button>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-primary hover:underline"
-                  onClick={() => {
-                    const url = customerId
-                      ? `/admin/statements/share?customer_id=${encodeURIComponent(customerId)}`
-                      : '/admin/statements/share';
-                    window.open(url, '_blank');
-                  }}
-                >
-                  Share
-                </button>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-primary hover:underline"
-                  onClick={copyShareLink}
-                >
-                  Copy Link
-                </button>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-primary hover:underline"
-                  onClick={() => setEmailOpen(true)}
-                >
-                  Email
-                </button>
-              </div>
-            </div>
-            {customerId && currentBalance !== null && (
-              <div className="text-sm text-muted-foreground mb-4">
-                Current Balance: ${Number(currentBalance).toFixed(2)}
-              </div>
-            )}
-            <div className="border rounded-lg">
+            <div className="border rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/40">
                     <TableHead>Date</TableHead>
-                    <TableHead>Customer</TableHead>
+                    {!customerId && <TableHead>Customer</TableHead>}
                     <TableHead>Type</TableHead>
                     <TableHead>Reference</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Balance</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Balance</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        Loading ledger entries...
+                      <TableCell colSpan={customerId ? 6 : 7} className="text-center text-muted-foreground py-12">
+                        Loading ledger entries…
                       </TableCell>
                     </TableRow>
                   ) : entries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        No ledger entries found.
+                      <TableCell colSpan={customerId ? 6 : 7} className="text-center text-muted-foreground py-12">
+                        {customerId
+                          ? 'No ledger entries for this customer yet.'
+                          : 'No ledger entries found.'}
                       </TableCell>
                     </TableRow>
                   ) : (
                     entries.map((entry) => (
                       <TableRow key={entry.id}>
-                        <TableCell>{entry.entry_date ? new Date(entry.entry_date).toLocaleDateString() : '—'}</TableCell>
-                        <TableCell>{entry.customer_name || '—'}</TableCell>
-                        <TableCell className="capitalize">{entry.entry_type}</TableCell>
-                        <TableCell>
-                          {entry.invoice_number ? `Invoice ${entry.invoice_number}` : entry.reference_type || '—'}
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {entry.entry_date
+                            ? new Date(entry.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            : '—'}
                         </TableCell>
-                        <TableCell className={entry.amount < 0 ? 'text-destructive' : ''}>
-                          {entry.amount < 0 ? '-' : ''}${Math.abs(Number(entry.amount)).toFixed(2)}
-                        </TableCell>
+                        {!customerId && (
+                          <TableCell className="text-sm">{entry.customer_name || '—'}</TableCell>
+                        )}
                         <TableCell>
+                          <Badge variant="outline" className="capitalize text-xs">
+                            {entry.entry_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm font-mono">
+                          {entry.invoice_number
+                            ? `INV-${entry.invoice_number}`
+                            : entry.reference_type || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                          {entry.notes || '—'}
+                        </TableCell>
+                        <TableCell className={`text-right font-medium ${entry.amount < 0 ? 'text-emerald-600' : ''}`}>
+                          {entry.amount < 0 ? '-' : '+'}${Math.abs(Number(entry.amount)).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">
                           {entry.balance_after !== null
                             ? `$${Number(entry.balance_after).toFixed(2)}`
                             : entry.running_balance !== null
@@ -235,38 +305,43 @@ export default function AdminStatements() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Email dialog */}
       <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Statement</DialogTitle>
+            <DialogTitle>Email Statement</DialogTitle>
           </DialogHeader>
           <form
-            onSubmit={async (event) => {
-              event.preventDefault();
+            onSubmit={async (e) => {
+              e.preventDefault();
               if (!emailForm.email.trim()) {
                 toast.error('Recipient email required');
                 return;
               }
               try {
                 await sendEmail();
-                toast.success('Statement email sent');
+                toast.success('Statement sent successfully');
                 setEmailOpen(false);
                 setEmailForm({ email: '', message: '' });
-              } catch (error: any) {
-                toast.error(error?.response?.data?.message || 'Failed to send statement email');
+              } catch (err: any) {
+                toast.error(err?.response?.data?.message || 'Failed to send statement');
               }
             }}
             className="space-y-4"
           >
-            <div className="text-sm text-muted-foreground">
-              {customerId ? 'Customer statement' : 'All customers'}
-            </div>
+            <p className="text-sm text-muted-foreground">
+              {selectedCustomer
+                ? `Send ${selectedCustomer.name}'s statement to:`
+                : 'Send full ledger statement to:'}
+            </p>
             <div className="space-y-2">
               <Label>Recipient Email</Label>
               <Input
                 type="email"
+                placeholder={selectedCustomer?.email || 'customer@example.com'}
                 value={emailForm.email}
-                onChange={(event) => setEmailForm((prev) => ({ ...prev, email: event.target.value }))}
+                onChange={(e) => setEmailForm((p) => ({ ...p, email: e.target.value }))}
                 required
               />
             </div>
@@ -274,15 +349,14 @@ export default function AdminStatements() {
               <Label>Message (optional)</Label>
               <Textarea
                 value={emailForm.message}
-                onChange={(event) => setEmailForm((prev) => ({ ...prev, message: event.target.value }))}
+                onChange={(e) => setEmailForm((p) => ({ ...p, message: e.target.value }))}
                 rows={3}
+                placeholder="Add a personal note…"
               />
             </div>
-            <div className="flex gap-2">
-              <Button type="submit">Send</Button>
-              <Button type="button" variant="outline" onClick={() => setEmailOpen(false)}>
-                Cancel
-              </Button>
+            <div className="flex gap-2 pt-1">
+              <Button type="submit">Send Statement</Button>
+              <Button type="button" variant="outline" onClick={() => setEmailOpen(false)}>Cancel</Button>
             </div>
           </form>
         </DialogContent>
