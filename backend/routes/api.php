@@ -21,6 +21,8 @@ use App\Http\Controllers\AdminRepairTicketController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\AdminTimesheetController;
+use App\Http\Controllers\AdminLedgerController;
+use App\Http\Controllers\AdminDocumentEmailController;
 
 /*
 |--------------------------------------------------------------------------
@@ -210,6 +212,10 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
     Route::get('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'show']);
     Route::put('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'update']);
     Route::delete('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'destroy']);
+
+    // Ledger & Statements
+    Route::get('/ledger-entries', [AdminLedgerController::class, 'index']);
+    Route::post('/statements/email', [AdminDocumentEmailController::class, 'sendStatement']);
 });
 
 // Staff Profile API — any authenticated staff user
