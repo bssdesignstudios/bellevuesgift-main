@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Staff;
+use App\Models\StoreSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Middleware;
@@ -52,6 +53,18 @@ class HandleInertiaRequests extends Middleware
             $customerName = $customerRecord?->name ?? $user->name;
         }
 
+        // Load module flags for staff users (controls sidebar visibility)
+        $modules = null;
+        if ($isStaff) {
+            $modules = DB::table('store_settings')
+                ->where('key', 'like', 'module.%')
+                ->pluck('value', 'key')
+                ->mapWithKeys(fn($value, $key) => [
+                    str_replace('module.', '', $key) => in_array(strtolower($value), ['1', 'true', 'yes', 'on']),
+                ])
+                ->toArray();
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -68,6 +81,7 @@ class HandleInertiaRequests extends Middleware
                     'email' => $user->email,
                 ] : null,
             ],
+            'modules' => $modules,
         ];
     }
 

@@ -31,25 +31,25 @@ import { Button } from '@/components/ui/button';
 import bellevueLogo from '@/assets/bellevue-logo.webp';
 
 const ADMIN_NAV = [
-  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: ['admin', 'finance'] },
-  { label: 'Products', href: '/admin/products', icon: Package, roles: ['admin', 'warehouse', 'warehouse_manager'] },
-  { label: 'Categories', href: '/admin/categories', icon: FolderOpen, roles: ['admin', 'warehouse', 'warehouse_manager'] },
-  { label: 'Inventory', href: '/admin/inventory', icon: Warehouse, roles: ['admin', 'warehouse', 'warehouse_manager', 'finance'] },
-  { label: 'Orders', href: '/admin/orders', icon: ShoppingCart, roles: ['admin', 'finance'] },
-  { label: 'Repair Tickets', href: '/admin/repairs', icon: Wrench, roles: ['admin', 'finance'] },
-  { label: 'Gift Cards', href: '/admin/gift-cards', icon: Gift, roles: ['admin', 'finance'] },
-  { label: 'Customers', href: '/admin/customers', icon: Users, roles: ['admin', 'finance'] },
-  { label: 'Vendors', href: '/admin/vendors', icon: Building2, roles: ['admin', 'finance'] },
-  { label: 'Staff', href: '/admin/staff', icon: UserCog, roles: ['admin'] },
-  { label: 'Registers', href: '/admin/registers', icon: Monitor, roles: ['admin'] },
-  { label: 'Discounts', href: '/admin/discounts', icon: Tag, roles: ['admin', 'finance'] },
-  { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin', 'finance'] },
-  { label: 'Timesheets', href: '/admin/timesheets', icon: Clock, roles: ['admin', 'finance'] },
-  { label: 'Expenses', href: '/admin/expenses', icon: Wallet, roles: ['admin', 'finance'] },
-  { label: 'Payroll', href: '/admin/payroll', icon: Wallet, roles: ['admin', 'finance'] },
+  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: ['admin', 'finance'], module: 'dashboard' },
+  { label: 'Products', href: '/admin/products', icon: Package, roles: ['admin', 'warehouse', 'warehouse_manager'], module: 'products' },
+  { label: 'Categories', href: '/admin/categories', icon: FolderOpen, roles: ['admin', 'warehouse', 'warehouse_manager'], module: 'categories' },
+  { label: 'Inventory', href: '/admin/inventory', icon: Warehouse, roles: ['admin', 'warehouse', 'warehouse_manager', 'finance'], module: 'inventory' },
+  { label: 'Orders', href: '/admin/orders', icon: ShoppingCart, roles: ['admin', 'finance'], module: 'orders' },
+  { label: 'Repair Tickets', href: '/admin/repairs', icon: Wrench, roles: ['admin', 'finance'], module: 'repairs' },
+  { label: 'Gift Cards', href: '/admin/gift-cards', icon: Gift, roles: ['admin', 'finance'], module: 'gift_cards' },
+  { label: 'Customers', href: '/admin/customers', icon: Users, roles: ['admin', 'finance'], module: 'customers' },
+  { label: 'Vendors', href: '/admin/vendors', icon: Building2, roles: ['admin', 'finance'], module: 'vendors' },
+  { label: 'Staff', href: '/admin/staff', icon: UserCog, roles: ['admin'], module: 'staff' },
+  { label: 'Registers', href: '/admin/registers', icon: Monitor, roles: ['admin'], module: 'registers' },
+  { label: 'Discounts', href: '/admin/discounts', icon: Tag, roles: ['admin', 'finance'], module: 'discounts' },
+  { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin', 'finance'], module: 'reports' },
+  { label: 'Timesheets', href: '/admin/timesheets', icon: Clock, roles: ['admin', 'finance'], module: 'timesheets' },
+  { label: 'Expenses', href: '/admin/expenses', icon: Wallet, roles: ['admin', 'finance'], module: 'expenses' },
+  { label: 'Payroll', href: '/admin/payroll', icon: Wallet, roles: ['admin', 'finance'], module: 'payroll' },
   { label: 'Recurring Bills', href: '/admin/recurring-invoices', icon: RefreshCw, roles: ['admin', 'finance'] },
-  { label: 'Help / SOP', href: '/admin/sop', icon: BookOpen, roles: ['admin', 'finance', 'warehouse', 'warehouse_manager'] },
-  { label: 'Settings', href: '/admin/settings', icon: Settings, roles: ['admin'] },
+  { label: 'Help / SOP', href: '/admin/sop', icon: BookOpen, roles: ['admin', 'finance', 'warehouse', 'warehouse_manager'], module: 'help' },
+  { label: 'Settings', href: '/admin/settings', icon: Settings, roles: ['admin'], module: 'settings' },
 ];
 
 function SidebarContent({ filteredNav, currentStaff, url, impersonating, impersonate, signOut, onNavClick }: {
@@ -152,14 +152,27 @@ export function AdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const pageStaff = (props as any)?.auth?.staff;
+  const modules = (props as any)?.modules as Record<string, boolean> | null;
   const currentStaff = effectiveStaff ?? (pageStaff ? { ...pageStaff, id: String(pageStaff.id), is_active: true, created_at: '' } : null);
 
   const filteredNav = ADMIN_NAV.filter(item => {
-    if (!item.roles) return true;
-    const rawRole = currentStaff?.role;
-    if (!rawRole) return false;
-    const userRoleStr = String(rawRole).toLowerCase().replace(/\s+/g, '_');
-    return item.roles.includes(userRoleStr as any);
+    // Check role access
+    if (item.roles) {
+      const rawRole = currentStaff?.role;
+      if (!rawRole) return false;
+      const userRoleStr = String(rawRole).toLowerCase().replace(/\s+/g, '_');
+      if (!item.roles.includes(userRoleStr as any)) return false;
+    }
+
+    // Check module flag (if modules loaded and item has a module key)
+    if (modules && (item as any).module) {
+      const moduleKey = (item as any).module as string;
+      // Settings is always visible for admins so they can re-enable modules
+      if (moduleKey === 'settings') return true;
+      if (modules[moduleKey] === false) return false;
+    }
+
+    return true;
   });
 
   const sharedProps = {

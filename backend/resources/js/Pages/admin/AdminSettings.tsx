@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { router } from '@inertiajs/react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -121,6 +122,8 @@ export default function AdminSettings() {
       const { data } = await axios.patch(`/api/admin/settings/modules/${moduleKey}`);
       setModules(prev => ({ ...prev, [moduleKey]: data.enabled }));
       toast.success(`${moduleKey} ${data.enabled ? 'enabled' : 'disabled'}`);
+      // Reload Inertia shared props so the sidebar updates immediately
+      router.reload({ only: ['modules'] });
     } catch (err) {
       toast.error('Failed to toggle module');
     }
