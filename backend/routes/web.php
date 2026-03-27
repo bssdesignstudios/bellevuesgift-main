@@ -518,13 +518,6 @@ Route::middleware(['auth', \App\Http\Middleware\ModuleGate::class])->prefix('adm
             return Inertia::render('admin/AdminSettings');
         })->name('admin.settings');
 
-        Route::get('/quotes', function () {
-            return Inertia::render('admin/AdminQuotes');
-        })->name('admin.quotes');
-
-        Route::get('/invoices', function () {
-            return Inertia::render('admin/AdminInvoices');
-        })->name('admin.invoices');
     });
 
     // 5. SOP (All authenticated admin-panel roles)

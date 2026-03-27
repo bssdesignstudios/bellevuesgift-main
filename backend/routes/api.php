@@ -186,9 +186,6 @@ Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix(
     Route::delete('/recurring-bills/{recurringBill}', [App\Http\Controllers\AdminRecurringBillController::class, 'destroy']);
     Route::post('/recurring-bills/{recurringBill}/mark-paid', [App\Http\Controllers\AdminRecurringBillController::class, 'markPaid']);
 
-    Route::get('/settings', [AdminSettingsController::class, 'index']);
-    Route::post('/settings', [AdminSettingsController::class, 'upsert']);
-
     Route::post('/impersonate', [App\Http\Controllers\AuthController::class, 'impersonate']);
     Route::post('/impersonate/stop', [App\Http\Controllers\AuthController::class, 'stopImpersonation']);
 
@@ -197,11 +194,13 @@ Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix(
     Route::get('/quotes/{id}', [QuoteController::class, 'show']);
     Route::put('/quotes/{id}', [QuoteController::class, 'update']);
     Route::delete('/quotes/{id}', [QuoteController::class, 'destroy']);
+    Route::post('/quotes/{id}/convert-to-invoice', [App\Http\Controllers\AdminQuoteController::class, 'convertToInvoice']);
 
     Route::get('/invoices', [InvoiceController::class, 'index']);
     Route::post('/invoices', [InvoiceController::class, 'store']);
     Route::get('/invoices/{id}', [InvoiceController::class, 'show']);
     Route::put('/invoices/{id}', [InvoiceController::class, 'update']);
+    Route::delete('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'destroy']);
     Route::post('/invoices/{id}/payments', [InvoiceController::class, 'recordPayment']);
     Route::post('/quotes/{id}/convert', [InvoiceController::class, 'convertFromQuote']);
 
@@ -222,23 +221,9 @@ Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix(
     Route::delete('/timesheets/{timeLog}', [AdminTimesheetController::class, 'destroy']);
 
     // Settings
-    Route::get('/settings', [App\Http\Controllers\AdminSettingsController::class, 'show']);
-    Route::post('/settings/maintenance', [App\Http\Controllers\AdminSettingsController::class, 'toggleMaintenance']);
-
-    // Quotes
-    Route::get('/quotes', [App\Http\Controllers\AdminQuoteController::class, 'index']);
-    Route::post('/quotes', [App\Http\Controllers\AdminQuoteController::class, 'store']);
-    Route::get('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'show']);
-    Route::put('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'update']);
-    Route::delete('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'destroy']);
-    Route::post('/quotes/{id}/convert-to-invoice', [App\Http\Controllers\AdminQuoteController::class, 'convertToInvoice']);
-
-    // Invoices
-    Route::get('/invoices', [App\Http\Controllers\AdminInvoiceController::class, 'index']);
-    Route::post('/invoices', [App\Http\Controllers\AdminInvoiceController::class, 'store']);
-    Route::get('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'show']);
-    Route::put('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'update']);
-    Route::delete('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'destroy']);
+    Route::get('/settings', [AdminSettingsController::class, 'show']);
+    Route::put('/settings', [AdminSettingsController::class, 'update']);
+    Route::post('/settings/maintenance', [AdminSettingsController::class, 'toggleMaintenance']);
 });
 
 // Staff Profile API — any authenticated staff user
