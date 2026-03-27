@@ -180,6 +180,10 @@ Route::get('/orders/{id}', function ($id) {
     ]);
 })->name('orders.show');
 
+Route::middleware(['auth'])->get('/staff/profile', function () {
+    return Inertia::render('StaffProfilePage');
+})->name('staff.profile');
+
 Route::get('/staff/login', function () {
     return Inertia::render('StaffLoginPage');
 })->name('staff.login');
@@ -377,6 +381,10 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
             return Inertia::render('admin/AdminRepairTickets');
         })->name('admin.repairs');
 
+        Route::get('/repairs/intake', function () {
+            return Inertia::render('admin/AdminRepairIntake');
+        })->name('admin.repairs.intake');
+
         Route::get('/gift-cards', function () {
             return Inertia::render('admin/AdminGiftCards');
         })->name('admin.gift-cards');
@@ -442,6 +450,18 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::get('/registers', function () {
             return Inertia::render('admin/AdminRegisters');
         })->name('admin.registers');
+
+        Route::get('/settings', function () {
+            return Inertia::render('admin/AdminSettings');
+        })->name('admin.settings');
+
+        Route::get('/quotes', function () {
+            return Inertia::render('admin/AdminQuotes');
+        })->name('admin.quotes');
+
+        Route::get('/invoices', function () {
+            return Inertia::render('admin/AdminInvoices');
+        })->name('admin.invoices');
     });
 
     // 5. SOP (All authenticated admin-panel roles)

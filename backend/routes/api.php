@@ -142,14 +142,16 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
     Route::patch('/coupons/{id}/toggle-active', [AdminCouponController::class, 'toggleActive']);
 
     Route::get('/repair-tickets', [AdminRepairTicketController::class, 'index']);
+    Route::post('/repair-tickets', [AdminRepairTicketController::class, 'store']);
+    Route::get('/repair-tickets/staff', [AdminRepairTicketController::class, 'staff']); // before {id} wildcard
+    Route::get('/repair-tickets/{id}', [AdminRepairTicketController::class, 'show']);
+    Route::put('/repair-tickets/{id}', [AdminRepairTicketController::class, 'update']);
     Route::patch('/repair-tickets/{id}/status', [AdminRepairTicketController::class, 'updateStatus']);
-    Route::patch('/repair-tickets/{id}/billing', [AdminRepairTicketController::class, 'updateBilling']);
+    Route::get('/repair-tickets/{id}/logs', [AdminRepairTicketController::class, 'logs']);
     Route::get('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'tasks']);
     Route::post('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'addTask']);
     Route::patch('/repair-tickets/{id}/tasks/{taskId}', [AdminRepairTicketController::class, 'updateTask']);
-    Route::get('/repair-tickets/staff', [AdminRepairTicketController::class, 'staff']);
-    Route::get('/repair-tickets/{id}/payments', [AdminRepairTicketController::class, 'listPayments']);
-    Route::post('/repair-tickets/{id}/payments', [AdminRepairTicketController::class, 'recordPayment']);
+    Route::post('/repair-tickets/{id}/payment', [AdminRepairTicketController::class, 'recordPayment']);
 
     Route::get('/registers', [RegisterController::class, 'index']);
     Route::post('/registers', [RegisterController::class, 'store']);
@@ -188,6 +190,32 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
     Route::post('/timesheets/{timeLog}/clock-out', [AdminTimesheetController::class, 'clockOut']);
     Route::patch('/timesheets/{timeLog}', [AdminTimesheetController::class, 'update']);
     Route::delete('/timesheets/{timeLog}', [AdminTimesheetController::class, 'destroy']);
+
+    // Settings
+    Route::get('/settings', [App\Http\Controllers\AdminSettingsController::class, 'show']);
+    Route::post('/settings/maintenance', [App\Http\Controllers\AdminSettingsController::class, 'toggleMaintenance']);
+
+    // Quotes
+    Route::get('/quotes', [App\Http\Controllers\AdminQuoteController::class, 'index']);
+    Route::post('/quotes', [App\Http\Controllers\AdminQuoteController::class, 'store']);
+    Route::get('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'show']);
+    Route::put('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'update']);
+    Route::delete('/quotes/{id}', [App\Http\Controllers\AdminQuoteController::class, 'destroy']);
+    Route::post('/quotes/{id}/convert-to-invoice', [App\Http\Controllers\AdminQuoteController::class, 'convertToInvoice']);
+
+    // Invoices
+    Route::get('/invoices', [App\Http\Controllers\AdminInvoiceController::class, 'index']);
+    Route::post('/invoices', [App\Http\Controllers\AdminInvoiceController::class, 'store']);
+    Route::get('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'show']);
+    Route::put('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'update']);
+    Route::delete('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'destroy']);
+});
+
+// Staff Profile API — any authenticated staff user
+Route::middleware('auth:web')->prefix('profile')->group(function () {
+    Route::get('/', [App\Http\Controllers\StaffProfileController::class, 'show']);
+    Route::put('/', [App\Http\Controllers\StaffProfileController::class, 'update']);
+    Route::post('/password', [App\Http\Controllers\StaffProfileController::class, 'changePassword']);
 });
 
 // Customer API
