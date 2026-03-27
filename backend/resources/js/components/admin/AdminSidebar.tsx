@@ -22,7 +22,11 @@ import {
   LogIn,
   Menu,
   X,
-  BookOpen
+  BookOpen,
+  Settings,
+  UserCircle,
+  FileText,
+  Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,6 +39,8 @@ const ADMIN_NAV = [
   { label: 'Categories', href: '/admin/categories', icon: FolderOpen, roles: ['admin', 'warehouse', 'warehouse_manager'] },
   { label: 'Inventory', href: '/admin/inventory', icon: Warehouse, roles: ['admin', 'warehouse', 'warehouse_manager', 'finance'] },
   { label: 'Orders', href: '/admin/orders', icon: ShoppingCart, roles: ['admin', 'finance'] },
+  { label: 'Quotes', href: '/admin/quotes', icon: FileText, roles: ['admin', 'finance'] },
+  { label: 'Invoices', href: '/admin/invoices', icon: Receipt, roles: ['admin', 'finance'] },
   { label: 'Repair Tickets', href: '/admin/repairs', icon: Wrench, roles: ['admin', 'finance'] },
   { label: 'Gift Cards', href: '/admin/gift-cards', icon: Gift, roles: ['admin', 'finance'] },
   { label: 'Customers', href: '/admin/customers', icon: Users, roles: ['admin', 'finance'] },
@@ -48,6 +54,7 @@ const ADMIN_NAV = [
   { label: 'Payroll', href: '/admin/payroll', icon: Wallet, roles: ['admin', 'finance'] },
   { label: 'Recurring Bills', href: '/admin/recurring-invoices', icon: RefreshCw, roles: ['admin', 'finance'] },
   { label: 'Help / SOP', href: '/admin/sop', icon: BookOpen, roles: ['admin', 'finance', 'warehouse', 'warehouse_manager'] },
+  { label: 'Settings', href: '/admin/settings', icon: Settings, roles: ['admin'] },
 ];
 
 function SidebarContent({ filteredNav, currentStaff, url, impersonating, impersonate, signOut, onNavClick }: {
@@ -114,10 +121,10 @@ function SidebarContent({ filteredNav, currentStaff, url, impersonating, imperso
           </Button>
         </Link>
 
-        <Link href="/staff/login" className="block w-full">
+        <Link href="/staff/profile" className="block w-full">
           <Button variant="ghost" size="sm" className="w-full text-white/70 hover:bg-white/10 hover:text-white">
-            <LogIn className="h-4 w-4 mr-2" />
-            Staff Login
+            <UserCircle className="h-4 w-4 mr-2" />
+            My Profile
           </Button>
         </Link>
 
