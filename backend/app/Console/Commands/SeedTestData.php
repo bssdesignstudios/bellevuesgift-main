@@ -92,7 +92,7 @@ class SeedTestData extends Command
             [
                 'email' => 'marcus.brown@constructco.bs', 'name' => 'Marcus Brown',
                 'phone' => '2423456789', 'address' => '45 Marketplace Rd, Nassau',
-                'island' => 'New Providence', 'account_type' => 'business', 'customer_tier' => 'wholesale',
+                'island' => 'New Providence', 'account_type' => 'business', 'customer_tier' => 'corporate',
             ],
             [
                 'email' => 'keisha.wells@gmail.com', 'name' => 'Keisha Wells',
@@ -102,7 +102,7 @@ class SeedTestData extends Command
             [
                 'email' => 'dolphin.supplies@bssbiz.com', 'name' => 'Dolphin Office Supplies Ltd',
                 'phone' => '2427890123', 'address' => '100 Bay St, Nassau',
-                'island' => 'New Providence', 'account_type' => 'business', 'customer_tier' => 'wholesale',
+                'island' => 'New Providence', 'account_type' => 'business', 'customer_tier' => 'corporate',
             ],
             [
                 'email' => 'pedro.albury@hotmail.com', 'name' => 'Pedro Albury',
