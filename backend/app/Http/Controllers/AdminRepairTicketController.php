@@ -213,6 +213,49 @@ class AdminRepairTicketController extends Controller
         return response()->json($ticket->fresh());
     }
 
+    // ─── Billing Update ──────────────────────────────────────────────────────────
+
+    public function updateBilling(Request $request, $id)
+    {
+        $ticket = RepairTicket::findOrFail($id);
+
+        $validated = $request->validate([
+            'estimated_cost' => 'nullable|numeric|min:0',
+            'total_cost'     => 'nullable|numeric|min:0',
+            'labor_hours'    => 'nullable|numeric|min:0',
+            'labor_rate'     => 'nullable|numeric|min:0',
+            'parts_cost'     => 'nullable|numeric|min:0',
+        ]);
+
+        $ticket->update(array_filter($validated, fn($v) => $v !== null));
+
+        return response()->json($ticket->fresh());
+    }
+
+    // ─── Payment History ─────────────────────────────────────────────────────────
+
+    public function listPayments($id)
+    {
+        $payments = DB::table('repair_ticket_logs')
+            ->where('repair_ticket_id', $id)
+            ->where('action', 'payment_recorded')
+            ->leftJoin('users', 'users.id', '=', 'repair_ticket_logs.user_id')
+            ->select(
+                'repair_ticket_logs.id',
+                'repair_ticket_logs.details',
+                'repair_ticket_logs.created_at',
+                'users.name as recorded_by'
+            )
+            ->orderBy('repair_ticket_logs.created_at', 'desc')
+            ->get()
+            ->map(function ($row) {
+                $row->details = json_decode($row->details, true);
+                return $row;
+            });
+
+        return response()->json($payments);
+    }
+
     // ─── Logs / Timeline ─────────────────────────────────────────────────────────
 
     public function logs($id)

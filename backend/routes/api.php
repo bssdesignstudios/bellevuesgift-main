@@ -142,14 +142,19 @@ Route::middleware('auth:web')->prefix('admin')->group(function () {
     Route::patch('/coupons/{id}/toggle-active', [AdminCouponController::class, 'toggleActive']);
 
     Route::get('/repair-tickets', [AdminRepairTicketController::class, 'index']);
+    Route::post('/repair-tickets', [AdminRepairTicketController::class, 'store']);
+    Route::get('/repair-tickets/staff', [AdminRepairTicketController::class, 'staff']);
+    Route::get('/repair-tickets/{id}', [AdminRepairTicketController::class, 'show']);
+    Route::put('/repair-tickets/{id}', [AdminRepairTicketController::class, 'update']);
     Route::patch('/repair-tickets/{id}/status', [AdminRepairTicketController::class, 'updateStatus']);
     Route::patch('/repair-tickets/{id}/billing', [AdminRepairTicketController::class, 'updateBilling']);
     Route::get('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'tasks']);
     Route::post('/repair-tickets/{id}/tasks', [AdminRepairTicketController::class, 'addTask']);
     Route::patch('/repair-tickets/{id}/tasks/{taskId}', [AdminRepairTicketController::class, 'updateTask']);
-    Route::get('/repair-tickets/staff', [AdminRepairTicketController::class, 'staff']);
+    Route::get('/repair-tickets/{id}/logs', [AdminRepairTicketController::class, 'logs']);
     Route::get('/repair-tickets/{id}/payments', [AdminRepairTicketController::class, 'listPayments']);
     Route::post('/repair-tickets/{id}/payments', [AdminRepairTicketController::class, 'recordPayment']);
+    Route::post('/repair-tickets/{id}/payment', [AdminRepairTicketController::class, 'recordPayment']);
 
     Route::get('/registers', [RegisterController::class, 'index']);
     Route::post('/registers', [RegisterController::class, 'store']);

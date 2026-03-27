@@ -377,6 +377,10 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
             return Inertia::render('admin/AdminRepairTickets');
         })->name('admin.repairs');
 
+        Route::get('/repairs/new', function () {
+            return Inertia::render('admin/AdminRepairIntake');
+        })->name('admin.repairs.new');
+
         Route::get('/gift-cards', function () {
             return Inertia::render('admin/AdminGiftCards');
         })->name('admin.gift-cards');
