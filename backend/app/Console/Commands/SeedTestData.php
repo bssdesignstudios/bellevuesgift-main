@@ -124,15 +124,15 @@ class SeedTestData extends Command
         $scenarios = [
             // [customer, product, qty, unit_price, tax%, discount, status, days_ago_issued, amount_paid]
             [$customers[0], $products[0], 2, 89.99, 10, 0,     'paid',    30, 197.98],
-            [$customers[0], $products[3], 5, 12.00,  0, 5,     'partial',  8, 30.00],
+            [$customers[0], $products[3], 5, 12.00,  0, 5,     'overdue',  8, 30.00],
             [$customers[1], $products[4], 3, 39.99,  7.5, 0,   'paid',    25, 128.97],
             [$customers[1], $products[2], 4, 27.50,  7.5, 10,  'sent',    12, 0],
             [$customers[2], $products[1], 1, 55.00, 10, 0,     'paid',    45, 60.50],
-            [$customers[2], $products[0], 1, 89.99, 10, 15,    'partial', 20, 50.00],
+            [$customers[2], $products[0], 1, 89.99, 10, 15,    'overdue', 20, 50.00],
             [$customers[3], $products[4], 6, 39.99,  7.5, 20,  'paid',    60, 237.14],
             [$customers[3], $products[2], 8, 27.50,  7.5, 0,   'sent',     5, 0],
             [$customers[4], $products[3], 3, 12.00,  0, 0,     'paid',    15, 36.00],
-            [$customers[4], $products[1], 2, 55.00, 10, 5,     'partial', 10, 60.00],
+            [$customers[4], $products[1], 2, 55.00, 10, 5,     'overdue', 10, 60.00],
         ];
 
         $year = now()->year;
