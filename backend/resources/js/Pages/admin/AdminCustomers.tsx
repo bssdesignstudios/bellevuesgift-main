@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award, KeyRound, CheckCircle2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
@@ -365,6 +365,17 @@ export default function AdminCustomers() {
                   >
                     <ShoppingBag className="h-4 w-4 mr-1" />
                     View All Orders
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      window.open(`/admin/statements?customer_id=${detail.id}`, '_blank');
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    View Statement
                   </Button>
 
                   {detail.email && (
