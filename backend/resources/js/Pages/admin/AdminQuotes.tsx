@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { FileText, Plus, Trash2, RefreshCw, ChevronRight } from 'lucide-react';
+import { FileText, Plus, Trash2, RefreshCw, ChevronRight, Eye } from 'lucide-react';
 import { CustomerCombobox } from '@/components/admin/CustomerCombobox';
 import { ProductCombobox } from '@/components/admin/ProductCombobox';
 import { cn } from '@/lib/utils';
@@ -126,8 +126,8 @@ export default function AdminQuotes() {
   const loadQuote = async (id: string) => {
     const { data } = await axios.get(`/api/admin/quotes/${id}`);
     setEditingId(data.id);
-    setCustomerId(data.customer?.id ?? null);
-    setCustomerLabel(data.customer?.name ?? null);
+    setCustomerId(data.customer?.id ?? data.customer_id ?? null);
+    setCustomerLabel(data.customer?.name ?? data.customer_name ?? null);
     setStatus(data.status);
     setIssuedDate(data.issued_date ?? '');
     setValidUntil(data.valid_until ?? '');
@@ -430,6 +430,14 @@ export default function AdminQuotes() {
                       <td className="px-4 py-2 text-muted-foreground">{q.valid_until ?? '—'}</td>
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-1 justify-end">
+                          <Button
+                            size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                            onClick={() => window.open(`/admin/quotes/${q.id}`, '_blank')}
+                            title="View / Print"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            View
+                          </Button>
                           <Button
                             size="sm" variant="ghost" className="h-7 px-2 text-xs"
                             onClick={() => loadQuote(q.id)}
