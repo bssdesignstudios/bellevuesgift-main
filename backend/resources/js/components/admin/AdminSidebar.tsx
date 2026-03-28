@@ -175,7 +175,7 @@ export function AdminSidebar() {
 
   const isModuleEnabled = (key?: string): boolean => {
     if (!key) return true; // no moduleKey means always visible (e.g. Settings)
-    const val = moduleMap[`module.${key}`];
+    const val = moduleMap[`module_${key}`];
     if (val === undefined) return true; // default on
     return val === '1' || val === 'true';
   };

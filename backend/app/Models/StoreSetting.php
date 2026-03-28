@@ -17,29 +17,29 @@ class StoreSetting extends Model
     ];
 
     private const MODULE_DEFAULTS = [
-        'module.dashboard' => '1',
-        'module.pos' => '1',
-        'module.registers' => '1',
-        'module.inventory' => '1',
-        'module.products' => '1',
-        'module.categories' => '1',
-        'module.orders' => '1',
-        'module.repairs' => '1',
-        'module.customers' => '1',
-        'module.vendors' => '1',
-        'module.staff' => '1',
-        'module.discounts' => '1',
-        'module.reports' => '1',
-        'module.expenses' => '1',
-        'module.settings' => '1',
-        'module.help' => '1',
-        'module.gift_cards' => '0',
-        'module.timesheets' => '0',
-        'module.payroll' => '0',
-        'module.quotes' => '0',
-        'module.invoices' => '0',
-        'module.statements' => '0',
-        'module.advanced_platform' => '0',
+        'module_dashboard' => '1',
+        'module_pos' => '1',
+        'module_registers' => '1',
+        'module_inventory' => '1',
+        'module_products' => '1',
+        'module_categories' => '1',
+        'module_orders' => '1',
+        'module_repairs' => '1',
+        'module_customers' => '1',
+        'module_vendors' => '1',
+        'module_staff' => '1',
+        'module_discounts' => '1',
+        'module_reports' => '1',
+        'module_expenses' => '1',
+        'module_settings' => '1',
+        'module_help' => '1',
+        'module_gift_cards' => '0',
+        'module_timesheets' => '0',
+        'module_payroll' => '0',
+        'module_quotes' => '0',
+        'module_invoices' => '0',
+        'module_statements' => '0',
+        'module_advanced_platform' => '0',
     ];
 
     public static function ensureModuleFlagsExist(): void
@@ -51,7 +51,7 @@ class StoreSetting extends Model
 
     public static function isModuleEnabled(string $module): bool
     {
-        $key = 'module.' . $module;
+        $key = 'module_' . $module;
         $default = self::MODULE_DEFAULTS[$key] ?? '1';
         $value = self::query()->where('key', $key)->value('value');
         return self::normalizeBool($value ?? $default);

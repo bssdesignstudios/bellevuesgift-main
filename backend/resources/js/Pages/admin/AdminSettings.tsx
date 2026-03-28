@@ -75,14 +75,14 @@ export default function AdminSettings() {
   const moduleMutation = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
       await axios.put('/api/admin/settings', {
-        settings: [{ key: `module.${key}`, value }],
+        settings: [{ key: `module_${key}`, value }],
       });
       return { key, value };
     },
     onSuccess: ({ key, value }) => {
       queryClient.setQueryData<Setting[]>(['admin-settings'], (prev = []) => {
-        const filtered = prev.filter((s) => s.key !== `module.${key}`);
-        return [...filtered, { key: `module.${key}`, value }];
+        const filtered = prev.filter((s) => s.key !== `module_${key}`);
+        return [...filtered, { key: `module_${key}`, value }];
       });
       toast.success('Module setting saved');
     },
@@ -90,7 +90,7 @@ export default function AdminSettings() {
   });
 
   const isModuleEnabled = (key: string): boolean => {
-    const val = settingsMap[`module.${key}`];
+    const val = settingsMap[`module_${key}`];
     if (val === undefined) return true; // default on
     return val === '1' || val === 'true';
   };
