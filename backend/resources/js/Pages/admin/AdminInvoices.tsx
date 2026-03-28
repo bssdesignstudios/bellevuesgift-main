@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Receipt, Plus, Trash2 } from 'lucide-react';
+import { Receipt, Plus, Trash2, Eye, Printer } from 'lucide-react';
 import { CustomerCombobox } from '@/components/admin/CustomerCombobox';
 import { ProductCombobox } from '@/components/admin/ProductCombobox';
 import { cn } from '@/lib/utils';
@@ -129,8 +129,8 @@ export default function AdminInvoices() {
   const loadInvoice = async (id: string) => {
     const { data } = await axios.get(`/api/admin/invoices/${id}`);
     setEditingId(data.id);
-    setCustomerId(data.customer?.id ?? null);
-    setCustomerLabel(data.customer?.name ?? null);
+    setCustomerId(data.customer?.id ?? data.customer_id ?? null);
+    setCustomerLabel(data.customer?.name ?? data.customer_name ?? null);
     setStatus(data.status);
     setIssuedDate(data.issued_date ?? '');
     setDueDate(data.due_date ?? '');
@@ -449,6 +449,14 @@ export default function AdminInvoices() {
                       <td className="px-4 py-2 text-muted-foreground">{inv.due_date ?? '—'}</td>
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-1 justify-end">
+                          <Button
+                            size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                            onClick={() => window.open(`/admin/invoices/${inv.id}`, '_blank')}
+                            title="View / Print"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            View
+                          </Button>
                           <Button
                             size="sm" variant="ghost" className="h-7 px-2 text-xs"
                             onClick={() => loadInvoice(inv.id)}
