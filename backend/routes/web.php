@@ -510,6 +510,33 @@ Route::middleware(['auth', \App\Http\Middleware\ModuleGate::class])->prefix('adm
             return Inertia::render('admin/AdminSettings');
         })->name('admin.settings');
 
+        Route::get('/quotes', function () {
+            return Inertia::render('admin/AdminQuotes');
+        })->name('admin.quotes');
+
+        Route::get('/quotes/{id}', function ($id) {
+            return Inertia::render('admin/AdminQuotePrint', ['id' => $id]);
+        })->name('admin.quotes.print');
+
+        Route::get('/invoices', function () {
+            return Inertia::render('admin/AdminInvoices');
+        })->name('admin.invoices');
+
+        Route::get('/invoices/{id}', function ($id) {
+            return Inertia::render('admin/AdminInvoicePrint', ['id' => $id]);
+        })->name('admin.invoices.print');
+
+        Route::get('/statements', function () {
+            return Inertia::render('admin/AdminStatements');
+        })->name('admin.statements');
+
+        Route::get('/statements/print', function () {
+            return Inertia::render('admin/AdminStatementPrint');
+        })->name('admin.statements.print');
+
+        Route::get('/email-logs', function () {
+            return Inertia::render('admin/AdminEmailLogs');
+        })->name('admin.email-logs');
     });
 
     // 5. SOP (All authenticated admin-panel roles)
