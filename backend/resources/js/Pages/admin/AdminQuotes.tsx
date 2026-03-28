@@ -438,6 +438,16 @@ export default function AdminQuotes() {
                             <Eye className="h-3.5 w-3.5 mr-1" />
                             View
                           </Button>
+                          {q.customer?.id && (
+                            <Button
+                              size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                              onClick={() => window.open(`/admin/statements?customer_id=${q.customer!.id}`, '_blank')}
+                              title="View customer statement"
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1" />
+                              Statement
+                            </Button>
+                          )}
                           <Button
                             size="sm" variant="ghost" className="h-7 px-2 text-xs"
                             onClick={() => loadQuote(q.id)}

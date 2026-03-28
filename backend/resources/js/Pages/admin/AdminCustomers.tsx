@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award, KeyRound, CheckCircle2, Plus } from 'lucide-react';
+import { Search, User, Users, Phone, Mail, MapPin, Home, Star, ShoppingBag, Loader2, Crown, Award, KeyRound, CheckCircle2, Plus, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { SOPHelper } from '@/components/admin/SOPHelper';
@@ -727,6 +727,17 @@ export default function AdminCustomers() {
                   >
                     <ShoppingBag className="h-4 w-4 mr-1" />
                     View All Orders
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      window.open(`/admin/statements?customer_id=${detail.id}`, '_blank');
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    View Statement
                   </Button>
 
                   {detail.email && (

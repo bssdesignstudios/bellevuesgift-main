@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Receipt, Plus, Trash2, Eye, DollarSign } from 'lucide-react';
+import { Receipt, Plus, Trash2, Eye, DollarSign, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CustomerCombobox } from '@/components/admin/CustomerCombobox';
 import { ProductCombobox } from '@/components/admin/ProductCombobox';
@@ -490,6 +490,16 @@ export default function AdminInvoices() {
                             >
                               <DollarSign className="h-3.5 w-3.5 mr-0.5" />
                               Pay
+                            </Button>
+                          )}
+                          {inv.customer?.id && (
+                            <Button
+                              size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                              onClick={() => window.open(`/admin/statements?customer_id=${inv.customer!.id}`, '_blank')}
+                              title="View customer statement"
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1" />
+                              Statement
                             </Button>
                           )}
                           <Button
