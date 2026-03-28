@@ -191,6 +191,8 @@ export default function AdminStatements() {
       email: emailForm.email,
       message: emailForm.message || null,
       customer_id: customerId || null,
+      date_from: dateFrom ? format(dateFrom, 'yyyy-MM-dd') : null,
+      date_to: dateTo ? format(dateTo, 'yyyy-MM-dd') : null,
     });
   };
 
@@ -215,7 +217,7 @@ export default function AdminStatements() {
             <Button variant="outline" size="sm" onClick={copyLink}>
               <Link2 className="h-4 w-4 mr-1.5" /> Copy Link
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => { setEmailForm(p => ({ ...p, email: selectedCustomer?.email || '' })); setEmailOpen(true); }}>
               <Mail className="h-4 w-4 mr-1.5" /> Email
             </Button>
           </div>
