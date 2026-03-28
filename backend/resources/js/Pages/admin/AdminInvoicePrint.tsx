@@ -34,7 +34,7 @@ interface InvoiceRecord {
   customer?: { name?: string | null; email?: string | null; phone?: string | null } | null;
 }
 
-export default function AdminInvoicePrint({ id, autoPrint = true, documentTitle }: { id: string; autoPrint?: boolean; documentTitle?: string }) {
+export default function AdminInvoicePrint({ id, autoPrint = false, documentTitle }: { id: string; autoPrint?: boolean; documentTitle?: string }) {
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoice-print', id],
     queryFn: async () => {
@@ -152,6 +152,22 @@ export default function AdminInvoicePrint({ id, autoPrint = true, documentTitle 
         {/* Print footer */}
         <div className="text-center text-xs text-gray-400 pt-4 print:pt-8">
           Thank you for your business!
+        </div>
+
+        {/* Print / Back buttons — hidden when printing */}
+        <div className="flex justify-center gap-3 pt-4 print:hidden">
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700"
+          >
+            Print
+          </button>
+          <button
+            onClick={() => window.history.back()}
+            className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50"
+          >
+            Back
+          </button>
         </div>
       </div>
     </div>
