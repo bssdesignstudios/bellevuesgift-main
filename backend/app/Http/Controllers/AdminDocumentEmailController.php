@@ -43,10 +43,19 @@ class AdminDocumentEmailController extends Controller
 
     public function sendStatement(Request $request)
     {
-        $validated = $this->validateEmailRequest($request, ['customer_id' => ['nullable', 'string']]);
+        $validated = $this->validateEmailRequest($request, [
+            'customer_id' => ['nullable', 'string'],
+            'date_from'   => ['nullable', 'date'],
+            'date_to'     => ['nullable', 'date'],
+        ]);
+        $params = array_filter([
+            'customer_id' => $validated['customer_id'] ?? null,
+            'date_from'   => $validated['date_from'] ?? null,
+            'date_to'     => $validated['date_to'] ?? null,
+        ]);
         $shareUrl = url('/admin/statements/share');
-        if (!empty($validated['customer_id'])) {
-            $shareUrl .= '?customer_id=' . urlencode($validated['customer_id']);
+        if ($params) {
+            $shareUrl .= '?' . http_build_query($params);
         }
 
         $subject = $this->sendLinkEmail($validated['email'], 'Statement', 'Customer Statement', $shareUrl, $validated['message'] ?? null);
