@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Customer;
+use App\Models\CustomerLedgerEntry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,9 @@ class AdminInvoiceController extends Controller
             'id'             => $inv->id,
             'invoice_number' => $inv->invoice_number,
             'status'         => $inv->status,
-            'customer'       => $inv->customer ? ['id' => $inv->customer->id, 'name' => $inv->customer->name] : null,
+            'customer'       => $inv->customer
+                ? ['id' => $inv->customer->id, 'name' => $inv->customer->name]
+                : ($inv->customer_name ? ['id' => $inv->customer_id, 'name' => $inv->customer_name] : null),
             'total'          => $inv->total,
             'amount_paid'    => $inv->amount_paid ?? 0,
             'balance'        => $inv->balance ?? $inv->balance_due ?? 0,
@@ -123,7 +126,58 @@ class AdminInvoiceController extends Controller
             ]));
         }
 
+        // Create ledger "charge" entry if invoice has a customer
+        if ($invoice->customer_id) {
+            $this->createLedgerEntry($invoice->customer_id, 'charge', 'invoice', $invoice->id,
+                $invoice->total, "Invoice {$invoiceNumber} created");
+        }
+
         return response()->json($invoice->load(['items', 'customer']), 201);
+    }
+
+    public function recordPayment(Request $request, $id)
+    {
+        $invoice = Invoice::findOrFail($id);
+
+        $validated = $request->validate([
+            'amount'         => 'required|numeric|min:0.01',
+            'payment_method' => 'nullable|in:cash,card,bank_transfer,other',
+            'notes'          => 'nullable|string',
+        ]);
+
+        $amount = (float) $validated['amount'];
+        $currentPaid = (float) ($invoice->amount_paid ?? 0);
+        $newPaid = $currentPaid + $amount;
+        $total = (float) $invoice->total;
+        $newBalance = max(0, $total - $newPaid);
+
+        $updateData = ['amount_paid' => $newPaid];
+        if (Schema::hasColumn('invoices', 'balance_due')) {
+            $updateData['balance_due'] = $newBalance;
+        }
+        if ($newPaid >= $total && $total > 0) {
+            $updateData['status'] = 'paid';
+        }
+
+        $invoice->update($updateData);
+
+        // Create ledger "payment" entry (negative amount = reduces balance)
+        if ($invoice->customer_id) {
+            $method = $validated['payment_method'] ?? 'cash';
+            $notes = $validated['notes'] ?? "Payment of \${$amount} via {$method}";
+            $this->createLedgerEntry($invoice->customer_id, 'payment', 'invoice', $invoice->id,
+                -$amount, $notes);
+        }
+
+        $fresh = $invoice->fresh();
+        return response()->json([
+            'id'             => $fresh->id,
+            'invoice_number' => $fresh->invoice_number,
+            'status'         => $fresh->status,
+            'total'          => $fresh->total,
+            'amount_paid'    => $fresh->amount_paid,
+            'balance'        => $fresh->balance_due ?? max(0, $fresh->total - $fresh->amount_paid),
+        ]);
     }
 
     public function show($id)
@@ -267,5 +321,32 @@ class AdminInvoiceController extends Controller
             'discount_total' => round($discountTotal, 2),
             'total'          => round($subtotal + $taxTotal - $discountTotal, 2),
         ];
+    }
+
+    private function createLedgerEntry(string $customerId, string $type, string $refType, string $refId, float $amount, string $notes): void
+    {
+        if (!Schema::hasTable('customer_ledger_entries')) return;
+
+        // Calculate running balance for this customer
+        $lastEntry = DB::table('customer_ledger_entries')
+            ->where('customer_id', $customerId)
+            ->orderBy('created_at', 'desc')
+            ->first();
+        $prevBalance = $lastEntry ? (float) $lastEntry->balance_after : 0;
+        $newBalance = round($prevBalance + $amount, 2);
+
+        DB::table('customer_ledger_entries')->insert([
+            'id'             => (string) Str::uuid(),
+            'customer_id'    => $customerId,
+            'entry_type'     => $type,
+            'reference_type' => $refType,
+            'reference_id'   => $refId,
+            'amount'         => $amount,
+            'balance_after'  => $newBalance,
+            'notes'          => $notes,
+            'entry_date'     => now()->toDateString(),
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
     }
 }
