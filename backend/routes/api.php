@@ -237,6 +237,7 @@ Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix(
     Route::get('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'show']);
     Route::put('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'update']);
     Route::delete('/invoices/{id}', [App\Http\Controllers\AdminInvoiceController::class, 'destroy']);
+    Route::post('/invoices/{id}/payment', [App\Http\Controllers\AdminInvoiceController::class, 'recordPayment']);
 
     // Ledger & Statements
     Route::get('/ledger-entries', [AdminLedgerController::class, 'index']);
@@ -252,6 +253,7 @@ Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix(
         Route::post('/invoices', [PosDocumentController::class, 'createInvoice']);
         Route::get('/quotes/{id}/items', [PosDocumentController::class, 'getQuoteItems']);
         Route::get('/invoices/{id}/items', [PosDocumentController::class, 'getInvoiceItems']);
+        Route::post('/invoices/{id}/payment', [App\Http\Controllers\AdminInvoiceController::class, 'recordPayment']);
     });
 });
 

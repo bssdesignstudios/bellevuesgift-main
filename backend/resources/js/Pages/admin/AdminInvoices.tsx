@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Receipt, Plus, Trash2, Eye, Printer } from 'lucide-react';
+import { Receipt, Plus, Trash2, Eye, DollarSign } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CustomerCombobox } from '@/components/admin/CustomerCombobox';
 import { ProductCombobox } from '@/components/admin/ProductCombobox';
 import { cn } from '@/lib/utils';
@@ -191,6 +192,30 @@ export default function AdminInvoices() {
       toast.success('Invoice deleted');
       qc.invalidateQueries({ queryKey: ['admin-invoices'] });
     },
+  });
+
+  // ─── Payment recording ───────────────────────────────────────────────────
+  const [paymentInvoice, setPaymentInvoice] = useState<InvoiceSummary | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer'>('cash');
+
+  const paymentMutation = useMutation({
+    mutationFn: async () => {
+      if (!paymentInvoice) throw new Error('No invoice');
+      const { data } = await axios.post(`/api/admin/invoices/${paymentInvoice.id}/payment`, {
+        amount: parseFloat(paymentAmount),
+        payment_method: paymentMethod,
+      });
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.status === 'paid' ? 'Invoice fully paid!' : 'Payment recorded');
+      qc.invalidateQueries({ queryKey: ['admin-invoices'] });
+      setPaymentInvoice(null);
+      setPaymentAmount('');
+      setPaymentMethod('cash');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Payment failed'),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -458,6 +483,15 @@ export default function AdminInvoices() {
                             <Eye className="h-3.5 w-3.5 mr-1" />
                             View
                           </Button>
+                          {inv.status !== 'paid' && inv.status !== 'void' && (
+                            <Button
+                              size="sm" variant="ghost" className="h-7 px-2 text-xs text-green-700 hover:text-green-800"
+                              onClick={() => { setPaymentInvoice(inv); setPaymentAmount(String(Number(inv.balance))); }}
+                            >
+                              <DollarSign className="h-3.5 w-3.5 mr-0.5" />
+                              Pay
+                            </Button>
+                          )}
                           <Button
                             size="sm" variant="ghost" className="h-7 px-2 text-xs"
                             onClick={() => loadInvoice(inv.id)}
@@ -481,6 +515,51 @@ export default function AdminInvoices() {
             </div>
           </CardContent>
         </Card>
+        {/* ── Payment Dialog ── */}
+        <Dialog open={!!paymentInvoice} onOpenChange={(v) => !v && setPaymentInvoice(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Record Payment — {paymentInvoice?.invoice_number}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="text-sm space-y-1">
+                <div>Customer: <span className="font-medium">{paymentInvoice?.customer?.name || '—'}</span></div>
+                <div>Total: <span className="font-medium">{fmt(Number(paymentInvoice?.total ?? 0))}</span></div>
+                <div>Balance Due: <span className="font-semibold text-amber-600">{fmt(Number(paymentInvoice?.balance ?? 0))}</span></div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Payment Amount ($)</Label>
+                <Input
+                  type="number" min="0.01" step="0.01"
+                  value={paymentAmount}
+                  onChange={e => setPaymentAmount(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  className="flex-1"
+                  disabled={!paymentAmount || parseFloat(paymentAmount) <= 0 || paymentMutation.isPending}
+                  onClick={() => paymentMutation.mutate()}
+                >
+                  {paymentMutation.isPending ? 'Recording…' : 'Record Payment'}
+                </Button>
+                <Button variant="outline" onClick={() => setPaymentInvoice(null)}>Cancel</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
       <SOPHelper context="invoices" />
     </AdminLayout>

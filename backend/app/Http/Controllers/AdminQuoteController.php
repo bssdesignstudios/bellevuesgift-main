@@ -34,7 +34,9 @@ class AdminQuoteController extends Controller
             'id'           => $q->id,
             'quote_number' => $q->quote_number,
             'status'       => $q->status,
-            'customer'     => $q->customer ? ['id' => $q->customer->id, 'name' => $q->customer->name] : null,
+            'customer'     => $q->customer
+                ? ['id' => $q->customer->id, 'name' => $q->customer->name]
+                : ($q->customer_name ? ['id' => $q->customer_id, 'name' => $q->customer_name] : null),
             'total'        => $q->total,
             'issued_date'  => $q->issued_date ?? null,
             'valid_until'  => $q->valid_until ?? null,
@@ -59,11 +61,15 @@ class AdminQuoteController extends Controller
         ]);
 
         $year = date('Y');
-        $last = Quote::where('quote_number', 'like', "Q-{$year}-%")
+        // Search both QT- and Q- prefixes to find the highest sequence number
+        $last = Quote::where(function ($q) use ($year) {
+                $q->where('quote_number', 'like', "QT-{$year}-%")
+                  ->orWhere('quote_number', 'like', "Q-{$year}-%");
+            })
             ->orderByRaw("LENGTH(quote_number) DESC, quote_number DESC")
             ->value('quote_number');
         $seq = $last ? ((int) substr(strrchr($last, '-'), 1)) + 1 : 1;
-        $quoteNumber = "Q-{$year}-" . str_pad($seq, 4, '0', STR_PAD_LEFT);
+        $quoteNumber = "QT-{$year}-" . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
         $totals = $this->calcTotals($validated['items']);
         $usePriceCol = Schema::hasColumn('quote_items', 'price');
@@ -298,6 +304,29 @@ class AdminQuoteController extends Controller
         }
 
         $quote->update(['status' => 'accepted']);
+
+        // Create ledger "charge" entry for the new invoice
+        if ($invoice->customer_id && Schema::hasTable('customer_ledger_entries')) {
+            $lastEntry = DB::table('customer_ledger_entries')
+                ->where('customer_id', $invoice->customer_id)
+                ->orderBy('created_at', 'desc')
+                ->first();
+            $prevBalance = $lastEntry ? (float) $lastEntry->balance_after : 0;
+
+            DB::table('customer_ledger_entries')->insert([
+                'id'             => (string) Str::uuid(),
+                'customer_id'    => $invoice->customer_id,
+                'entry_type'     => 'charge',
+                'reference_type' => 'invoice',
+                'reference_id'   => $invoice->id,
+                'amount'         => $invoice->total,
+                'balance_after'  => round($prevBalance + $invoice->total, 2),
+                'notes'          => "Invoice {$invoiceNumber} created from quote {$quote->quote_number}",
+                'entry_date'     => now()->toDateString(),
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ]);
+        }
 
         return response()->json($invoice->load(['items', 'customer']), 201);
     }
