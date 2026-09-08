@@ -28,9 +28,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'storefront.maintenance' => \App\Http\Middleware\StorefrontMaintenance::class,
         ]);
 
-        // Prepend maintenance-mode check globally on web routes.
-        // The middleware itself excludes /admin, /pos, /staff, /warehouse, /kiosk.
+        // Prepend the Coming Soon check to BOTH route groups.
+        // The middleware itself excludes /admin, /pos, /staff, /warehouse,
+        // /kiosk and the whole bellevuepos.cloud host.
+        // NOTE: routes/api.php is bound to the `api` group, so registering this
+        // on `web` alone left the entire API serving live catalogue data —
+        // including wholesale cost — with Coming Soon mode switched on.
         $middleware->web(prepend: [
+            \App\Http\Middleware\StorefrontMaintenance::class,
+        ]);
+
+        $middleware->api(prepend: [
             \App\Http\Middleware\StorefrontMaintenance::class,
         ]);
     })

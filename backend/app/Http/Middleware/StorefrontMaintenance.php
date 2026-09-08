@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\StoreSetting;
 use Closure;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -10,21 +11,35 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * StorefrontMaintenance
  *
- * When MAINTENANCE_MODE=true, all public/customer-facing routes return a
- * branded 503 Coming Soon page.  Internal tools are never affected:
+ * When Coming Soon mode is on, every public/customer-facing route on
+ * bellevuegifts.com returns a branded 503 Coming Soon page. Internal tools are
+ * never affected:
  *   /admin   /pos   /staff   /warehouse   /kiosk   /login
- *   /ops     /up    /sw.js   /offline    /api/admin   /api/pos
+ *   /up      /sw.js /offline /api/admin   /api/pos
  *
- * Toggle:
- *   .env → MAINTENANCE_MODE=true   (enable)
- *   .env → MAINTENANCE_MODE=false  (disable / default)
- *   After changing, run: php artisan config:cache
+ * The whole of bellevuepos.cloud is exempt — the POS terminal keeps trading
+ * while the online store is closed.
+ *
+ * Toggle: Admin → Settings → "Coming Soon Page". The state lives in the
+ * store_settings table (see StoreSetting::MAINTENANCE_KEY), NOT in .env, so a
+ * deploy cannot silently republish the storefront. MAINTENANCE_MODE in .env is
+ * only the fallback default when that row does not exist.
+ *
+ * This middleware is prepended to BOTH the web and api groups (bootstrap/app.php).
+ * Registering it on web alone left every route in routes/api.php serving live
+ * catalogue data — including wholesale cost — with the gate switched on.
  */
 class StorefrontMaintenance
 {
+    /** Hostnames that are never gated, whatever the setting says. */
+    private const EXEMPT_HOSTS = [
+        'bellevuepos.cloud',
+        'www.bellevuepos.cloud',
+    ];
+
     /**
-     * Path prefixes that bypass maintenance mode.
-     * All other GET routes will receive the Coming Soon page.
+     * Path prefixes that bypass Coming Soon mode.
+     * All other routes receive the Coming Soon page.
      */
     private const BYPASS_PREFIXES = [
         '/admin',
@@ -34,20 +49,24 @@ class StorefrontMaintenance
         '/kiosk',
         '/login',
         '/logout',
+        '/forgot-password',
+        '/reset-password',
         '/not-authorized',
         '/api/admin',
         '/api/pos',
-        '/api/storefront/checkout',  // Allow checkout API to pass through for any active sessions
         '/up',                        // Laravel health check
-        '/ops',                       // Ops/cache endpoints
         '/sw.js',                     // Service worker
         '/offline',                   // PWA offline fallback
     ];
 
     public function handle(Request $request, Closure $next): Response
     {
-        // Feature disabled — pass through normally
-        if (! config('app.maintenance_mode', false)) {
+        // The POS domain is never gated.
+        if (in_array($request->getHost(), self::EXEMPT_HOSTS, true)) {
+            return $next($request);
+        }
+
+        if (! StoreSetting::isMaintenanceMode()) {
             return $next($request);
         }
 
@@ -60,11 +79,23 @@ class StorefrontMaintenance
             }
         }
 
-        // For Inertia (SPA) requests, render the maintenance page via Inertia
-        // so the app shell is preserved and the page transition is smooth.
-        // Return 503 so crawlers know the site is temporarily unavailable.
+        // XHR/API callers get JSON, not an HTML page they cannot parse.
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()
+                ->json(['message' => 'Our online store is temporarily unavailable.'], Response::HTTP_SERVICE_UNAVAILABLE)
+                ->header('Retry-After', '86400')
+                ->header('Cache-Control', 'no-store');
+        }
+
+        // For Inertia (SPA) requests, render via Inertia so the page transition
+        // is smooth. 503 tells crawlers the site is temporarily unavailable —
+        // it is the correct signal for a storefront that will launch.
         return Inertia::render('MaintenancePage')
             ->toResponse($request)
-            ->setStatusCode(Response::HTTP_SERVICE_UNAVAILABLE);
+            ->setStatusCode(Response::HTTP_SERVICE_UNAVAILABLE)
+            ->withHeaders([
+                'Retry-After' => '86400',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            ]);
     }
 }

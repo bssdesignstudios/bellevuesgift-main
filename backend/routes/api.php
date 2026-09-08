@@ -220,8 +220,13 @@ Route::middleware(['auth:web', \App\Http\Middleware\ModuleGate::class])->prefix(
 
     // Settings
     Route::get('/settings', [App\Http\Controllers\AdminSettingsController::class, 'show']);
-    Route::put('/settings', [App\Http\Controllers\AdminSettingsController::class, 'update']);
-    Route::post('/settings/maintenance', [App\Http\Controllers\AdminSettingsController::class, 'toggleMaintenance']);
+    // Writing settings — including the Coming Soon switch — is admin-only.
+    // The surrounding group is auth:web with no role guard, and a self-registered
+    // storefront customer sits on that same guard.
+    Route::middleware('role:admin')->group(function () {
+        Route::put('/settings', [App\Http\Controllers\AdminSettingsController::class, 'update']);
+        Route::post('/settings/maintenance', [App\Http\Controllers\AdminSettingsController::class, 'toggleMaintenance']);
+    });
 
     // Quotes
     Route::get('/quotes', [App\Http\Controllers\AdminQuoteController::class, 'index']);
