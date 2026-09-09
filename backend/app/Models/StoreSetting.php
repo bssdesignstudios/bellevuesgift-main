@@ -95,8 +95,8 @@ class StoreSetting extends Model
     /**
      * Is the public storefront currently showing the Coming Soon page?
      *
-     * Falls back to the MAINTENANCE_MODE env flag when the settings table or
-     * row is not available, so a database blip can never 500 every request.
+     * No row yet (fresh install) falls back to the MAINTENANCE_MODE env flag.
+     * A database ERROR fails CLOSED — see the catch block for why.
      */
     public static function isMaintenanceMode(): bool
     {
@@ -117,7 +117,13 @@ class StoreSetting extends Model
                 ? $fallback
                 : self::normalizeBool($value);
         } catch (\Throwable $e) {
-            return self::$maintenanceMemo = $fallback;
+            // Fail CLOSED. If the settings table cannot be read the app is
+            // already unwell, and serving a broken storefront to the public is
+            // worse than serving the Coming Soon page. Staff tools are
+            // unaffected: they match BYPASS_PREFIXES before this is consulted.
+            report($e);
+
+            return self::$maintenanceMemo = true;
         }
     }
 

@@ -54,6 +54,7 @@ class StorefrontMaintenance
         '/not-authorized',
         '/api/admin',
         '/api/pos',
+        '/api/profile',              // staff profile + password change
         '/up',                        // Laravel health check
         '/sw.js',                     // Service worker
         '/offline',                   // PWA offline fallback
@@ -61,16 +62,22 @@ class StorefrontMaintenance
 
     public function handle(Request $request, Closure $next): Response
     {
-        // The POS domain is never gated.
-        if (in_array($request->getHost(), self::EXEMPT_HOSTS, true)) {
-            return $next($request);
-        }
-
         if (! StoreSetting::isMaintenanceMode()) {
             return $next($request);
         }
 
         $path = $request->getPathInfo();
+
+        // The POS host gets ONE extra allowance — its root, which redirects to
+        // the PIN pad. It is deliberately NOT a blanket exemption: nginx serves
+        // the same docroot for both server_names, so exempting the whole host
+        // left the marketplace fully browsable at bellevuepos.cloud/shop, cost
+        // and margin included. Every path a cashier actually touches is in
+        // BYPASS_PREFIXES below, so the POS is unaffected by the narrower rule
+        // — and it keeps working even if getHost() misreports behind a proxy.
+        if ($path === '/' && in_array($request->getHost(), self::EXEMPT_HOSTS, true)) {
+            return $next($request);
+        }
 
         // Allow internal/operational paths through
         foreach (self::BYPASS_PREFIXES as $prefix) {
