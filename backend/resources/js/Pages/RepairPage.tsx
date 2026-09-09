@@ -520,7 +520,7 @@ export default function RepairPage() {
       <PageMeta
         title="Device &amp; Electronics Repair"
         description="Book a repair for your phone, laptop, or electronics at Bellevue Gifts & Supplies, Freeport. Fast turnaround, experienced technicians."
-        canonical="https://bellevue.gifts/repair"
+        canonical="https://bellevuegifts.com/repair"
       />
       {content}
     </StorefrontLayout>

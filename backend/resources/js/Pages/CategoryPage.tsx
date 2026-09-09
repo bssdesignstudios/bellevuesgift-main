@@ -133,7 +133,7 @@ export default function CategoryPage() {
       <PageMeta
         title={category ? `${category.name} — Shop by Category` : 'Category'}
         description={category ? `Shop ${category.name} at Bellevue Gifts & Supplies. ${(products as any[])?.length || 0} products available in Freeport & island-wide delivery.` : 'Browse products by category.'}
-        canonical={category ? `https://bellevue.gifts/category/${category.slug}` : undefined}
+        canonical={category ? `https://bellevuegifts.com/category/${category.slug}` : undefined}
       />
       {content}
     </StorefrontLayout>

@@ -72,6 +72,27 @@ Response headers on `/`: `HTTP/1.1 503`, `Retry-After: 86400`, `Cache-Control: n
 
 `/admin/settings` returns 200 and renders `AdminSettings`. `GET /api/admin/settings` returns the full flag set with `maintenance_mode` sourced from the database.
 
+## Page verification (updated 2026-09-09 — hero photograph + contact corrections)
+
+The hero is now a photographic band: `resources/js/assets/coming-soon-bg.webp` (70 KB, 1920x1071),
+generated via `/kie-image` (nano-banana-2) — a dark-navy overhead flat-lay of the categories Bellevue
+actually sells. It is decorative (`alt=""`, `aria-hidden`) and sits behind a navy scrim:
+
+- mobile: `bg-gradient-to-b from-brand-blue/95 via-brand-blue/90 to-brand-blue/65`
+- md+: `md:bg-gradient-to-r md:from-brand-blue md:via-brand-blue/85 md:to-brand-blue/25`
+
+Contrast measured against the **composited** result using the image's brightest pixel, not the raw
+image: text only ever sits over the >=85% navy end -> **13.31:1**; the worst case anywhere in the
+hero (mobile's lightest stop, decorative only) -> **6.82:1**. Both pass AA with margin.
+
+Contact corrections in the same pass:
+- The Coming Soon page reads `info@bellevuegifts.com` (from `STORE_INFO`), not the old hardcoded `sales@`.
+- `ContactPage.tsx:195` still advertised `sales@` in its meta description — corrected to `info@`.
+- **Every canonical URL on the public site pointed at `https://bellevue.gifts`, a domain that does not
+  exist** (no A record, no NS). 15 files plus `PageMeta.tsx:4` `BASE_URL` corrected to
+  `https://bellevuegifts.com`. Left as-is this tells Google the canonical version of every page lives
+  on a dead domain.
+
 ## Page verification
 
 - Renders at **375px** with no horizontal overflow; content verified by text extraction and screenshot.
@@ -85,6 +106,15 @@ Response headers on `/`: `HTTP/1.1 503`, `Retry-After: 86400`, `Cache-Control: n
 - Semantics: one `<h1>` (the message), one `<h2>`, `<header>`/`<main>`/`<footer>` landmarks, `<dl>` for the trading board, 44px+ targets, focus rings that are never navy-on-navy.
 
 No `local.ERROR` entries in `storage/logs/laravel.log` during the run.
+
+Browser console shows two **expected** entries on the gated page: `Failed to load resource: 503` for
+the document itself (that is the Coming Soon response) and the service-worker registration failing as
+a result. A service worker cannot install from an error response — which is the behaviour we want,
+since it stops the closed storefront being cached. `/manifest.json`, `/favicon.ico`,
+`/apple-touch-icon.svg` and the PWA icons all still return 200.
+
+`npx tsc --noEmit` reports 4 errors, all pre-existing and all in files this pass did not touch
+(`components/ui/calendar.tsx`, `contexts/AuthContext.tsx`).
 
 ---
 

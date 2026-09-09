@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 
 const SITE_NAME = 'Bellevue Gifts & Supplies';
-const BASE_URL  = 'https://bellevue.gifts';
+const BASE_URL  = 'https://bellevuegifts.com';
 /** Absolute fallback OG image served from /public */
 const DEFAULT_OG_IMAGE = `${BASE_URL}/og-default.jpg`;
 

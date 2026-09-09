@@ -59,7 +59,7 @@ export default function TrackOrderPage() {
       <PageMeta
         title="Track Your Order"
         description="Track the status and delivery of your Bellevue Gifts & Supplies order. Enter your order number or email to get real-time updates."
-        canonical="https://bellevue.gifts/track-order"
+        canonical="https://bellevuegifts.com/track-order"
       />
       <div className="container mx-auto px-4 py-12 max-w-4xl animate-fade-in">
         <div className="text-center mb-12">

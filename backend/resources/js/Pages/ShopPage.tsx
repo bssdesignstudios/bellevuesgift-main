@@ -332,7 +332,7 @@ export default function ShopPage() {
       <PageMeta
         title="Shop All Products"
         description="Browse our full catalogue of office supplies, school essentials, electronics, toys, home goods and gifts. Same-day pickup in Freeport, island-wide delivery."
-        canonical="https://bellevue.gifts/shop"
+        canonical="https://bellevuegifts.com/shop"
       />
       {content}
     </StorefrontLayout>

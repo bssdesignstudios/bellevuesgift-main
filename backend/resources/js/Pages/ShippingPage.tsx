@@ -145,7 +145,7 @@ export default function ShippingPage() {
       <PageMeta
         title="Shipping &amp; Delivery"
         description="Learn about our inter-island shipping options, delivery times, and rates across the Bahamas. Same-day pickup available in Freeport."
-        canonical="https://bellevue.gifts/shipping"
+        canonical="https://bellevuegifts.com/shipping"
       />
       {content}
     </StorefrontLayout>
