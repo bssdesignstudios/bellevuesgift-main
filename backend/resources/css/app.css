@@ -11,6 +11,10 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
+    /* Editorial display face, paired with Instrument Sans by the same foundry.
+       Used for the Coming Soon headline. */
+    --font-display: 'Instrument Serif', ui-serif, Georgia, serif;
+
     --color-brand-navy: #00005D;
     --color-brand-blue: #00005D;
     --color-brand-mint: #E1F8EF;
