@@ -137,7 +137,7 @@ export default function AboutPage() {
       <PageMeta
         title="About Bellevue Gifts &amp; Supplies"
         description="Learn about Bellevue Gifts & Supplies, the Bahamas' leading supplier of office supplies, school essentials, and gifts since 1985. Based in Freeport, Grand Bahama."
-        canonical="https://bellevue.gifts/about"
+        canonical="https://bellevuegifts.com/about"
       />
       {content}
     </StorefrontLayout>

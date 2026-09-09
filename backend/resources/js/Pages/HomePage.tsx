@@ -311,7 +311,7 @@ export default function HomePage({ featuredProducts = [], categories = [] }: { f
       <PageMeta
         title="Bahamas' #1 Office, School &amp; Gift Supplier"
         description="Shop 5,000+ office supplies, school essentials, electronics, and gifts. Delivered island-wide across the Bahamas. Bulk orders welcome."
-        canonical="https://bellevue.gifts/"
+        canonical="https://bellevuegifts.com/"
       />
       {content}
     </StorefrontLayout>

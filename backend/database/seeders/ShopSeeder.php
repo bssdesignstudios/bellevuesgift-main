@@ -15,51 +15,51 @@ class ShopSeeder extends Seeder
     public function run(): void
     {
         // 1. Users
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'admin@bellevuegifts.com'],
             ['name' => 'Admin User', 'password' => bcrypt('password'), 'role' => 'admin', 'pos_pin' => '0000']
         );
 
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'cashier@bellevuegifts.com'],
             ['name' => 'Cashier User', 'password' => bcrypt('password'), 'role' => 'cashier', 'pos_pin' => '1111']
         );
 
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'warehouse@bellevuegifts.com'],
             ['name' => 'Warehouse Manager', 'password' => bcrypt('password'), 'role' => 'warehouse_manager']
         );
 
         // Real staff accounts
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'daniella@bellevuegifts.com'],
             ['name' => 'Daniella Forbes', 'password' => bcrypt('bellevue123'), 'role' => 'finance']
         );
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'diamond@bellevuegifts.com'],
             ['name' => 'Diamond Clarke', 'password' => bcrypt('bellevue123'), 'role' => 'cashier', 'pos_pin' => '2001']
         );
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'donnika@bellevuegifts.com'],
             ['name' => 'Donnika Williams', 'password' => bcrypt('bellevue123'), 'role' => 'cashier', 'pos_pin' => '2002']
         );
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'adrian@bellevuegifts.com'],
             ['name' => 'Adrian Williams', 'password' => bcrypt('bellevue123'), 'role' => 'admin', 'pos_pin' => '1001']
         );
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'theresa@bellevuegifts.com'],
             ['name' => 'Theresa Tomlinson', 'password' => bcrypt('bellevue123'), 'role' => 'admin', 'pos_pin' => '1002']
         );
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'peter@bellevuegifts.com'],
             ['name' => 'Peter Storr', 'password' => bcrypt('bellevue123'), 'role' => 'warehouse']
         );
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'steve@bellevuegifts.com'],
             ['name' => 'Steve McPhee', 'password' => bcrypt('bellevue123'), 'role' => 'warehouse']
         );
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'jahmarli@bellevuegifts.com'],
             ['name' => 'Jah-Marli Saunders', 'password' => bcrypt('bellevue123'), 'role' => 'warehouse']
         );
@@ -1048,9 +1048,14 @@ class ShopSeeder extends Seeder
         ];
 
         foreach ($products as $prod) {
-            $p = Product::updateOrCreate(
+            // firstOrCreate, NOT updateOrCreate: this seeder runs on every deploy
+            // (deploy.yml calls `php artisan db:seed --force`). updateOrCreate
+            // rewrote cost/markup/price/description/image on all 74 products and
+            // forced is_active=true, so every admin price edit was reverted and
+            // every deactivated product came back. Values are set on CREATE only.
+            $p = Product::firstOrCreate(
                 ['sku' => $prod['sku']],
-                array_merge($prod, ['id' => Product::where('sku', $prod['sku'])->value('id') ?? Str::uuid(), 'is_active' => true])
+                array_merge($prod, ['id' => (string) Str::uuid(), 'is_active' => true])
             );
             
             $exists = \App\Models\Inventory::where('product_id', $p->id)->exists();
@@ -1080,7 +1085,10 @@ class ShopSeeder extends Seeder
 
         $posUsers = User::whereIn('role', ['admin', 'cashier'])->get();
         foreach ($posUsers as $user) {
-            Staff::updateOrCreate(
+            // is_active is create-only — re-syncing it would undo a deliberate
+            // deactivation on every deploy. The user_id link is still repaired,
+            // because POS staff resolution depends on it.
+            $staff = Staff::firstOrCreate(
                 ['email' => $user->email],
                 [
                     'user_id' => $user->id,
@@ -1089,6 +1097,10 @@ class ShopSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
+
+            if (! $staff->user_id) {
+                $staff->update(['user_id' => $user->id]);
+            }
         }
 
         $posUserIds = $posUsers->pluck('id');

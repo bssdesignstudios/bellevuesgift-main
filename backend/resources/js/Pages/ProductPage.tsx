@@ -256,7 +256,7 @@ export default function ProductPage() {
         ogTitle={product?.name}
         ogImage={product?.image_url || undefined}
         ogType="product"
-        canonical={product ? `https://bellevue.gifts/product/${product.slug}` : undefined}
+        canonical={product ? `https://bellevuegifts.com/product/${product.slug}` : undefined}
       />
       {content}
     </StorefrontLayout>

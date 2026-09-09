@@ -178,7 +178,7 @@ export default function FAQPage() {
       <PageMeta
         title="Frequently Asked Questions"
         description="Find answers to common questions about ordering, delivery, returns, repairs, and bulk orders at Bellevue Gifts & Supplies."
-        canonical="https://bellevue.gifts/faq"
+        canonical="https://bellevuegifts.com/faq"
       />
       {content}
     </StorefrontLayout>

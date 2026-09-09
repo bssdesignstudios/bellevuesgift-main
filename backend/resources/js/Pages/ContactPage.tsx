@@ -192,8 +192,8 @@ export default function ContactPage() {
     <StorefrontLayout>
       <PageMeta
         title="Contact Us"
-        description="Get in touch with Bellevue Gifts & Supplies. Visit us in Freeport, call +1 (242) 352-5555, or email sales@bellevuegifts.com. We're here to help."
-        canonical="https://bellevue.gifts/contact"
+        description="Get in touch with Bellevue Gifts & Supplies. Visit us in Freeport, call +1 (242) 352-5555, or email info@bellevuegifts.com. We're here to help."
+        canonical="https://bellevuegifts.com/contact"
       />
       {content}
     </StorefrontLayout>

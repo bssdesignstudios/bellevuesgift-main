@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\StoreSetting;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 
 class AdminSettingsController extends Controller
@@ -20,10 +19,16 @@ class AdminSettingsController extends Controller
                 'value' => $s->value,
             ])->toArray();
 
-            // Add maintenance mode from env
+            // Coming Soon mode lives in store_settings, not .env — make sure
+            // the row the switch binds to is always present and authoritative.
+            $settings = array_values(array_filter(
+                $settings,
+                fn ($s) => $s['key'] !== StoreSetting::MAINTENANCE_KEY
+            ));
+
             $settings[] = [
-                'key'   => 'maintenance_mode',
-                'value' => config('app.maintenance_mode', false) ? '1' : '0',
+                'key'   => StoreSetting::MAINTENANCE_KEY,
+                'value' => StoreSetting::isMaintenanceMode() ? '1' : '0',
             ];
 
             return response()->json($settings);
@@ -31,7 +36,7 @@ class AdminSettingsController extends Controller
 
         // Fallback if store_settings table doesn't exist
         return response()->json([
-            ['key' => 'maintenance_mode', 'value' => config('app.maintenance_mode', false) ? '1' : '0'],
+            ['key' => StoreSetting::MAINTENANCE_KEY, 'value' => StoreSetting::isMaintenanceMode() ? '1' : '0'],
         ]);
     }
 
@@ -59,20 +64,18 @@ class AdminSettingsController extends Controller
             'enabled' => 'required|boolean',
         ]);
 
-        $enabled = $request->boolean('enabled');
-        $envFile = base_path('.env');
-        $content = file_get_contents($envFile);
+        try {
+            // Persisted in store_settings — a deploy can no longer reset this.
+            $effective = StoreSetting::setMaintenanceMode($request->boolean('enabled'));
+        } catch (\Throwable $e) {
+            report($e);
 
-        if (str_contains($content, 'MAINTENANCE_MODE=')) {
-            $content = preg_replace('/^MAINTENANCE_MODE=.*/m', 'MAINTENANCE_MODE=' . ($enabled ? 'true' : 'false'), $content);
-        } else {
-            $content .= "\nMAINTENANCE_MODE=" . ($enabled ? 'true' : 'false') . "\n";
+            return response()->json([
+                'message' => 'Could not save the Coming Soon setting. Nothing was changed.',
+            ], 500);
         }
 
-        file_put_contents($envFile, $content);
-
-        Artisan::call('config:clear');
-
-        return response()->json(['maintenance_mode' => $enabled]);
+        // Report the state read back from storage, never the requested value.
+        return response()->json(['maintenance_mode' => $effective]);
     }
 }

@@ -144,7 +144,7 @@ export default function GiftCardsBalancePage() {
       <PageMeta
         title="Check Gift Card Balance"
         description="Check the remaining balance on your Bellevue Gifts & Supplies gift card."
-        canonical="https://bellevue.gifts/gift-cards/balance"
+        canonical="https://bellevuegifts.com/gift-cards/balance"
       />
       {content}
     </StorefrontLayout>

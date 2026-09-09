@@ -69,8 +69,12 @@ jobs:
               echo "MAIL_PASSWORD secret not set — skipping SMTP configuration."
             fi
 
-            # ── Maintenance mode (default off) ────────────────────────────────
-            grep -q '^MAINTENANCE_MODE=' .env && sed -i 's|^MAINTENANCE_MODE=.*|MAINTENANCE_MODE=false|' .env || echo 'MAINTENANCE_MODE=false' >> .env
+            # ── Coming Soon mode ──────────────────────────────────────────────
+            # Deliberately NOT written here. The storefront Coming Soon switch
+            # lives in the store_settings table and is owned by
+            # Admin → Settings → "Coming Soon Page". This step used to force
+            # MAINTENANCE_MODE=false on every deploy, which silently
+            # republished the public storefront after an admin had closed it.
 
             # ── APP_NAME ──────────────────────────────────────────────────────
             grep -q '^APP_NAME=' .env && sed -i 's|^APP_NAME=.*|APP_NAME="Bellevue Gifts \& Supplies"|' .env || echo 'APP_NAME="Bellevue Gifts & Supplies"' >> .env

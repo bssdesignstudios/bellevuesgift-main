@@ -111,7 +111,7 @@ export default function ReturnsPage() {
       <PageMeta
         title="Returns &amp; Exchanges"
         description="Our hassle-free returns policy at Bellevue Gifts & Supplies. Learn how to return or exchange products purchased in-store or online."
-        canonical="https://bellevue.gifts/returns"
+        canonical="https://bellevuegifts.com/returns"
       />
       {content}
     </StorefrontLayout>
