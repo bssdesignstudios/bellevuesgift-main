@@ -3,23 +3,31 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 /**
  * StoreSetting — key/value settings row.
  *
- * NOTE ON THE PRIMARY KEY: the store_settings table's real primary key is a
- * uuid `id` column (see 2026_02_04_025242_create_order_management_tables.php)
- * which is NOT NULL and has no database default. This model previously declared
- * $primaryKey = 'key', so every insert omitted `id` and threw a NOT NULL
- * violation — which took out /admin/* and /pos/login, because ModuleGate calls
- * ensureModuleFlagsExist() on every request. Keep HasUuid on this model.
+ * ⚠️ THE TWO SCHEMAS. 2026_02_04_025242_create_order_management_tables.php
+ * declares store_settings with a uuid `id` primary key, and local sqlite has
+ * exactly that — NOT NULL, no default. PRODUCTION POSTGRES DOES NOT: the live
+ * table has no `id` column at all, so its key is `key`. The table there was
+ * clearly not created by that migration.
+ *
+ * Every WRITE in this class therefore goes through the query builder and adds
+ * `id` only when the column actually exists. Do not switch these back to
+ * Eloquent creates or add a uuid trait — an insert carrying `id` dies on
+ * production, and one omitting it dies locally. This is the only shape that
+ * survives both, and ModuleGate calls ensureModuleFlagsExist() on every
+ * /admin and /pos/login request, so getting it wrong takes the POS down.
  */
 class StoreSetting extends Model
 {
-    use \App\Traits\HasUuid;
-
     protected $table = 'store_settings';
+
+    protected $primaryKey = 'key';
 
     protected $keyType = 'string';
 
@@ -66,6 +74,39 @@ class StoreSetting extends Model
     /** Per-request memo so the middleware does not re-query on every lookup. */
     private static ?bool $maintenanceMemo = null;
 
+    /** Per-request memo for the schema difference described in the class docblock. */
+    private static ?bool $hasIdColumn = null;
+
+    private static function hasIdColumn(): bool
+    {
+        if (self::$hasIdColumn === null) {
+            try {
+                self::$hasIdColumn = Schema::hasColumn('store_settings', 'id');
+            } catch (\Throwable $e) {
+                self::$hasIdColumn = false;
+            }
+        }
+
+        return self::$hasIdColumn;
+    }
+
+    /** Build an insert row that suits whichever schema this environment has. */
+    private static function row(string $key, string $value): array
+    {
+        $row = [
+            'key' => $key,
+            'value' => $value,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        if (self::hasIdColumn()) {
+            $row['id'] = (string) Str::uuid();
+        }
+
+        return $row;
+    }
+
     /**
      * Insert any missing module flag rows.
      *
@@ -75,11 +116,11 @@ class StoreSetting extends Model
      */
     public static function ensureModuleFlagsExist(): void
     {
-        $existing = static::query()->pluck('key')->all();
+        $existing = DB::table('store_settings')->pluck('key')->all();
         $missing = array_diff_key(self::MODULE_DEFAULTS, array_flip($existing));
 
         foreach ($missing as $key => $value) {
-            static::firstOrCreate(['key' => $key], ['value' => $value]);
+            DB::table('store_settings')->insertOrIgnore(self::row($key, $value));
         }
     }
 
@@ -87,7 +128,7 @@ class StoreSetting extends Model
     {
         $key = 'module_' . $module;
         $default = self::MODULE_DEFAULTS[$key] ?? '1';
-        $value = static::query()->where('key', $key)->value('value');
+        $value = DB::table('store_settings')->where('key', $key)->value('value');
 
         return self::normalizeBool($value ?? $default);
     }
@@ -111,7 +152,7 @@ class StoreSetting extends Model
                 return self::$maintenanceMemo = $fallback;
             }
 
-            $value = static::query()->where('key', self::MAINTENANCE_KEY)->value('value');
+            $value = DB::table('store_settings')->where('key', self::MAINTENANCE_KEY)->value('value');
 
             return self::$maintenanceMemo = $value === null
                 ? $fallback
@@ -129,10 +170,15 @@ class StoreSetting extends Model
 
     public static function setMaintenanceMode(bool $enabled): bool
     {
-        static::updateOrCreate(
-            ['key' => self::MAINTENANCE_KEY],
-            ['value' => $enabled ? '1' : '0']
-        );
+        $value = $enabled ? '1' : '0';
+
+        $updated = DB::table('store_settings')
+            ->where('key', self::MAINTENANCE_KEY)
+            ->update(['value' => $value, 'updated_at' => now()]);
+
+        if ($updated === 0) {
+            DB::table('store_settings')->insertOrIgnore(self::row(self::MAINTENANCE_KEY, $value));
+        }
 
         self::$maintenanceMemo = null;
 
